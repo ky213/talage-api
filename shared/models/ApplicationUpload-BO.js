@@ -7,6 +7,11 @@ const InsurerActivityCode = global.mongoose.InsurerActivityCode;
 const fs = require('fs');
 const moment = require('moment');
 const _ = require('lodash');
+const AgencyBO = global.requireShared('./models/Agency-BO.js');
+const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
+const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
+const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js');
+const zipcodeHelper = global.requireShared('./helpers/formatZipcode.js');
 
 const getFirstName = (name) => {
     const nameSplit = name.split(' ');
@@ -375,7 +380,6 @@ module.exports = class ApplicationUploadBO {
             console.log('FINAL hitz', applicationUploadObj);
             // await ApplicationUpload.create(applicationUploadObj)
             if (doCreateInApplicationUpload) {
-                applicationUploadObj.movedToApplication = false;
                 await ApplicationUpload.create(applicationUploadObj);
             } else {
                 await Application.create(applicationUploadObj);
@@ -387,17 +391,19 @@ module.exports = class ApplicationUploadBO {
 
     async moveToApplication(pendingApplicationId) {
         try {
-            const applicationUploadObj = await ApplicationUpload.findOne({pendingApplicationId: pendingApplicationId}).lean;
+            const applicationUploadObj = await ApplicationUpload.findOne({applicationId: pendingApplicationId}).lean();
             if(applicationUploadObj){
                 if(!applicationUploadObj.additionalInfo) {
                     applicationUploadObj.additionalInfo = {};
                 }
-                applicationUploadObj.additionalInfo.movedFromApplicationUploadId = pendingApplicationId;
-                if(applicationUploadObj.moveToApplication || applicationUploadObj.movedToApplication === false || applicationUploadObj.movedToApplication === null) {
-                    delete applicationUploadObj.moveToApplication;
-                }
+                applicationUploadObj.additionalInfo.movedFromApplicationUploadId = applicationUploadObj._id;
+                applicationUploadObj.createdAt = new Date();
+                applicationUploadObj.updatedAt = new Date();
                 await Application.create(applicationUploadObj);
-                await Application.updateOne({pendingApplicationId: pendingApplicationId}, {movedToApplication: true});
+                await ApplicationUpload.updateOne({applicationId: pendingApplicationId}, {
+                    active: false,
+                    updatedAt: new Date()
+                });
             }
             else {
                 throw new Error('Pending Application not found');
@@ -409,28 +415,194 @@ module.exports = class ApplicationUploadBO {
         }
     }
 
-    async updateOne(applicationId, data) {
+    async updateOne(pendingApplicationId, data) {
         try {
-            await ApplicationUpload.updateOne({applicationId: applicationId}, {...data});
+            await ApplicationUpload.updateOne({applicationId: pendingApplicationId}, {
+                ...data,
+                updatedAt: new Date()
+            });
         }
         catch (error) {
-            log.error(`Database Error updating OCR app ${applicationId} ${error.message} ${__location}`);
+            log.error(`Database Error updating OCR app ${pendingApplicationId} ${error.message} ${__location}`);
         }
     }
 
-    async deleteOne(applicationId) {
+    async deleteSoftById(pendingApplicationId) {
         try {
-            await ApplicationUpload.deleteOne({applicationId: applicationId});
+            await ApplicationUpload.updateOne({applicationId: pendingApplicationId}, {
+                updatedAt: new Date(),
+                active: false
+            });
         }
         catch (error) {
-            log.error(`Database Error deleting OCR app ${applicationId} ${error.message} ${__location}`);
+            log.error(`Database Error deleting OCR app ${pendingApplicationId} ${error.message} ${__location}`);
         }
     }
 
-    async getList(query) {
+    async getList(queryJSON, orParamList, requestParams, isGlobalViewMode = false) {
         try {
-            const result = await ApplicationUpload.find(query).lean();
-            return result || [];
+            const query = {...queryJSON};
+            if(orParamList && orParamList?.length > 0){
+                for (let i = 0; i < orParamList.length; i++){
+                    const orItem = orParamList[i];
+                    for (var key2 in orItem) {
+                        if (typeof orItem[key2] === 'string' && orItem[key2].includes('%')) {
+                            let clearString = orItem[key2].replace("%", "");
+                            clearString = clearString.replace("%", "");
+                            orItem[key2] = {
+                                "$regex": clearString,
+                                "$options": "i"
+                            };
+                        }
+                    }
+                }
+                query.$or = orParamList
+            }
+            if(requestParams?.count){
+                const result = await ApplicationUpload.countDocuments(query).lean();
+                return result || 0;
+            }
+            else {
+                const queryProjection = {
+                    uuid: 1,
+                    applicationId: 1,
+                    mysqlId:1,
+                    status: 1,
+                    appStatusId:1,
+                    agencyId:1,
+                    agencyNetworkId:1,
+                    createdAt: 1,
+                    solepro: 1,
+                    wholesale: 1,
+                    businessName: 1,
+                    industryCode: 1,
+                    mailingAddress: 1,
+                    mailingCity: 1,
+                    mailingState: 1,
+                    mailingZipcode: 1,
+                    handledByTalage: 1,
+                    policies: 1,
+                    quotingStartedDate: 1,
+                    renewal: 1,
+                    metrics: 1
+                };
+                const queryOptions = {
+                    sort: {},
+                    limit: 100
+                };
+                queryOptions.sort = {};
+                if (requestParams?.sort) {
+                    if(requestParams.sort === 'date') {
+                        requestParams.sort = 'createdAt';
+                    }
+                    queryOptions.sort[requestParams.sort] = requestParams.sortDescending ? -1 : 1;
+                }
+                else {
+                    queryOptions.sort.createdAt = -1;
+                }
+                if(requestParams?.limit && !isNaN(requestParams.limit)) {
+                    queryOptions.limit = Number.parseInt(`${requestParams.limit}`, 10);
+                }
+                if(requestParams?.page && !isNaN(requestParams.page)) {
+                    queryOptions.skip = queryOptions.limit * Number.parseInt(`${requestParams.page}`, 10);
+                }
+                const docList = await ApplicationUpload.find(query, queryProjection, queryOptions).lean();
+                let agencyNetworkList = false;
+                if(isGlobalViewMode){
+                    const agencyNetworkBO = new AgencyNetworkBO();
+                    agencyNetworkList = await agencyNetworkBO.getList({});
+                }
+                if(docList?.length > 0){
+                    //loop doclist adding agencyName
+                    const agencyBO = new AgencyBO();
+                    const agencyMap = {};
+                    for (const application of docList) {
+                        application.id = application.applicationId;
+                        delete application._id;
+                        if(application.mailingCity && application.mailingZipcode?.length > 4){
+                            const zipcode = zipcodeHelper.formatZipcode(application.mailingZipcode);
+                            application.location = `${application.mailingCity}, ${application.mailingState} ${zipcode} `
+                        }
+                        else if(application.mailingCity){
+                            application.location = `${application.mailingCity}, ${application.mailingState} `
+                        }
+                        else {
+                            application.location = "";
+                        }
+                        if(isGlobalViewMode){
+                            const agencyNetworkDoc = agencyNetworkList.find((an) => an.agencyNetworkId === application.agencyNetworkId);
+                            if(agencyNetworkDoc){
+                                application.agencyNetworkName = agencyNetworkDoc.name;
+                            }
+                        }
+                        // Load the request data into it
+                        if(agencyMap[application.agencyId]){
+                            // If Agency exists in agencyMap, get name and tierName
+                            application.agencyName = agencyMap[application.agencyId].name;
+                            application.agencyTierName = agencyMap[application.agencyId].tierName;
+                            application.agencyCreatedAt = agencyMap[application.agencyId].createdAt;
+                        }
+                        else {
+                            const returnReturnAgencyNetwork = false;
+                            const returnDeleted = true
+                            const agency = await agencyBO.getById(application.agencyId, returnReturnAgencyNetwork, returnDeleted).catch(function(err) {
+                                log.error(`Agency load error appId ${application.applicationId} ` + err + __location);
+                            });
+                            if (agency) {
+                                application.agencyName = agency.name;
+                                application.agencyTierName = agency.tierName;
+                                application.agencyCreatedAt = agency.createdAt;
+                                // Store both the Name and the Tier Name of the Agency in agencyMap
+                                agencyMap[application.agencyId] = {};
+                                agencyMap[application.agencyId].name = agency.name;
+                                agencyMap[application.agencyId].tierName = agency.tierName;
+                                agencyMap[application.agencyId].createdAt = agency.createdAt;
+
+                            }
+                        }
+                        const agencyLocationBO = new AgencyLocationBO();
+                        if(application.agencyLocationId){
+                            const agencyLoc = await agencyLocationBO.getById(application.agencyLocationId).catch(function(err) {
+                                log.error(`Agency Location load error appId ${application.applicationId} ` + err + __location);
+                            });
+                            if (agencyLoc) {
+                                application.agencyState = agencyLoc.state;
+                            }
+                        }
+
+
+                        //industry desc
+                        const industryCodeBO = new IndustryCodeBO();
+                        // Load the request data into it
+                        if(application.industryCode > 0){
+                            const industryCodeJson = await industryCodeBO.getById(application.industryCode).catch(function(err) {
+                                log.error(`Industry code load error appId ${application.applicationId} industryCode ${application.industryCode} ` + err + __location);
+                            });
+                            if(industryCodeJson){
+                                application.industry = industryCodeJson.description;
+                                application.naics = industryCodeJson.naics;
+                            }
+                        }
+                        //bring policyType to property on top level.
+                        if(application.policies?.length > 0){
+                            let policyTypesString = "";
+                            let effectiveDate = moment("2100-12-31")
+                            application.policies.forEach((policy) => {
+                                if(policyTypesString && policyTypesString.length > 0){
+                                    policyTypesString += ","
+                                }
+                                policyTypesString += policy.policyType;
+                                if(policy.effectiveDate < effectiveDate){
+                                    effectiveDate = policy.effectiveDate
+                                }
+                            });
+                            application.policyTypes = policyTypesString;
+                            application.policyEffectiveDate = effectiveDate;
+                        }
+                    }
+                }
+                return docList || [];
+            }
         }
         catch (error) {
             log.error(`Database Error getting OCR list  ${error.message} ${__location}`);
