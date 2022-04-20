@@ -950,31 +950,66 @@ module.exports = class USLIBOP extends Integration {
         const statusCd = get(response, "Status[0].StatusCd[0]");
         const statusDesc = get(response, "Status[0].StatusDesc[0]");
         const msgStatusCd = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgStatusCd[0]");
-        // NOTE: These are likely unnecessary
-        // const msgStatusDesc = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgStatusDesc[0]");
+        const msgStatusDesc = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgStatusDesc[0]");
         // const msgErrorCode = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgErrorCd[0]");
+
+        let missingRespObj = false;
+        const responseObjects = {
+            "ACORD.InsuranceSvcRs[0]": response,
+            "Status[0].StatusCd[0]": statusCd,
+            "Status[0].StatusDesc[0]": statusDesc,
+            "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgStatusCd[0]": msgStatusCd,
+            "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgStatusDesc[0]": msgStatusDesc
+        };
+        
+        // check each part of the response we parse and ensure it exists. If it doesn't, report the error, as the response object USLI returns may have changed
+        for (const [path, obj] of Object.entries(responseObjects)) {
+            if (!obj) {
+                missingRespObj = true;
+                log.error(`${logPrefix}Response is missing path: ${path}. ` + __location);
+            }
+        }
+
+        if (missingRespObj) {
+            const errorMessage = `One or more required paths in the response are missing. This may be because USLI's response structure changed. `;
+            log.error(logPrefix + errorMessage + __location);
+            return this.client_error(errorMessage, __location);
+        }
 
         const errorCd = statusDesc.split(" ")[1];
         let errorReasons = null;
         if (statusDesc.indexOf("Script Errors:") !== -1) {
+            // if script errors are reported, parse them a particular way
             errorReasons = statusDesc.substring(statusDesc.indexOf("Script Errors:") + 16).split("\n").filter(reason => reason !== "");
         }
         else {
-            errorReasons = statusDesc.split("\n").filter(reason => reason !== "");
+            // otherwise, look for extended status and parse into strings with the code and description pairs
+            const extendedStatus = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].ExtendedStatus");
+            if (extendedStatus) {
+                errorReasons = extendedStatus.map(status => (`${status.ExtendedStatusCd[0]}: ${status.ExtendedStatusDesc[0]}`));
+            }
+            else {
+                // catch all to just split any reasons provided by newline
+                errorReasons = statusDesc.split("\n");
+            }
         }
 
+        // main reason is just the first reason for an error reported
         let mainReason = errorReasons.shift();
-        mainReason = mainReason.substring(mainReason.indexOf("Description: ") + 13);
+        if (mainReason.indexOf("Description: ") !== -1) {
+            mainReason = mainReason.substring(mainReason.indexOf("Description: ") + 13);
+        }
 
-        // TODO: Find out if 627 is a decline, or a referral
-        if (errorCd === "433" || errorCd === "627") {
+        // declined error code(s)
+        if (errorCd === "433") {
             const declineMessage = `USLI declined the quote: ${mainReason} `;
             const additionalReasons = errorReasons.length > 0 ? `Other reasons: ${errorReasons.join(" | ")}. ` : "";
             log.info(logPrefix + declineMessage + additionalReasons + __location);
             return this.client_declined(declineMessage, errorReasons);
         }
 
-        if (errorCd !== "434" && errorCd !== "436" && msgStatusCd !== "Success") {
+        // if not a referred error code, it's an error
+        if (!["434", "436"].includes(errorCd) && !["Success", "SuccessWithInfo"].includes(msgStatusCd)) {
             if (mainReason.includes("class code with Commercial Property")) {
                 mainReason = 'A property classification was not provided with the Commercial Property submission. This could be due to a missing fire code in the submission.';
             }
@@ -1038,9 +1073,9 @@ module.exports = class USLIBOP extends Integration {
                     }
 
                     taxesAdditionalInfo.push({
-                        taxCode,
-                        taxDescription,
-                        taxAmount
+                        code: taxCode,
+                        description: taxDescription,
+                        amount: taxAmount
                     });
                 });
 
@@ -1096,10 +1131,10 @@ module.exports = class USLIBOP extends Integration {
         }
 
         // Even if quoted, any classification with GLElig of PP (Premises Preferred) must be submitted as "SUBMIT" (our referred)
-        if (statusCd === "0" && msgStatusCd === "Success" && industryCode.attributes?.GLElig !== "PP") {
+        if (statusCd === "0" && msgStatusCd === "Success" && industryCode.attributes?.GLElig !== "PP" && msgStatusDesc !== "Submit") {
             return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType, quoteCoverages);
         }
-        else if (statusCd === "0" && errorCd === "434" || errorCd === "436" || premium) {
+        else if (statusCd === "0" && ["434", "436", "627"].includes(errorCd) || premium || msgStatusDesc === "Submit") {
             errorReasons.unshift(mainReason);
             if (errorReasons[0].includes("successfully processed the request.") && industryCode.attributes.GLElig === "PP") {
                 this.reasons = ["The chosen classification has GL Eligibility PP (Premises Preferred)."];
@@ -1131,7 +1166,7 @@ module.exports = class USLIBOP extends Integration {
                         exposure = Math.round(numGallons / 1000);
                     }
                     else {
-                        log.warn(`${logPrefix}Invalid number of gallons, unable to convert ${numGallons} into an integer. ` + __location);
+                        log.error(`${logPrefix}Invalid number of gallons, unable to convert ${numGallons} into an integer. ` + __location);
                         return null;
                     }
                 }
@@ -1142,7 +1177,7 @@ module.exports = class USLIBOP extends Integration {
                     exposure = Math.round(locationPayroll / 100);
                 }
                 else {
-                    log.warn(`${logPrefix}Invalid number for payroll, unable to convert ${locationPayroll} into an integer. ` + __location);
+                    log.error(`${logPrefix}Invalid number for payroll, unable to convert ${locationPayroll} into an integer. ` + __location);
                     return null;
                 }
                 break;
@@ -1250,12 +1285,12 @@ module.exports = class USLIBOP extends Integration {
                         questionIdentifier = "usli.location.exposure.numTanningBeds";
                         break;
                     default:
-                        log.warn(`${logPrefix}Class code ${industryCode.code} is not a valid classification for the "Number of Units" exposure type, therefor no exposure can be provided. ` + __location);
+                        log.error(`${logPrefix}Class code ${industryCode.code} is not a valid classification for the "Number of Units" exposure type, therefor no exposure can be provided. ` + __location);
                         return null;
                 }
 
                 if (!questionIdentifier) {
-                    log.warn(`${logPrefix}No question identifier was found for Class code ${industryCode.code}, therefor no exposure can be provided. ` + __location);
+                    log.error(`${logPrefix}No question identifier was found for Class code ${industryCode.code}, therefor no exposure can be provided. ` + __location);
                     return null;
                 }
 
@@ -1268,14 +1303,14 @@ module.exports = class USLIBOP extends Integration {
             case "Additional Insured":
             case "Part-Time Janitor":
             case "Part-time employee":
-                log.warn(`${logPrefix}Exposure ${industryCode.attributes.premiumExposureBasis} is not supported, returning null. ` + __location);
+                log.error(`${logPrefix}Exposure ${industryCode.attributes.premiumExposureBasis} is not supported, returning null. ` + __location);
                 return null;
             case "Full-Time Janitor":
             case "Full-time employee":
                 exposure = this.get_total_location_full_time_employees(location);
                 break;
             case "":
-                log.warn(`${logPrefix}Classification has blank exposure. This classification should be disabled. ` + __location);
+                log.error(`${logPrefix}Classification has blank exposure. This classification should be disabled. ` + __location);
                 return null;
             default:
                 exposureEncountered = false;
@@ -1283,10 +1318,10 @@ module.exports = class USLIBOP extends Integration {
         }
 
         if (!exposureEncountered) {
-            log.warn(`${logPrefix}No case found for ${industryCode.attributes.premiumExposureBasis} exposure. ` + __location);
+            log.error(`${logPrefix}No case found for ${industryCode.attributes.premiumExposureBasis} exposure. ` + __location);
         }
         else if (exposure === null) {
-            log.warn(`${logPrefix}Encountered ${industryCode.attributes.premiumExposureBasis} exposure, but found no exposure question - This could be a question mapping error. ` + __location);
+            log.error(`${logPrefix}Encountered ${industryCode.attributes.premiumExposureBasis} exposure, but found no exposure question - This could be a question mapping error. ` + __location);
         }
 
         return exposure;
