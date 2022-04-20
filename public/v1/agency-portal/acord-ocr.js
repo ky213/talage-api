@@ -61,7 +61,6 @@ async function performOcrOnAccodPdfFile(req, res, next) {
         insurerId: parseInt(req.body.insurerId, 10)
     };
 
-    // console.log('DA FILE', fs.readFileSync(req.files['0'].path));
     if (_.isEmpty(req.files)) {
         log.info("Bad Request: No data received" + __location);
         return next(serverHelper.requestError("Bad Request: No data received"));
@@ -95,8 +94,9 @@ async function performOcrOnAccodPdfFile(req, res, next) {
         const results = await Promise.all(initFiles);
 
         for (const requestId of results) {
+            console.log('Waiting for request...', requestId);
             const result = await applicationUploadBO.getOcrResult(requestId);
-            console.log('got da result!', result);
+            console.log('got result:', result);
             if (_.get(result, 'status') === 'ERROR') {
                 log.error(`OCR microservice error: ${result.message}`);
                 console.log(`OCR microservice error: ${result.message}`)
