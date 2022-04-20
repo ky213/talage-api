@@ -496,7 +496,7 @@ module.exports = class USLIGL extends Integration {
     if (statusCode === "0") {
       const quoteNumber = get(response, "CommlPkgPolicyQuoteInqRs[0].CommlPolicy[0].QuoteInfo[0].CompanysQuoteNumber[0]" );
       const commlCoverage = get(response, "CommlPkgPolicyQuoteInqRs[0].GeneralLiabilityLineBusiness[0].LiabilityInfo[0].CommlCoverage" );
-      const premium = get(response, "CommlPkgPolicyQuoteInqRs[0].PolicySummaryInfo[0].FullTermAmt[0].Amt[0]");
+      const premium = Number(get(response, "CommlPkgPolicyQuoteInqRs[0].PolicySummaryInfo[0].FullTermAmt[0].Amt[0]"));
       const remarkText = get(response, "CommlPkgPolicyQuoteInqRs[0].RemarkText");
       const { _: admittedRemark } = remarkText?.find((remark) => remark?.$?.id === "Admitted Status");
       const admitted = admittedRemark === "This quote is admitted";
@@ -511,6 +511,48 @@ module.exports = class USLIGL extends Integration {
           description: remark?._,
         })),
       };
+
+      // remove taxes from premium if quote is not admitted and taxes exist
+      if (admitted) {
+        const taxesAdditionalInfo = [];
+        const taxCoverages = get(response, "CommlPkgPolicyQuoteInqRs[0].CommlPolicy[0].CommlCoverage");
+
+        if (Array.isArray(taxCoverages)) {
+            taxCoverages.forEach(tax => {
+                let taxAmount = get(tax, "CurrentTermAmt[0].Amt[0]");
+                const taxCode = get(tax, "CoverageCd[0]");
+                const taxDescription = get(tax, "CoverageDesc[0]");
+
+                if (taxAmount) {
+                    taxAmount = parseFloat(taxAmount);
+
+                    if (!isNaN(premium) && !isNaN(taxAmount)) {
+                        premium -= taxAmount;
+                    }
+                    else {
+                        log.warn(`${logPrefix}Unable to remove tax ${taxDescription} from non-admitted quote premium. Reference quote additionalInfo for tax information. ` + __location);
+                    }
+                }
+
+                taxesAdditionalInfo.push({
+                    taxCode,
+                    taxDescription,
+                    taxAmount
+                });
+            });
+
+            if (premium < 0) {
+                log.warn(`${logPrefix}Tax and fee deductions resulted in a premium value below 0. ` + __location);
+                premium = 0;
+            }
+            else {
+                premium = `${premium}`.substring(0, `${premium}`.indexOf(".") + 3);
+            }
+        }
+
+        // add tax and fees to quote additional info
+        this.quoteAdditionalInfo.taxAndFeeInfo = taxesAdditionalInfo;
+    }
 
       const coverages = commlCoverage?.map((coverage, index) => {
         const code = get(coverage, "CoverageCd[0]");
