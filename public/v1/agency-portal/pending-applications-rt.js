@@ -65,126 +65,80 @@ function validateParameters(parent, expectedParameters){
  * @returns {void}
  */
 async function getPendingApplications(req, res, next){
-    res.send([]);
-    return next();
-    // TODO: Finish and test - Authorized entries, search text filter
-    let error = false;
-    let noCacheUse = false;
-    log.debug(`AP getApplications parms ${JSON.stringify(req.params)}` + __location)
-    const initialRequestParms = JSON.parse(JSON.stringify(req.params))
-    const start = moment();
-    let agencyNetworkList = [];
-    let isGlobalViewMode = false;
-    const query = {};
-    // Localize data variables that the user is permitted to access
-    const agencyNetworkId = parseInt(req.authentication.agencyNetworkId, 10);
-
-    const orClauseArray = [];
-    const productTypeList = ["WC","GL", "BOP", "CYBER", "PL"];
-    // Add a text search clause if requested
-    if (req.params.searchText && req.params.searchText.length > 1){
-        noCacheUse = true;
-        if(productTypeList.indexOf(req.params.searchText.toUpperCase()) > -1 && !req.params.policyTypeCd){
-            orClauseArray.push({"policies.policyType":  req.params.searchText.toUpperCase()})
-            //remove ProductType code if it is a standalone word.
-        }
-        const industryCodeBO = new IndustryCodeBO();
-        // eslint-disable-next-line prefer-const
-        let industryCodeQuery = {};
-        if(req.params.searchText.length > 2){
-            industryCodeQuery.description = req.params.searchText
-            const industryCodeList = await industryCodeBO.getList(industryCodeQuery).catch(function(err) {
-                log.error("industryCodeBO List load error " + err + __location);
-                error = err;
-            });
-            if (industryCodeList && industryCodeList.length > 0) {
-                // eslint-disable-next-line prefer-const
-                let industryCodeIdArray = [];
-                for (const industryCode of industryCodeList) {
-                    industryCodeIdArray.push(industryCode.id);
-                }
-                const industryCodeListFilter = {industryCode: {$in: industryCodeIdArray}};
-                orClauseArray.push(industryCodeListFilter);
-            }
-        }
-
-        req.params.searchText = req.params.searchText.toLowerCase();
-
-        const businessName = {businessName: `%${req.params.searchText}%`}
-        const dba = {dba: `%${req.params.searchText}%`}
-        orClauseArray.push(businessName);
-        orClauseArray.push(dba);
-
-        const mailingCity = {mailingCity: `%${req.params.searchText}%`}
-        orClauseArray.push(mailingCity);
-
-        if(req.params.searchText.length === 2){
-            const mailingState = {mailingState: `%${req.params.searchText}%`}
-            orClauseArray.push(mailingState);
-        }
-
-        if(req.params.searchText.length > 2){
-            const uuid = {uuid: `%${req.params.searchText}%`}
-            orClauseArray.push(uuid);
-            const agencyCode = {agencyCode: `%${req.params.searchText}%`}
-            orClauseArray.push(agencyCode);
-        }
-
-        if(isNaN(req.params.searchText) === false && req.params.searchText.length > 3){
-            const testInteger = Number(req.params.searchText);
-            if(Number.isInteger(testInteger)){
-                const mysqlId = {mysqlId: testInteger}
-                const mailingZipcode = {mailingZipcode: `${req.params.searchText}%`}
-                orClauseArray.push(mysqlId);
-                orClauseArray.push(mailingZipcode);
-            }
-        }
-
-    }
     try{
+        log.debug(`AP getApplications parms ${JSON.stringify(req.params)}` + __location)
+        const query = {active: true};
+        const agencyNetworkId = parseInt(req.authentication.agencyNetworkId, 10);
+        const orClauseArray = [];
+        const productTypeList = ["WC","GL", "BOP", "CYBER", "PL"];
+        if (req.params.searchText && req.params.searchText.length > 1){
+            if(productTypeList.indexOf(req.params.searchText.toUpperCase()) > -1){
+                orClauseArray.push({"policies.policyType":  req.params.searchText.toUpperCase()})
+            }
+            const industryCodeBO = new IndustryCodeBO();
+            const industryCodeQuery = {};
+            if(req.params.searchText.length > 2){
+                industryCodeQuery.description = req.params.searchText
+                const industryCodeList = await industryCodeBO.getList(industryCodeQuery);
+                if (industryCodeList && industryCodeList.length > 0) {
+                    const industryCodeIdArray = [];
+                    for (const industryCode of industryCodeList) {
+                        industryCodeIdArray.push(industryCode.id);
+                    }
+                    const industryCodeListFilter = {industryCode: {$in: industryCodeIdArray}};
+                    orClauseArray.push(industryCodeListFilter);
+                }
+            }
+            req.params.searchText = req.params.searchText.toLowerCase();
+            const businessName = {businessName: `%${req.params.searchText}%`}
+            const dba = {dba: `%${req.params.searchText}%`}
+            orClauseArray.push(businessName);
+            orClauseArray.push(dba);
+            const mailingCity = {mailingCity: `%${req.params.searchText}%`}
+            orClauseArray.push(mailingCity);
+            if(req.params.searchText.length === 2){
+                const mailingState = {mailingState: `%${req.params.searchText}%`}
+                orClauseArray.push(mailingState);
+            }
+            if(req.params.searchText.length > 2){
+                const uuid = {uuid: `%${req.params.searchText}%`}
+                orClauseArray.push(uuid);
+                const agencyCode = {agencyCode: `%${req.params.searchText}%`}
+                orClauseArray.push(agencyCode);
+            }
+            if(isNaN(req.params.searchText) === false && req.params.searchText.length > 3){
+                const testInteger = Number(req.params.searchText);
+                if(Number.isInteger(testInteger)){
+                    const mysqlId = {mysqlId: testInteger}
+                    const mailingZipcode = {mailingZipcode: `${req.params.searchText}%`}
+                    orClauseArray.push(mysqlId);
+                    orClauseArray.push(mailingZipcode);
+                }
+            }
+        }
         if(req.authentication.isAgencyNetworkUser){
+            const agencyQuery = {
+                doNotReport: true
+            }
             if(req.authentication.isAgencyNetworkUser && agencyNetworkId === 1
                 && req.authentication.permissions.talageStaff === true
                 && req.authentication.enableGlobalView === true){
-                isGlobalViewMode = true;
-
-                //get list of agencyNetworks
-                try{
-                    const agencyNetworkBO = new AgencyNetworkBO();
-                    agencyNetworkList = await agencyNetworkBO.getList({});
-                }
-                catch(err){
-                    log.error(`Get Applications getting agency netowrk list error ${err}` + __location)
-                }
-                //Global View Check for filtering on agencyNetwork
                 if(req.body.agencyNetworkId){
-                    noCacheUse = true;
-                    //make sure it is an integer or set it to -1 so there are no matches.
-                    query.agencyNetworkId = parseInt(req.params.agencyNetworkId,10) ? parseInt(req.params.agencyNetworkId,10) : -1;
+                    query.agencyNetworkId = !isNaN(req.params.agencyNetworkId) ? parseInt(`${req.params.agencyNetworkId}`,10) : -1;
                 }
             }
-
-            if(isGlobalViewMode === false){
+            else {
                 query.agencyNetworkId = agencyNetworkId;
-            }
-            const agencyBO = new AgencyBO();
-            // eslint-disable-next-line prefer-const
-            let agencyQuery = {
-                doNotReport: true
-            }
-            if(!isGlobalViewMode){
                 agencyQuery.agencyNetworkId = agencyNetworkId
             }
-            // eslint-disable-next-line prefer-const
-            let donotReportAgencyIdArray = []
-            //use agencybo method that does redis caching.
+            const agencyBO = new AgencyBO();
+            const donotReportAgencyIdArray = [];
             const noReportAgencyList = await agencyBO.getByAgencyNetworkDoNotReport(agencyNetworkId);
             if(noReportAgencyList && noReportAgencyList?.length > 0){
                 for(const agencyJSON of noReportAgencyList){
                     donotReportAgencyIdArray.push(agencyJSON.systemId);
                 }
                 if (donotReportAgencyIdArray?.length > 0) {
-                    // If there is already an agencyId on the request body it will add it as $eq
                     if(query.agencyId){
                         query.agencyId = {$nin: donotReportAgencyIdArray, $eq: query.agencyId}
                     }
@@ -198,16 +152,11 @@ async function getPendingApplications(req, res, next){
                 agencyQuery.doNotReport = false;
                 const noActiveCheck = true;
                 const donotGetAGencyNetowork = false;
-                const agencyList = await agencyBO.getList(agencyQuery,donotGetAGencyNetowork, noActiveCheck).catch(function(err) {
-                    log.error("Agency List load error " + err + __location);
-                    error = err;
-                });
+                const agencyList = await agencyBO.getList(agencyQuery,donotGetAGencyNetowork, noActiveCheck);
                 if (agencyList && agencyList?.length > 0) {
-                    // eslint-disable-next-line prefer-const
                     let agencyIdArray = [];
                     for (const agency of agencyList) {
                         agencyIdArray.push(agency.systemId);
-                        //prevent in from being too big.
                         if(agencyIdArray?.length > 100){
                             log.debug(`Get Agency maxed out agency filter` + __location)
                             break;
@@ -225,18 +174,32 @@ async function getPendingApplications(req, res, next){
             }
         }
         else {
-            // Get the agents that we are permitted to view
-            const agents = await auth.getAgents(req).catch(function(e){
-                error = e;
-            });
-            if(error){
-                return next(error);
+            const agents = await auth.getAgents(req);
+            if(agents?.length > 0) {
+                query.agencyId = agents[0];
             }
-            query.agencyId = agents[0];
         }
+        const requestParams = JSON.parse(JSON.stringify(req.params));
+        const applicationUploadBO = new ApplicationUploadBO();
+        const applicationsSearchCount = await applicationUploadBO.getList(query, orClauseArray, {count: 1});
+        const applicationList = await applicationUploadBO.getList(query, orClauseArray, requestParams);
+        if(applicationList?.length > 0) {
+            res.send({
+                "applications": applicationList,
+                "applicationsSearchCount": applicationsSearchCount
+            });
+        }
+        else {
+            res.send({
+                "applications": [],
+                "applicationsSearchCount": 0
+            });
+        }
+        return next();
     }
     catch(err){
-        log.error("AP get App list error " + err + __location);
+        log.error("AP get Pending App list error " + err + __location);
+        return next(err);
     }
 }
 
@@ -249,7 +212,7 @@ async function getPendingApplications(req, res, next){
  *
  * @returns {void}
  */
- async function moveToApplication(req, res, next){
+async function moveToApplication(req, res, next){
     try {
         if(!req.params?.id) {
             return next(serverHelper.requestError('Bad Request: missing pending application id'));

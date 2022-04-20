@@ -427,10 +427,76 @@ module.exports = class ApplicationUploadBO {
         }
     }
 
-    async getList(query) {
+    async getList(queryJSON, orParamList, requestParams) {
         try {
-            const result = await ApplicationUpload.find(query).lean();
-            return result || [];
+            const query = {...queryJSON};
+            if(orParamList && orParamList?.length > 0){
+                for (let i = 0; i < orParamList.length; i++){
+                    const orItem = orParamList[i];
+                    for (var key2 in orItem) {
+                        if (typeof orItem[key2] === 'string' && orItem[key2].includes('%')) {
+                            let clearString = orItem[key2].replace("%", "");
+                            clearString = clearString.replace("%", "");
+                            orItem[key2] = {
+                                "$regex": clearString,
+                                "$options": "i"
+                            };
+                        }
+                    }
+                }
+                query.$or = orParamList
+            }
+            if(requestParams?.count){
+                const result = await ApplicationUpload.countDocuments(query).lean();
+                return result || 0;
+            }
+            else {
+                const queryProjection = {
+                    uuid: 1,
+                    applicationId: 1,
+                    mysqlId:1,
+                    status: 1,
+                    appStatusId:1,
+                    agencyId:1,
+                    agencyNetworkId:1,
+                    createdAt: 1,
+                    solepro: 1,
+                    wholesale: 1,
+                    businessName: 1,
+                    industryCode: 1,
+                    mailingAddress: 1,
+                    mailingCity: 1,
+                    mailingState: 1,
+                    mailingZipcode: 1,
+                    handledByTalage: 1,
+                    policies: 1,
+                    quotingStartedDate: 1,
+                    renewal: 1,
+                    metrics: 1
+                };
+                const queryOptions = {
+                    sort: {},
+                    limit: 100
+                };
+                queryOptions.sort = {};
+                if (requestParams?.sort) {
+                    if(requestParams.sort === 'date') {
+                        requestParams.sort = 'createdAt';
+                    }
+                    queryOptions.sort[requestParams.sort] = requestParams.sortDescending ? -1 : 1;
+                }
+                else {
+                    queryOptions.sort.createdAt = -1;
+                }
+                if(requestParams?.limit && !isNaN(requestParams.limit)) {
+                    queryOptions.limit = Number.parseInt(`${requestParams.limit}`, 10);
+                }
+                if(requestParams?.page && !isNaN(requestParams.page)) {
+                    queryOptions.skip = queryOptions.limit * Number.parseInt(`${requestParams.page}`, 10);
+                }
+                const result = await ApplicationUpload.find(query, queryProjection, queryOptions).lean();
+                return result || [];
+            }
         }
         catch (error) {
             log.error(`Database Error getting OCR list  ${error.message} ${__location}`);
