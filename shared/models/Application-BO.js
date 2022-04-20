@@ -2712,6 +2712,7 @@ module.exports = class ApplicationModel {
         let feinRequiredNote = false;
         let hasGL = false;
         let payrollRequiredNote = false;
+        let ghostPolicPayollRequiredNote = false;
         let payrollCarriers = [];
         let hasWC = false;
 
@@ -2806,13 +2807,12 @@ module.exports = class ApplicationModel {
             //
         }
         if(hasWC){
-        //     //acuity gross sales
-        //     //acuity Needs FEIN.
-        //     if(insurerArray.includes(10)){
-        //         //fein not that is FEIN is required.
-        //         grossSalesRequiredNote = true;
-        //         grossSalesCarriers.push("Acuity")
-        //     }
+            if(insurerArray.includes(32)){
+                if(appDoc.entityType === "Sole Proprietorship"){
+                    //fein not that is FEIN is required.
+                    ghostPolicPayollRequiredNote = true;
+                }
+            }
         }
         if(feinRequiredNote){
             hintJson.fein = {};
@@ -2826,6 +2826,20 @@ module.exports = class ApplicationModel {
             hintJson.payroll.hint = `Payroll required for ${payrollCarriers.join(', ')} ${glBopPolicy}. Check your agencies procedures`
             //hintJson.fein.displayMessage = `FEIN required by potential ${glBopPolicy} carrier(s)`;
             hintJson.payroll.displayMessage = `Payroll required for ${payrollCarriers.join(', ')} ${glBopPolicy}.`;
+        }
+
+        if(ghostPolicPayollRequiredNote){
+            if(!hintJson.payroll){
+                hintJson.payroll = {};
+                hintJson.payroll.hint = "";
+                hintJson.payroll.displayMessage = "";
+            }
+            else {
+                hintJson.payroll.hint += ", ";
+                hintJson.payroll.displayMessage += ", ";
+            }
+            hintJson.payroll.hint += `For SolePro Ghost Policy enter payroll as "Owner" to clear payroll validation. Other insurers may quote. Check in other insurer portal that quote is valid.`
+            hintJson.payroll.displayMessage = `For SolePro Ghost Policy enter payroll as "Owner" to  clear payroll validation `;
         }
 
         // if(grossSalesRequiredNote){
