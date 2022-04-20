@@ -93,18 +93,18 @@ async function performOcrOnAccodPdfFile(req, res, next) {
         // THIS IS THE TASK CODE
         const results = await Promise.all(initFiles);
 
-        for (const requestId of results) {
+        await Promise.all(results.map(async (requestId) => {
             console.log('Waiting for request...', requestId);
             const result = await applicationUploadBO.getOcrResult(requestId);
             console.log('got result:', result);
             if (_.get(result, 'status') === 'ERROR') {
                 log.error(`OCR microservice error: ${result.message}`);
                 console.log(`OCR microservice error: ${result.message}`)
-                continue;
+                return;
             }
             await applicationUploadBO.saveOcrResult(requestId, result, agencyMetadata, markAsPending);
-        }
-        res.send(await Promise.all(initFiles));
+        }));
+        res.send(results);
     } catch (ex) {
         log.error("Bad Request: error when reading file " + ex.message + __location);
         console.log(ex);
