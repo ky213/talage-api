@@ -90,7 +90,7 @@ module.exports = class USLIGL extends Integration {
     const agencyInfo = await this.getAgencyInfo();
     const childClassificationRequired = Object.keys(childClassificationMap).includes(this.insurerIndustryCode.code);
 
-
+ 
     logPrefix = `USLI GL (Appid: ${applicationDocData.applicationId}): `;
 
     if (!this.industry_code?.insurerIndustryCodeId) {
@@ -271,22 +271,32 @@ module.exports = class USLIGL extends Integration {
                 ?.map((question) => {
                   if (!ignoredQuestionIds.includes(question.insurerQuestionIdentifier)) {
                     return {
-                      "usli:QuestionId": question.insurerQuestionIdentifier, // Question ID instead
-                      "usli:QuestionType": "Applicant",
+                      "usli:QuestionId": question.insurerQuestionIdentifier,
+                      "usli:QuestionType": question.insurerQuestionAttributes?.questionType,
                       "usli:Answer": question.answerValue || "Unknown",
                     };
                   }
                 })
                 .concat(
                   applicationDocData.locations.flatMap((location, i) =>
-                    location?.questions.map((q) => {
+                    location?.questions.flatMap((q) => {
                       if (!ignoredQuestionIds.includes(q.insurerQuestionIdentifier)) {
-                        return {
+                        const isClassificationQuestion = q.insurerQuestionAttributes?.questionType === "Classification";
+
+                        const classification = {
                           "@LocationRef": `${i + 1}`,
-                          "usli:QuestionId": q.insurerQuestionIdentifier, // Question ID instead
-                          "usli:QuestionType": "Location",
+                          ClassificationRef: "C1",
+                          "usli:QuestionId": q.insurerQuestionIdentifier,
+                          "usli:QuestionType": q.insurerQuestionAttributes?.questionType,
                           "usli:Answer": q.answerValue || "Unknown",
                         };
+
+                        let childClassification = null;
+
+                        if (isClassificationQuestion && childClassificationRequired) {
+                          childClassification = { ...classification, ClassificationRef: "S1" };
+                        }
+                        return [classification, childClassification];
                       }
                     })
                   )
@@ -392,12 +402,12 @@ module.exports = class USLIGL extends Integration {
                   const premiseCoverage = {
                     CoverageCd: "PREM",
                     ClassCd: this.insurerIndustryCode.attributes.GLCode,
-                    "usli:CoverageTypeId":0
+                    "usli:CoverageTypeId": 0,
                   };
                   const productCoverage = {
                     CoverageCd: "PRDCO",
                     ClassCd: this.insurerIndustryCode.attributes.GLCode,
-                    "usli:CoverageTypeId":0
+                    "usli:CoverageTypeId": 0,
                   };
 
                   const classification = {
@@ -410,13 +420,10 @@ module.exports = class USLIGL extends Integration {
                     IfAnyRatingBasisInd: false,
                     ClassId: 0,
                     "usli:CoverageTypeId": this.insurerIndustryCode.code,
-                    CommlCoverage:[
-                      premiseCoverage,
-                      productCoverage
-                    ]
+                    CommlCoverage: [premiseCoverage, productCoverage],
                   };
 
-                  let childClassification = null
+                  let childClassification = null;
 
                   if (childClassificationRequired) {
                     childClassification = {
@@ -428,7 +435,7 @@ module.exports = class USLIGL extends Integration {
                     };
                   }
 
-                  return [classification, childClassification].filter(c => c);
+                  return [classification, childClassification].filter((c) => c);
                 }),
                 EarnedPremiumPct: 0,
               },
