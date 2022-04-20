@@ -335,7 +335,7 @@ module.exports = class ApplicationUploadBO {
             owners: await Promise.all(data.Individual.map(async (i) => ({
                 fname: getFirstName(i.Name),
                 lname: getLastName(i.Name),
-                ownership: i.Ownership,
+                ownership: await tryToFormat(i.Ownership, async (v) => parseInt(v, 10)),
                 officerTitle: i.Title.replace('\n', ' '),
                 birthdate: await tryToFormat(i.DOB, async (v) => i.DOB ? moment(i.DOB) : ''),
                 include: i.Inc_Exc === 'INC',
@@ -370,6 +370,8 @@ module.exports = class ApplicationUploadBO {
             applicationUploadObj.entityType = 'Corporation';
         }
         try {
+            // Remove keys with undefined value
+            applicationUploadObj = JSON.parse(JSON.stringify(applicationUploadObj));
             console.log('FINAL hitz', applicationUploadObj);
             // await ApplicationUpload.create(applicationUploadObj)
             if (doCreateInApplicationUpload) {
