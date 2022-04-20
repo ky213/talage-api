@@ -478,6 +478,7 @@ module.exports = class USLIGL extends Integration {
     const msgStatusCode = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgStatusCd[0]");
     const msgStatusDescription = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgStatusDesc[0]");
     const msgErrorCode = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgErrorCd[0]");
+    const extendedStatusDesc = get(response,"CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0]")
 
     if (msgStatusCode === "Rejected") {
       const errorMessage = `USLI decline error: ${msgStatusDescription} `;
@@ -523,16 +524,21 @@ module.exports = class USLIGL extends Integration {
       if(msgStatusCode === "Success"){
         return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter, "base64", coverages);
       }
-
+      
       if (msgStatusDescription?.startsWith("Referral")) {
         return this.client_referred(quoteNumber, quoteLimits, premium, quoteLetter, "base64", coverages);
       }
-
+      
+      if(msgStatusCode === "SuccessWithInfo"){
+        const errorMessage = `USLI error: ${extendedStatusDesc || 'Unknown error'} `;
+        log.error(logPrefix + errorMessage + __location);
+        return this.client_error(errorMessage, __location);
+      }
     }
-
+ 
     // check for PP
 
-    const errorMessage = `USLI error: ${msgStatusDescription || 'Unknown error'} `;
+    const errorMessage = `USLI error: ${msgStatusDescription || extendedStatusDesc || 'Unknown error'} `;
     log.error(logPrefix + errorMessage + __location);
     return this.client_error(errorMessage, __location);
 
