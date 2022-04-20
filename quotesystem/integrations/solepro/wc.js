@@ -207,12 +207,12 @@ module.exports = class SoleProWC extends Integration {
 
         // entity type check
         if(appDoc.entityType !== "Sole Proprietorship"){
-            this.reasons.push(`Wheelhosue only support SolePro Sole Proprietorship submissions at this time.`);
+            this.reasons.push(`Wheelhouse only supports SolePro Sole Proprietorship submissions at this time.`);
             return this.return_result('autodeclined');
         }
         //owner count check only handle one wiht owner SSN issue
         if(appDoc.owners.length !== 1){
-            this.reasons.push(`Wheelhosue only support SolePro for Sole Proprietorship with one owner at this time.`);
+            this.reasons.push(`Wheelhouse only supports SolePro for Sole Proprietorship with one owner at this time.`);
             return this.return_result('autodeclined');
         }
 
@@ -402,6 +402,7 @@ module.exports = class SoleProWC extends Integration {
         if(result.decision.status === "Quoted" || result.decision.status === "Referral"){
             this.number = result.reference;
             this.amount = result.decision.premiums?.gross?.amount
+            this.quoteLink = "https://www.solepro.com/account/login"
 
             try{
                 if(result?.covers && result?.covers[0] && result?.covers[0].limits){
@@ -434,6 +435,7 @@ module.exports = class SoleProWC extends Integration {
             }
         }
         else if(result?.decision?.status){
+            this.quoteLink = "https://www.solepro.com/account/login"
             if(result?.decline_reasons){
                 for(const decline_reason of result.decline_reasons){
                     this.reasons.push(decline_reason);
