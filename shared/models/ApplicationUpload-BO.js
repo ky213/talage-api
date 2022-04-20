@@ -373,6 +373,7 @@ module.exports = class ApplicationUploadBO {
             console.log('FINAL hitz', applicationUploadObj);
             // await ApplicationUpload.create(applicationUploadObj)
             if (doCreateInApplicationUpload) {
+                applicationUploadObj.movedToApplication = false;
                 await ApplicationUpload.create(applicationUploadObj);
             } else {
                 await Application.create(applicationUploadObj);
@@ -382,12 +383,45 @@ module.exports = class ApplicationUploadBO {
         }
     }
 
+    async moveToApplication(pendingApplicationId) {
+        try {
+            const applicationUploadObj = await ApplicationUpload.findOne({pendingApplicationId: pendingApplicationId}).lean;
+            if(applicationUploadObj){
+                if(!applicationUploadObj.additionalInfo) {
+                    applicationUploadObj.additionalInfo = {};
+                }
+                applicationUploadObj.additionalInfo.movedFromApplicationUploadId = pendingApplicationId;
+                if(applicationUploadObj.moveToApplication || applicationUploadObj.movedToApplication === false || applicationUploadObj.movedToApplication === null) {
+                    delete applicationUploadObj.moveToApplication;
+                }
+                await Application.create(applicationUploadObj);
+                await Application.updateOne({pendingApplicationId: pendingApplicationId}, {movedToApplication: true});
+            }
+            else {
+                throw new Error('Pending Application not found');
+            }
+        }
+        catch (error){
+            log.error(`Database Error moving pending application  ${error.message} ${__location}`);
+            throw error;
+        }
+    }
+
     async updateOne(applicationId, data) {
         try {
             await ApplicationUpload.updateOne({applicationId: applicationId}, {...data});
         }
         catch (error) {
             log.error(`Database Error updating OCR app ${applicationId} ${error.message} ${__location}`);
+        }
+    }
+
+    async deleteOne(applicationId) {
+        try {
+            await ApplicationUpload.deleteOne({applicationId: applicationId});
+        }
+        catch (error) {
+            log.error(`Database Error deleting OCR app ${applicationId} ${error.message} ${__location}`);
         }
     }
 
