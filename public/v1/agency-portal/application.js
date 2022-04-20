@@ -779,7 +779,9 @@ async function applicationCopy(req, res, next) {
                 //Validate Agency location Support policyType
                 if(applicationDocDB.agencyLocationId){
                     const agencyLocationBO = new AgencyLocationBO();
-                    const agencyLocationJSON = await agencyLocationBO.getById(applicationDocDB.agencyLocationId).catch(function(err) {
+                    const getChildren = true;
+                    const addAgencyPrimaryLocation = true;
+                    const agencyLocationJSON = await agencyLocationBO.getById(applicationDocDB.agencyLocationId, getChildren, addAgencyPrimaryLocation).catch(function(err) {
                         log.error(`Error Copying application doc getting Agency Location ${applicationDocDB.agencyLocationId} ${err}` + __location)
                     });
                     if(agencyLocationJSON){
