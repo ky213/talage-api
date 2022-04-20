@@ -100,7 +100,7 @@ async function performOcrOnAccodPdfFile(req, res, next) {
                 console.log(`OCR microservice error: ${result.message}`)
                 continue;
             }
-            await applicationUploadBO.saveOcrResult(requestId, result, agencyMetadata);
+            await applicationUploadBO.saveOcrResult(requestId, result, agencyMetadata, req.body.markAsPending);
         }
         res.send(await Promise.all(initFiles));
     } catch (ex) {
