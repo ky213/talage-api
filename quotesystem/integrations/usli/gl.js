@@ -475,11 +475,36 @@ module.exports = class USLIGL extends Integration {
 
     const response = get(result, "ACORD.InsuranceSvcRs[0]");
     const statusCode = get(response, "Status[0].StatusCd[0]");
+    const statusDesc = get(response, "Status[0].StatusDesc[0]");
     const msgStatusCode = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgStatusCd[0]");
     const msgStatusDescription = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgStatusDesc[0]");
     const msgErrorCode = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgErrorCd[0]");
     const extendedStatusDesc = get(response,"CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0]")
     const remarkText = get(response, "CommlPkgPolicyQuoteInqRs[0].RemarkText");
+
+
+    let missingRespObj = false;
+    const requiredResponseObjects = {
+        "ACORD.InsuranceSvcRs[0]": response,
+        "Status[0].StatusCd[0]": statusCode,
+        "Status[0].StatusDesc[0]": statusDesc,
+        "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgStatusDesc[0]": msgStatusDescription
+    };
+    
+    // check each part of the response we parse and ensure it exists. If it doesn't, report the error, as the response object USLI returns may have changed
+    for (const [path, obj] of Object.entries(requiredResponseObjects)) {
+        if (!obj) {
+            missingRespObj = true;
+            log.error(`${logPrefix}Response is missing path: ${path}. ` + __location);
+        }
+    }
+
+    if (missingRespObj) {
+        const errorMessage = `One or more required paths in the response are missing. This may be because USLI's response structure changed. `;
+        log.error(logPrefix + errorMessage + __location);
+        return this.client_error(errorMessage, __location);
+    }
+
 
     if (msgStatusCode === "Rejected") {
       const errorMessage = `USLI decline error: ${msgStatusDescription} `;
@@ -498,8 +523,8 @@ module.exports = class USLIGL extends Integration {
       const commlCoverage = get(response, "CommlPkgPolicyQuoteInqRs[0].GeneralLiabilityLineBusiness[0].LiabilityInfo[0].CommlCoverage" );
       const premium = Number(get(response, "CommlPkgPolicyQuoteInqRs[0].PolicySummaryInfo[0].FullTermAmt[0].Amt[0]"));
       const remarkText = get(response, "CommlPkgPolicyQuoteInqRs[0].RemarkText");
-      const { _: admittedRemark } = remarkText?.find((remark) => remark?.$?.id === "Admitted Status");
-      const admitted = admittedRemark === "This quote is admitted";
+      const admittedRemark  = remarkText?.find((remark) => remark?.$?.id === "Admitted Status");
+      const admitted = admittedRemark?._ && admittedRemark === "This quote is admitted";
 
       const quoteLimits = {};
 
@@ -513,7 +538,7 @@ module.exports = class USLIGL extends Integration {
       };
 
       // remove taxes from premium if quote is not admitted and taxes exist
-      if (admitted) {
+      if (!admitted) {
         const taxesAdditionalInfo = [];
         const taxCoverages = get(response, "CommlPkgPolicyQuoteInqRs[0].CommlPolicy[0].CommlCoverage");
 
