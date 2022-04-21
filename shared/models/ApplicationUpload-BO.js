@@ -142,11 +142,12 @@ const tryToFormat = async (fieldValue, formatterFunc) => {
         // Retrieve the name of the method and line number that called this function.
         const err = new Error();
         const stack = err.stack.split('\n');
-        const prevMethod = stack[2].trim().replace('at ', '');
+        const prevMethod = stack[3].trim().replace('at ', '');
 
         // additionalInfo.push(`Bad validaion for field: ${prevMethod} ${fieldValue}`);
         log.warn(`Bad validaion for field: ${prevMethod} ${fieldValue}`);
         console.log(`Bad validaion for field: ${prevMethod} ${fieldValue}`);
+        console.log(ex);
         return undefined;
     }
 }
@@ -286,6 +287,7 @@ module.exports = class ApplicationUploadBO {
                 validationErrors: additionalInfo,
                 ocrRequestId: requestId
             },
+            active: true,
             appStatusId: 0, // Mark awspplication as incomplete by default
             agencyId: agencyMetadata.agencyId,
             agencyLocationId: agencyMetadata.agencyLocationId,
