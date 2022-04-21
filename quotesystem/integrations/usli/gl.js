@@ -653,11 +653,7 @@ module.exports = class USLIGL extends Integration {
       log.info(logPrefix + responseMessage + __location);
 
       // Even if quoted, any classification with GLElig of PP (Premises Preferred) must be submitted as "SUBMIT" (our referred)
-      if (
-        msgStatusCode === "Success" &&
-        this.insurerIndustryCode?.attributes?.GLElig !== "PP" &&
-        msgStatusDescription !== "Submit"
-      ) {
+      if (msgStatusCode === "Success" && this.insurerIndustryCode?.attributes?.GLElig !== "PP" && msgStatusDescription !== "Submit" ) {
         return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType, coverages);
       }  
       
@@ -671,24 +667,13 @@ module.exports = class USLIGL extends Integration {
         }
         
         return this.client_referred(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType, coverages);
-    }
-
-
-      if (msgStatusDescription?.startsWith("Referral")) {
-        return this.client_referred(quoteNumber, quoteLimits, premium, quoteLetter, "base64", coverages);
-      }
-
-      if (msgStatusCode === "SuccessWithInfo" && premium == 0) {
-        const errorMessage = `USLI error: ${extendedStatusDesc || "Unknown error"} `;
-        log.error(logPrefix + errorMessage + __location);
-        return this.client_error(errorMessage, __location);
       }
     }
 
-    const errorMessage = `USLI error: ${msgStatusDescription || extendedStatusDesc || 'Unknown error'} `;
+    const errorMessage = `USLI quote was unsuccessful: ${mainReason}. `;
+    this.reasons = errorReasons;
     log.error(logPrefix + errorMessage + __location);
     return this.client_error(errorMessage, __location);
-
   }
 
   async getAgencyInfo() {
