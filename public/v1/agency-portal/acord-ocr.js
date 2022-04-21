@@ -15,6 +15,11 @@ const ApplicationUploadBO = global.requireShared('./models/ApplicationUpload-BO.
  * @returns {void}
  */
 async function getAcordStatus(req, res, next) {
+    // Check for user permission
+    if(!req.userTokenData?.permissions?.applications?.manage){
+        return serverHelper.forbiddenError('Do not have Permission');
+    }
+
     const files = req.body.acords;
     // Check for data
     if (!files?.length) {
@@ -52,6 +57,11 @@ async function getAcordStatus(req, res, next) {
  * @returns {void}
  */
 async function performOcrOnAccodPdfFile(req, res, next) {
+    // Check for user permission
+    if(!req.userTokenData?.permissions?.applications?.manage){
+        return serverHelper.forbiddenError('Do not have Permission');
+    }
+
     // Check for data
     const applicationUploadBO = new ApplicationUploadBO();
     const agencyMetadata = {
@@ -118,6 +128,11 @@ async function performOcrOnAccodPdfFile(req, res, next) {
  * 
  */
 async function getInsurerList(req, res, next) {
+    // Check for user permission
+    if(!req.userTokenData?.permissions?.applications?.manage){
+        return serverHelper.forbiddenError('Do not have Permission');
+    }
+
     try {
         const insurerBO = new InsurerBO();
         const insurers = await insurerBO.getList();
