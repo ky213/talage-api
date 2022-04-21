@@ -1828,20 +1828,21 @@ module.exports = class Integration {
             // Quote Letter
             if (this.quote_letter && Object.prototype.hasOwnProperty.call(this.quote_letter, 'data') && this.quote_letter.data) {
                 // Generate a UUID to use as the file name
-                const fileName = `${this.generate_uuid()}.pdf`;
-
                 // Store the quote letter in our cloud storage
+                // s3Key should be clean and not changed by PutFileSecure
+                const fileName = `${this.generate_uuid()}.pdf`;
+                const s3Key = `secure/quote-letters/${fileName}`;
                 try {
                     // Store the quote letter in our cloud storage
                     // Secure
-                    const result = await fileSvc.PutFileSecure(`secure/quote-letters/${fileName}`, this.quote_letter.data);
+                    const result = await fileSvc.PutFileSecure(s3Key, this.quote_letter.data);
                     // The file was successfully saved, store the file name in the database
                     if (result && result.code === 'Success') {
                         quoteJSON.quoteLetter = fileName
                     }
                 }
                 catch (err) {
-                    log.error(`Appid: ${this.app.id} Insurer: ${this.insurer.name} S3 error Storing Quote letter: ${fileName}, error: ${err}. ${__location}`);
+                    log.error(`Appid: ${this.app.id} Insurer: ${this.insurer.name} S3 error Storing Quote letter: ${s3Key}, error: ${err}. ${__location}`);
                 }
             }
         }
