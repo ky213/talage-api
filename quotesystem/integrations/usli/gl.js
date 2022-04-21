@@ -480,7 +480,6 @@ module.exports = class USLIGL extends Integration {
     const msgStatusDescription = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgStatusDesc[0]");
     const msgErrorCode = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgErrorCd[0]");
     const extendedStatusDesc = get(response,"CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0]")
-    const remarkText = get(response, "CommlPkgPolicyQuoteInqRs[0].RemarkText");
 
 
     let missingRespObj = false;
@@ -583,9 +582,28 @@ module.exports = class USLIGL extends Integration {
         const code = get(coverage, "CoverageCd[0]");
         const description = get(coverage, "CoverageDesc[0]");
         const limit = get(coverage, "Limit[0].FormatText[0]");
+        let included = get(coverage, "Option[0].OptionCd[0]");
+
+        if (included) {
+          if (included === "Incl") {
+            included = "Included";
+          } else if (included === "Excl") {
+            included = "Excluded";
+          } else {
+            included = "N/A";
+          }
+        }
+
+        let value = "N/A";
+        if (limit) {
+          value = convertToDollarFormat(limit, true);
+        } else if (included) {
+          value = included;
+        }
+
 
         return {
-          value: convertToDollarFormat(limit, true),
+          value: value,
           description: description,
           sort: index,
           category: "General Limits",
