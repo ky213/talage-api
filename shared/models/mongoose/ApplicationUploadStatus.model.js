@@ -1,4 +1,10 @@
-const mongoose = global.mongodb, Schema = require('mongoose').Schema;
+/* eslint-disable no-invalid-this */
+/* eslint-disable no-mixed-requires */
+/* eslint-disable object-curly-newline */
+/* eslint-disable object-property-newline */
+/* eslint-disable one-var */
+const mongoose = global.mongodb
+const Schema = require('mongoose').Schema;
 const timestamps = require('mongoose-timestamp');
 
 const ApplicationUploadStatus = new Schema({
@@ -58,4 +64,4 @@ mongoose.model("ApplicationUploadStatus", ApplicationUploadStatus); // OcrReques
 //    -> whether they want priced or quoted.
 //          -> add a form field to ask them this. (default to 'priced')
 //      -> tags should just be a textbox.
-//      -> move 'Advance 
+//      -> move 'Advance

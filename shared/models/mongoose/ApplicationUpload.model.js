@@ -12,4 +12,4 @@ mongoose.model("ApplicationUpload", ApplicationUploadSchema);
 //    -> whether they want priced or quoted.
 //          -> add a form field to ask them this. (default to 'priced')
 //      -> tags should just be a textbox.
-//      -> move 'Advance 
+//      -> move 'Advance

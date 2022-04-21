@@ -103,7 +103,8 @@ async function performOcrOnAccodPdfFile(req, res, next) {
 
         const results = await Promise.all(initFiles);
         res.send(results);
-    } catch (ex) {
+    }
+    catch (ex) {
         log.error("Bad Request: error when reading file " + ex.message + __location);
         console.log(ex);
         return next(serverHelper.requestError("Error during OCR upload"));
@@ -113,7 +114,7 @@ async function performOcrOnAccodPdfFile(req, res, next) {
 }
 
 /**
- * 
+ *
  */
 async function getInsurerList(req, res, next) {
     // Check for user permission

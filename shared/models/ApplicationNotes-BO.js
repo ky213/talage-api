@@ -101,7 +101,7 @@ module.exports = class ApplicationNotesBO{
 
             newApplicationNotes = mongoUtils.objCleanup(newAgencyLocationDoc);
         }
-        catch (err) {
+        catch(err) {
             log.error(`Updating application notes error for id: ${applicationId}` + err + __location);
             throw err;
         }
