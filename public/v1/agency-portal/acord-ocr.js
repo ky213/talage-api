@@ -108,7 +108,12 @@ async function performOcrOnAcodPdfFile(req, res, next) {
 }
 
 /**
- *
+ * Get insurer list
+ * 
+ * @param {*} req req
+ * @param {*} res res
+ * @param {*} next next
+ * @return {*} out
  */
 async function getInsurerList(req, res, next) {
     // Check for user permission
