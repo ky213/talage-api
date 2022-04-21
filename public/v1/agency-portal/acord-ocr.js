@@ -16,7 +16,7 @@ const ApplicationUploadBO = global.requireShared('./models/ApplicationUpload-BO.
  */
 async function getAcordStatus(req, res, next) {
     // Check for user permission
-    if(!req.userTokenData?.permissions?.applications?.manage){
+    if(!req.authentication?.permissions?.applications?.manage){
         return serverHelper.forbiddenError('Do not have Permission');
     }
 
@@ -58,7 +58,7 @@ async function getAcordStatus(req, res, next) {
  */
 async function performOcrOnAccodPdfFile(req, res, next) {
     // Check for user permission
-    if(!req.userTokenData?.permissions?.applications?.manage){
+    if(!req.authentication?.permissions?.applications?.manage){
         return serverHelper.forbiddenError('Do not have Permission');
     }
 
@@ -68,7 +68,8 @@ async function performOcrOnAccodPdfFile(req, res, next) {
         agencyLocationId: parseInt(req.body.agencyLocationId, 10),
         agencyNetworkId: parseInt(req.authentication.agencyNetwork, 10),
         agencyId: parseInt(req.body.agencyId, 10),
-        insurerId: parseInt(req.body.insurerId, 10)
+        insurerId: parseInt(req.body.insurerId, 10),
+        tag: req.body.tag
     };
 
     if (_.isEmpty(req.files)) {
@@ -129,7 +130,7 @@ async function performOcrOnAccodPdfFile(req, res, next) {
  */
 async function getInsurerList(req, res, next) {
     // Check for user permission
-    if(!req.userTokenData?.permissions?.applications?.manage){
+    if(!req.authentication?.permissions?.applications?.manage){
         return serverHelper.forbiddenError('Do not have Permission');
     }
 

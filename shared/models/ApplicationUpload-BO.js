@@ -152,7 +152,7 @@ const tryToFormat = async (fieldValue, formatterFunc) => {
     }
 }
 
-const cleanLimit = (limit) => limit.replaceAll(',', '').replaceAll('.', '');
+const cleanLimit = (limit) => limit.replace(/,/g, '').replace(/\./g, '');
 
 module.exports = class ApplicationUploadBO {
     async submitFile(agency, fileType, acordFile) {
@@ -292,6 +292,7 @@ module.exports = class ApplicationUploadBO {
             agencyId: agencyMetadata.agencyId,
             agencyLocationId: agencyMetadata.agencyLocationId,
             agencyNetworkId: agencyMetadata.agencyNetworkId,
+            tagString: agencyMetadata.tag,
 
             email: data.Email,
             phone: data.Applicant_Office_Phone,
