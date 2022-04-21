@@ -504,17 +504,51 @@ module.exports = class USLIGL extends Integration {
         return this.client_error(errorMessage, __location);
     }
 
-
-    if (msgStatusCode === "Rejected") {
-      const errorMessage = `USLI decline error: ${msgStatusDescription} `;
-      log.error(logPrefix + errorMessage + __location);
-      return this.client_declined(msgStatusDescription);
+    const errorCd = statusDesc.split(" ")[1];
+    let errorReasons = null;
+    if (statusDesc.indexOf("Script Errors:") !== -1) {
+        // if script errors are reported, parse them a particular way
+        errorReasons = statusDesc.substring(statusDesc.indexOf("Script Errors:") + 16).split("\n").filter(reason => reason !== "");
+    }
+    else {
+        // otherwise, look for extended status and parse into strings with the code and description pairs
+        const extendedStatus = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].ExtendedStatus");
+        if (extendedStatus) {
+            errorReasons = extendedStatus.map(status => (`${get(statusm, "ExtendedStatusCd[0]")}: ${get(status, "ExtendedStatusDesc[0]")}`));
+        }
+        else {
+            // catch all to just split any reasons provided by newline
+            errorReasons = statusDesc.split("\n");
+        }
     }
 
-    if (msgErrorCode === "DataError") {
-      const errorMessage = `USLI data not valid error: ${msgStatusDescription} `;
-      log.error(logPrefix + errorMessage + __location);
-      return this.client_error(errorMessage, __location);
+    // main reason is just the first reason for an error reported
+    let mainReason = errorReasons.shift();
+    if (mainReason.indexOf("Description: ") !== -1) {
+        mainReason = mainReason.substring(mainReason.indexOf("Description: ") + 13);
+    }
+
+    // declined error code(s)
+    if (errorCd === "433") {
+        const declineMessage = `USLI declined the quote: ${mainReason} `;
+        const additionalReasons = errorReasons.length > 0 ? `Other reasons: ${errorReasons.join(" | ")}. ` : "";
+        log.info(logPrefix + declineMessage + additionalReasons + __location);
+        return this.client_declined(declineMessage, errorReasons);
+    }
+
+    // if not a referred error code, it's an error
+    if (!["434", "436"].includes(errorCd) && !["Success", "SuccessWithInfo"].includes(msgStatusCode)) {
+        if (mainReason.includes("class code with Commercial Property")) {
+            mainReason = 'A property classification was not provided with the Commercial Property submission. This could be due to a missing fire code in the submission.';
+        }
+        else {
+            this.reasons = errorReasons;
+        }
+
+        const errorMessage = `USLI returned an error: ${mainReason} `;
+        const additionalReasons = errorReasons.length > 0 ? `Other reasons: ${errorReasons.join(" | ")}. ` : "";
+        log.error(logPrefix + errorMessage + additionalReasons + __location);
+        return this.client_error(errorMessage, __location);
     }
     
     if (statusCode === "0") {
@@ -522,9 +556,9 @@ module.exports = class USLIGL extends Integration {
       const commlCoverage = get(response, "CommlPkgPolicyQuoteInqRs[0].GeneralLiabilityLineBusiness[0].LiabilityInfo[0].CommlCoverage" );
       const premium = Number(get(response, "CommlPkgPolicyQuoteInqRs[0].PolicySummaryInfo[0].FullTermAmt[0].Amt[0]"));
       const remarkText = get(response, "CommlPkgPolicyQuoteInqRs[0].RemarkText");
-      const admittedRemark  = remarkText?.find((remark) => remark?.$?.id === "Admitted Status");
+      const admittedRemark = remarkText?.find((remark) => remark?.$?.id === "Admitted Status");
       const admitted = admittedRemark?._ && admittedRemark === "This quote is admitted";
-
+      const quoteMIMEType = 'base64'
       const quoteLimits = {};
 
       // add remarkText to quote additionalInfo
@@ -542,41 +576,42 @@ module.exports = class USLIGL extends Integration {
         const taxCoverages = get(response, "CommlPkgPolicyQuoteInqRs[0].CommlPolicy[0].CommlCoverage");
 
         if (Array.isArray(taxCoverages)) {
-            taxCoverages.forEach(tax => {
-                let taxAmount = get(tax, "CurrentTermAmt[0].Amt[0]");
-                const taxCode = get(tax, "CoverageCd[0]");
-                const taxDescription = get(tax, "CoverageDesc[0]");
+          taxCoverages.forEach((tax) => {
+            let taxAmount = get(tax, "CurrentTermAmt[0].Amt[0]");
+            const taxCode = get(tax, "CoverageCd[0]");
+            const taxDescription = get(tax, "CoverageDesc[0]");
 
-                if (taxAmount) {
-                    taxAmount = parseFloat(taxAmount);
+            if (taxAmount) {
+              taxAmount = parseFloat(taxAmount);
 
-                    if (!isNaN(premium) && !isNaN(taxAmount)) {
-                        premium -= taxAmount;
-                    }
-                    else {
-                        log.warn(`${logPrefix}Unable to remove tax ${taxDescription} from non-admitted quote premium. Reference quote additionalInfo for tax information. ` + __location);
-                    }
-                }
+              if (!isNaN(premium) && !isNaN(taxAmount)) {
+                premium -= taxAmount;
+              } else {
+                log.warn(
+                  `${logPrefix}Unable to remove tax ${taxDescription} from non-admitted quote premium. Reference quote additionalInfo for tax information. ` +
+                    __location
+                );
+              }
+            }
 
-                taxesAdditionalInfo.push({
-                    taxCode,
-                    taxDescription,
-                    taxAmount
-                });
+            taxesAdditionalInfo.push({
+              taxCode,
+              taxDescription,
+              taxAmount,
             });
+          });
 
-            if (premium < 0) {
-                log.warn(`${logPrefix}Tax and fee deductions resulted in a premium value below 0. ` + __location);
-                premium = 0;
-            }
-            else {
-                premium = `${premium}`.substring(0, `${premium}`.indexOf(".") + 3);
-            }
+          if (premium < 0) {
+            log.warn(`${logPrefix}Tax and fee deductions resulted in a premium value below 0. ` + __location);
+            premium = 0;
+          } else {
+            premium = `${premium}`.substring(0, `${premium}`.indexOf(".") + 3);
+          }
         }
 
         // add tax and fees to quote additional info
         this.quoteAdditionalInfo.taxAndFeeInfo = taxesAdditionalInfo;
-    }
+      }
 
       const coverages = commlCoverage?.map((coverage, index) => {
         const code = get(coverage, "CoverageCd[0]");
@@ -601,7 +636,6 @@ module.exports = class USLIGL extends Integration {
           value = included;
         }
 
-
         return {
           value: value,
           description: description,
@@ -614,9 +648,27 @@ module.exports = class USLIGL extends Integration {
       const responseMessage = `USLI ${msgStatusDescription} `;
       log.info(logPrefix + responseMessage + __location);
 
-      if (msgStatusCode === "Success") {
-        return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter, "base64", coverages);
-      }
+      // Even if quoted, any classification with GLElig of PP (Premises Preferred) must be submitted as "SUBMIT" (our referred)
+      if (
+        msgStatusCode === "Success" &&
+        this.insurerIndustryCode?.attributes?.GLElig !== "PP" &&
+        msgStatusDescription !== "Submit"
+      ) {
+        return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType, coverages);
+      }  
+      
+      if (["434", "436", "627"].includes(msgErrorCode) || premium || msgStatusDescription === "Submit") {
+        errorReasons.unshift(mainReason);
+        if (errorReasons[0].includes("successfully processed the request.") && industryCode.attributes.GLElig === "PP") {
+            this.reasons = ["The chosen classification has GL Eligibility PP (Premises Preferred)."];
+        }
+        else {
+            this.reasons = errorReasons;
+        }
+        
+        return this.client_referred(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType, coverages);
+    }
+
 
       if (msgStatusDescription?.startsWith("Referral")) {
         return this.client_referred(quoteNumber, quoteLimits, premium, quoteLetter, "base64", coverages);
@@ -628,8 +680,6 @@ module.exports = class USLIGL extends Integration {
         return this.client_error(errorMessage, __location);
       }
     }
- 
-    // check for PP
 
     const errorMessage = `USLI error: ${msgStatusDescription || extendedStatusDesc || 'Unknown error'} `;
     log.error(logPrefix + errorMessage + __location);
