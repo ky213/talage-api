@@ -56,12 +56,3 @@ const ApplicationUploadStatus = new Schema({
 ApplicationUploadStatus.plugin(timestamps);
 
 mongoose.model("ApplicationUploadStatus", ApplicationUploadStatus); // OcrRequest
-
-// PendingApplication
-//    -> add status fields
-//    -> maybe remove some old status fields from Application model.
-//    -> add futureRunDate
-//    -> whether they want priced or quoted.
-//          -> add a form field to ask them this. (default to 'priced')
-//      -> tags should just be a textbox.
-//      -> move 'Advance

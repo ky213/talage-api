@@ -56,7 +56,7 @@ async function getAcordStatus(req, res, next) {
  *
  * @returns {void}
  */
-async function performOcrOnAccodPdfFile(req, res, next) {
+async function performOcrOnAcodPdfFile(req, res, next) {
     // Check for user permission
     if(!req.authentication?.permissions?.applications?.manage){
         return serverHelper.forbiddenError('Do not have Permission');
@@ -80,23 +80,19 @@ async function performOcrOnAccodPdfFile(req, res, next) {
     }
 
     // Check for number of files
-    if (req.files?.length > 10) {
-        log.info("Bad Request: exceeded number of files (10)" + __location);
-        return next(serverHelper.requestError("Bad Request: Max number of files is 10"));
+    if (req.files?.length > 500) {
+        log.info("Bad Request: exceeded number of files (500)" + __location);
+        return next(serverHelper.requestError("Bad Request: Max number of files is 500"));
     }
 
     try {
         const initFiles = [];
 
         for (const file of Object.values(req.files)) {
-            // eslint-disable-next-line init-declarations
-            let initData;
-
             try {
                 initFiles.push(applicationUploadBO.submitFile(agencyMetadata, req.body.type, file));
             }
             catch (error) {
-                initData.error = "Error processing acord application file";
                 log.warn(`Error processing acord application file: ${file.name} ${error.message} ${__location}`);
             }
         }
@@ -106,10 +102,8 @@ async function performOcrOnAccodPdfFile(req, res, next) {
     }
     catch (ex) {
         log.error("Bad Request: error when reading file " + ex.message + __location);
-        console.log(ex);
         return next(serverHelper.requestError("Error during OCR upload"));
     }
-    // END TASK CODE
     next();
 }
 
@@ -136,7 +130,7 @@ async function getInsurerList(req, res, next) {
 }
 
 exports.registerEndpoint = (server, basePath) => {
-    server.addPostAuth("POST acord files for OCR", `${basePath}/acord-ocr`, performOcrOnAccodPdfFile);
+    server.addPostAuth("POST acord files for OCR", `${basePath}/acord-ocr`, performOcrOnAcodPdfFile);
     server.addPostAuth("GET acord files status", `${basePath}/acord-ocr/status`, getAcordStatus);
     server.addGetAuth("GET insurer list", `${basePath}/insurer-list`, getInsurerList);
 };

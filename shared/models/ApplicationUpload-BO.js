@@ -191,7 +191,7 @@ module.exports = class ApplicationUploadBO {
         try {
             const response = await axios.request({
                 method: "POST",
-                url: `${global.settings.OCR_SERVER_URL}/${fileType}`,
+                url: `${global.settings.OCR_SERVER_URL}/queue/${fileType}`,
                 data: fileData,
                 headers: {"Content-Type": "application/pdf"}
             });
@@ -245,7 +245,7 @@ module.exports = class ApplicationUploadBO {
                 try {
                     status = await axios.request({
                         method: 'GET',
-                        url: `https://ck2c645j29.execute-api.us-west-1.amazonaws.com/develop2/ocr/status/${requestId}`
+                        url: `${global.settings.OCR_SERVER_URL}/status/${requestId}`
                     });
                 }
                 catch (ex) {

@@ -6,7 +6,7 @@ const emailsvc = global.requireShared('./services/emailsvc.js');
 const _ = require('lodash');
 
 /**
- * AmtrustImport Task processor
+ * Acord OCR Task processor
  *
  * @returns {void}
  */
