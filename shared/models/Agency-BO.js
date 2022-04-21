@@ -178,6 +178,7 @@ module.exports = class AgencyBO {
                     }
 
                     // Generate a random file name (defeats caching issues issues)
+                    // - should be clean with no updates in PutFile
                     const fileName = `${newObjectJSON.id}-${uuidv4().substring(24)}.${extension}`;
 
                     // Store on S3
@@ -229,6 +230,7 @@ module.exports = class AgencyBO {
                     }
 
                     // Generate a random file name (defeats caching issues issues)
+                    // - should be clean with no updates in PutFile
                     const fileName = `${newObjectJSON.id}-${uuidv4().substring(24)}.${extension}`;
 
                     // Store on S3

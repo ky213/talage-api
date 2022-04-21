@@ -346,6 +346,7 @@ exports.santizeFilename = function(rawString){
     let cleanFileName = "";
     try{
         cleanFileName = sanitizeFile(rawString);
+        cleanFileName = cleanFileName.replace(/\s/g, '');
     }
     catch(e){
         log.error('Error santizeFilename ' + rawString + ' error: ' + e + __location);
