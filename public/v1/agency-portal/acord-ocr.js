@@ -109,7 +109,7 @@ async function performOcrOnAcodPdfFile(req, res, next) {
 
 /**
  * Get insurer list
- * 
+ *
  * @param {*} req req
  * @param {*} res res
  * @param {*} next next
