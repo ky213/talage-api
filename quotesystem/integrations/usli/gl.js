@@ -556,19 +556,23 @@ module.exports = class USLIGL extends Integration {
       const commlCoverage = get(response, "CommlPkgPolicyQuoteInqRs[0].GeneralLiabilityLineBusiness[0].LiabilityInfo[0].CommlCoverage" );
       const premium = Number(get(response, "CommlPkgPolicyQuoteInqRs[0].PolicySummaryInfo[0].FullTermAmt[0].Amt[0]"));
       const remarkText = get(response, "CommlPkgPolicyQuoteInqRs[0].RemarkText");
-      const admittedRemark = remarkText?.find((remark) => remark?.$?.id === "Admitted Status");
-      const admitted = admittedRemark?._ && admittedRemark === "This quote is admitted";
       const quoteMIMEType = 'base64'
       const quoteLimits = {};
+      let admitted = false
 
-      // add remarkText to quote additionalInfo
-      this.quoteAdditionalInfo = {
-        ...this.quoteAdditionalInfo,
-        remarkText: remarkText.map((remark) => ({
-          id: remark?.$?.id,
-          description: remark?._,
-        })),
-      };
+      if (Array.isArray(remarkText) && remarkText?.length > 0) {
+        const admittedRemark = remarkText.find((remark) => remark?.$?.id === "Admitted Status");
+        admitted = admittedRemark && admittedRemark?._ === "This quote is admitted";
+
+        // add remarkText to quote additionalInfo
+        this.quoteAdditionalInfo = {
+          ...this.quoteAdditionalInfo,
+          remarkText: remarkText.map((remark) => ({
+            id: remark?.$?.id,
+            description: remark?._,
+          })),
+        };
+      }
 
       // remove taxes from premium if quote is not admitted and taxes exist
       if (!admitted) {
