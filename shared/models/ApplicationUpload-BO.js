@@ -146,8 +146,6 @@ const tryToFormat = async (fieldValue, formatterFunc) => {
 
         // additionalInfo.push(`Bad validaion for field: ${prevMethod} ${fieldValue}`);
         log.warn(`Bad validaion for field: ${prevMethod} ${fieldValue}`);
-        console.log(`Bad validaion for field: ${prevMethod} ${fieldValue}`);
-        console.log(ex);
         return undefined;
     }
 }
@@ -155,7 +153,7 @@ const tryToFormat = async (fieldValue, formatterFunc) => {
 const cleanLimit = (limit) => limit.replace(/,/g, '').replace(/\./g, '');
 
 module.exports = class ApplicationUploadBO {
-    async submitFile(agency, fileType, acordFile) {
+    async submitFile(metadata, fileType, acordFile) {
         // Check emptiness
         // if (!acordFile.data) {
         //     throw new Error(`${acordFile.name}: is empty.`);
@@ -174,19 +172,17 @@ module.exports = class ApplicationUploadBO {
         //Check file size
         const fileData = fs.readFileSync(acordFile.path);
 
-        // XXX Roger: Why is this here?
-        // if (buffer.byteLength > 2_000_000) {
-        //     //2 MBs max
-        //     throw new Error(`${acordFile.name} / ${fileType}: file size should not exceed 2 MBs.`);
-        // }
+        // Do not allow files greater than 4 MBs.
+        if (fileData.byteLength > 4_000_000) {
+            throw new Error(`${acordFile.name} / ${fileType}: file size should not exceed 4 MBs.`);
+        }
 
-        // Submit Accord file to OCR.
+        // Submit Acord file to OCR.
         let requestId = '';
         try {
-            const url = `https://ck2c645j29.execute-api.us-west-1.amazonaws.com/develop2/ocr/queue/${fileType}`;
             const response = await axios.request({
                 method: "POST",
-                url: url,
+                url: `${global.settings.OCR_SERVER_URL}/${fileType}`,
                 data: fileData,
                 headers: {"Content-Type": "application/pdf"}
             });
@@ -199,12 +195,17 @@ module.exports = class ApplicationUploadBO {
 
         try {
             await ApplicationUploadStatus.create({
-                agencyId: agency?.agencyId,
-                agencyNetworkId: agency.agencyNetworkId,
+                agencyLocationId: metadata?.agencyLocationId,
+                agencyNetworkId: metadata.agencyNetworkId,
+                agencyId: metadata?.agencyId,
+                insurerId: metadata?.insurerId,
+                tag: metadata?.tag,
+                markAsPending: metadata?.markAsPending,
                 requestId: requestId,
                 status: 'QUEUED',
                 fileName: acordFile.name,
-                type: fileType
+                type: fileType,
+                agencyPortalUserId: metadata?.agencyPortalUserId
             });
         }
         catch (error) {
@@ -363,10 +364,6 @@ module.exports = class ApplicationUploadBO {
             // yearsOfExp: data['Years In Business'],
             // businessPersonalPropertyLimit: ,
             // // buildingLimit: ,
-
-            // requestId: requestId,
-            // form: ocrResult.form,
-            // questions: ocrResult.ocrResponse
         };
 
         if (data.NAICS) {
@@ -381,14 +378,14 @@ module.exports = class ApplicationUploadBO {
         try {
             // Remove keys with undefined value
             applicationUploadObj = JSON.parse(JSON.stringify(applicationUploadObj));
-            console.log('FINAL hitz', applicationUploadObj);
-            // await ApplicationUpload.create(applicationUploadObj)
             if (doCreateInApplicationUpload) {
                 await ApplicationUpload.create(applicationUploadObj);
-            } else {
+            }
+            else {
                 await Application.create(applicationUploadObj);
             }
         } catch (ex) {
+            log.error("Error  Amtrust Import deleteTaskQueueItem " + error + __location);
             console.log(ex);
         }
     }

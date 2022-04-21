@@ -3,17 +3,29 @@ const timestamps = require('mongoose-timestamp');
 
 const ApplicationUploadStatus = new Schema({
     agencyId: {
-        type: String,
-        required: [true, "agencyId required"]
+        type: String
+    },
+    agencyLocationId: {
+        type: String
     },
     agencyNetworkId: {
-        type: String,
-        required: [true, "agencyNetworkId required"]
+        type: String
+    },
+    insurerId: {
+        type: String
     },
     requestId: {
         type: String,
         required: [true, "requestId required"],
         unique: true
+    },
+    tag: {
+        type: String,
+        default: ""
+    },
+    markAsPending: {
+        type: String,
+        default: ""
     },
     status: {
         type: String,
@@ -26,9 +38,8 @@ const ApplicationUploadStatus = new Schema({
         type: String,
         default: ""
     },
-    tag: {
-        type: String,
-        default: ""
+    agencyPortalUserId: {
+        type: Number
     },
     type: {
         type: String,

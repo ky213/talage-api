@@ -69,7 +69,9 @@ async function performOcrOnAccodPdfFile(req, res, next) {
         agencyNetworkId: parseInt(req.authentication.agencyNetwork, 10),
         agencyId: parseInt(req.body.agencyId, 10),
         insurerId: parseInt(req.body.insurerId, 10),
-        tag: req.body.tag
+        tag: req.body.tag,
+        markAsPending: req.body?.markAsPending === 'true',
+        agencyPortalUserId: req.authentication.userID
     };
 
     if (_.isEmpty(req.files)) {
@@ -83,8 +85,6 @@ async function performOcrOnAccodPdfFile(req, res, next) {
         return next(serverHelper.requestError("Bad Request: Max number of files is 10"));
     }
 
-    const markAsPending = req.body?.markAsPending === 'true';
-
     try {
         const initFiles = [];
 
@@ -97,24 +97,11 @@ async function performOcrOnAccodPdfFile(req, res, next) {
             }
             catch (error) {
                 initData.error = "Error processing acord application file";
-                log.info(`Error processing acord application file: ${file.name} ${error.message} ${__location}`);
+                log.warn(`Error processing acord application file: ${file.name} ${error.message} ${__location}`);
             }
         }
 
-        // THIS IS THE TASK CODE
         const results = await Promise.all(initFiles);
-
-        await Promise.all(results.map(async (requestId) => {
-            console.log('Waiting for request...', requestId);
-            const result = await applicationUploadBO.getOcrResult(requestId);
-            console.log('got result:', result);
-            if (_.get(result, 'status') === 'ERROR') {
-                log.error(`OCR microservice error: ${result.message}`);
-                console.log(`OCR microservice error: ${result.message}`)
-                return;
-            }
-            await applicationUploadBO.saveOcrResult(requestId, result, agencyMetadata, markAsPending);
-        }));
         res.send(results);
     } catch (ex) {
         log.error("Bad Request: error when reading file " + ex.message + __location);
