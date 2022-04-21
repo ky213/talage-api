@@ -1,4 +1,3 @@
-const moment = require('moment');
 const ApplicationUploadBO = global.requireShared('./models/ApplicationUpload-BO.js');
 const ApplicationUploadStatusBO = global.requireShared('./models/ApplicationUploadStatus-BO.js');
 const AgencyPortalUserBO = global.requireShared('./models/AgencyPortalUser-BO.js');
