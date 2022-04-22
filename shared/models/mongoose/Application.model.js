@@ -229,7 +229,8 @@ const PolicySchema = new Schema({
     eventInsurance: eventBasedInsurancePolicySchema,
     bopIndustryCodeId: {type: Number, required: false},
     fireCode: {type: String, required: false},
-    additionalInfo: {type: Object}
+    additionalInfo: {type: Object},
+    isGhostPolicy: {type: Boolean, default: false} //WC
 });
 
 const ApplicationMetricsPremiumSchema = new Schema({
