@@ -17,6 +17,8 @@ const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 const QuoteBO = global.requireShared('./models/Quote-BO.js');
 const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js');
 const FireCodeBO = global.requireShared('./models/FireCode-BO.js');
+const InsurerBO = global.requireShared('./models/Insurer-BO.js');
+
 const taskEmailBindAgency = global.requireRootPath('tasksystem/task-emailbindagency.js');
 const QuoteBind = global.requireRootPath('quotesystem/models/QuoteBind.js');
 const crypt = global.requireShared('./services/crypt.js');
@@ -2244,11 +2246,11 @@ module.exports = class ApplicationModel {
 
         log.debug("stateList: " + JSON.stringify(stateList));
         //Agency Location insurer list.
-        let insurerArray = [];
+        let insurerIdArray = [];
         if(applicationDocDB.agencyLocationId && applicationDocDB.agencyLocationId > 0){
             try{
                 const policyTypeCdList = policyTypeArray.map((pt) => pt.type);
-                insurerArray = await this.getAgencyLocationInsurers(applicationDocDB, policyTypeCdList)
+                insurerIdArray = await this.getAgencyLocationInsurers(applicationDocDB, policyTypeCdList)
             }
             catch(err){
                 throw err
@@ -2259,16 +2261,24 @@ module.exports = class ApplicationModel {
             throw new Error("Incomplete Application: Missing AgencyLocation")
         }
 
+        // Ghost Policy check
+        if(insurerIdArray.length > 0){
+            const checkLocation = questionSubjectArea === 'general' || !questionSubjectArea;
+            const ghostInsurers = await this.GhostPolicyCheckAndInsurerUpdate(applicationDocDB, insurerIdArray, checkLocation)
+            if(ghostInsurers?.length > 0){
+                insurerIdArray = ghostInsurers
+            }
+        }
 
         const questionSvc = global.requireShared('./services/questionsvc.js');
         let getQuestionsResult = null;
 
         try {
             //log.debug("insurerArray: " + insurerArray);
-            getQuestionsResult = await questionSvc.GetQuestionsForAppBO(activityCodeList, industryCodeStringArray, zipCodeArray, policyTypeArray, insurerArray, questionSubjectArea, returnHidden, stateList);
+            getQuestionsResult = await questionSvc.GetQuestionsForAppBO(activityCodeList, industryCodeStringArray, zipCodeArray, policyTypeArray, insurerIdArray, questionSubjectArea, returnHidden, stateList);
             if(getQuestionsResult && getQuestionsResult.length === 0 || getQuestionsResult === false){
                 //no questions returned.
-                log.warn(`AppBO GetQuestions - No questions returned for AppId ${appId} parameter activityCodeList: ${activityCodeList}  industryCodeString: ${industryCodeStringArray}  zipCodeArray: ${zipCodeArray} policyTypeArray: ${JSON.stringify(policyTypeArray)} insurerArray: ${insurerArray} + __location`)
+                log.warn(`AppBO GetQuestions - No questions returned for AppId ${appId} parameter activityCodeList: ${activityCodeList}  industryCodeString: ${industryCodeStringArray}  zipCodeArray: ${zipCodeArray} policyTypeArray: ${JSON.stringify(policyTypeArray)} insurerArray: ${insurerIdArray} + __location`)
             }
         }
         catch (err) {
@@ -2281,6 +2291,92 @@ module.exports = class ApplicationModel {
 
 
     }
+
+    async GhostPolicyCheckAndInsurerUpdate(applicationDocDB, insurerIdArray, checkLocation = false){
+        log.debug(`GhostPolicyCheckAndInsurerUpdate - CHECKING FOR GHOST POLCIES  ` + __location)
+        const newInsurerIdList = [];
+        let ghostPolicy = this.isGhostPolicy(applicationDocDB, checkLocation)
+        log.debug(`GhostPolicyCheckAndInsurerUpdate - ghostPolicy: ${ghostPolicy}  ` + __location)
+        if(ghostPolicy){
+            //Agency Network have ghost policy check enabled.
+            const agencyNetworkBO = new AgencyNetworkBO();
+            const agencyNetworkJson = await agencyNetworkBO.getById(applicationDocDB.agencyNetworkId);
+            if(agencyNetworkJson.featureJson?.enableGhostPolicyCheck){
+                //check for insurers that support ghost policies
+
+                const insurerBO = new InsurerBO();
+                try{
+                    const insurerQuery = {insurerId: {$in: insurerIdArray}}
+                    const insurerDocList = await insurerBO.getList(insurerQuery);
+                    for(const insurerDoc of insurerDocList){
+                        if(insurerDoc.additionalInfo?.WC?.supportsGhostPolicy){
+                            newInsurerIdList.push(insurerDoc.insurerId)
+
+                        }
+                    }
+                }
+                catch(err){
+                    log.error("AppBO GetQuestion GhostPolicy Processing -Error getting insurerList " + err + __location);
+                }
+                if(agencyNetworkJson.featureJson?.enableSoleProAutoAddForGhostPolicy){
+                    //SolePro Insurerid =32
+                    if(newInsurerIdList.indexOf(32) === -1){
+                        newInsurerIdList.push(32)
+                    }
+
+                }
+                log.debug(`GhostPolicyCheckAndInsurerUpdate appId ${applicationDocDB.applicationId} insurerList ${newInsurerIdList} ` + __location)
+            }
+        }
+        return newInsurerIdList;
+    }
+
+    isGhostPolicy(applicationDocDB, checkLocation = false){
+        log.debug(`isGhostPolicy - CHECKING FOR GHOST POLCIES checkLocation ${checkLocation}  ` + __location)
+        let ghostPolicy = false;
+        if(applicationDocDB.policies?.length === 1 && applicationDocDB.policies[0].policyType === "WC"){
+            log.debug(`ghostPolicy appId ${applicationDocDB.applicationId}applicationDocDB.policies[0].isGhostPolicy: ${applicationDocDB.policies[0].isGhostPolicy} ` + __location)
+            if(applicationDocDB.policies[0].isGhostPolicy === true){
+                ghostPolicy = true
+            }
+            if(checkLocation && ghostPolicy === false && applicationDocDB.locations?.length === 1){
+                log.debug(`isGhostPolicy - CHECKING location for employee count  ` + __location)
+                ghostPolicy = true
+                //check for employee
+
+                const location = applicationDocDB.locations[0];
+                //make sure we have full location not just a zip.(page one of Agency portal or QQ)
+                if(location.full_time_employees > 0 || location.part_time_employees > 0){
+                    log.debug(`GhostPolicyCheckAndInsurerUpdate - found full_time_employees  ` + __location)
+                    ghostPolicy = false;
+                }
+                if(ghostPolicy){
+                    for(const activityPayroll of location.activityPayrollList){
+                        for(const employeeType of activityPayroll.employeeTypeList){
+                            if(employeeType === "Full Time" || employeeType === "Part Time"){
+                                log.debug(`GhostPolicyCheckAndInsurerUpdate - found Full Time  ` + __location)
+                                ghostPolicy = false;
+                                break;
+                            }
+                        }
+                        if(!ghostPolicy){
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        else {
+            log.debug(`isGhostPolicy ghostPolicy appId ${applicationDocDB.applicationId} multiple policies detected ` + __location)
+        }
+        log.debug(`isGhostPolicy ghostPolicy appId ${applicationDocDB.applicationId} detected a Ghost Policy  ${ghostPolicy}` + __location)
+        if(ghostPolicy){
+            log.debug(`isGhostPolicy ghostPolicy appId ${applicationDocDB.applicationId} detected a Ghost Policy ` + __location)
+        }
+        return ghostPolicy;
+
+    }
+
     async getAgencyLocationInsurers(applicationDocDB, policyTypeCdList){
         let insurerArray = [];
         log.debug(`Getting  getAgencyLocationInsurers  ${JSON.stringify(policyTypeCdList)}` + __location);

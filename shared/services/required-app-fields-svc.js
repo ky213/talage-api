@@ -431,8 +431,22 @@ exports.requiredFields = async(appId) => {
             log.error("requiredFields -Error getting insurerList " + err + __location);
             POLICY_TYPE_BASED = true
         }
-    }
 
+        // Ghost Policy check
+        if(insurerList.length > 0){
+            log.debug(`requiredFields - CHECKING FOR GHOST POLCIES  ` + __location)
+            const insurerIdArray = insurerList.map(insurerDoc => insurerDoc.insurerId);
+            log.debug(`requiredFields - Ghost check original insurer list ${insurerIdArray} ` + __location)
+            const applicationBO2 = new ApplicationBO();
+            const ghostInsurers = await applicationBO2.GhostPolicyCheckAndInsurerUpdate(applicationDB, insurerIdArray)
+            log.debug(`requiredFields - Ghost check returned insurer list ${ghostInsurers} ` + __location)
+            if(ghostInsurers?.length > 0){
+                const insurerQuery = {insurerId: {$in: ghostInsurers}}
+                insurerList = await insurerBO.getList(insurerQuery);
+                log.debug(`requiredFields - Ghost check update insurer list count ${(insurerList.length)} ` + __location)
+            }
+        }
+    }
 
     // Get insurer required fields by policytype.
 
