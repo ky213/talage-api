@@ -406,7 +406,7 @@ async function setupReturnedApplicationJSON(applicationJSON){
             for(let i = 0; i < applicationJSON.owners.length; i++){
                 // eslint-disable-next-line prefer-const
                 let owner = applicationJSON.owners[i];
-                let activityCode = await activityCodeBO.getById(owner.activityCodeId, true)
+                const activityCode = await activityCodeBO.getById(owner.activityCodeId, true)
                 if(owner._id){
                     delete owner._id;
                 }
