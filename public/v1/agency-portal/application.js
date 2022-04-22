@@ -423,7 +423,7 @@ async function setupReturnedApplicationJSON(applicationJSON){
         }
     }
     catch(err){
-        log.error(" >>>> ===> Application Owner processing error " + err + __location)
+        log.error("Application Owner processing error " + err + __location)
     }
 
     // process location for Activity Code Description
