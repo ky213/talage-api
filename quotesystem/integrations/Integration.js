@@ -983,6 +983,21 @@ module.exports = class Integration {
     }
 
     /**
+     * Returns the total paid on claims associated w/ the application
+     *
+     * @returns {int} - the total amount paid out for claims
+     */
+    get_total_amount_paid_on_claims() {
+        let total = 0;
+        for (const claim of this.applicationDocData.claims) {
+            total += claim.amountPaid;
+        }
+
+        // Return the result
+        return total;
+    }
+
+    /**
      * Returns the total number of employees associated with this application
      *
      * @returns {int} - The total number of employees as an integer
@@ -1083,6 +1098,12 @@ module.exports = class Integration {
         if(total === 0 && appLocation){
             total += appLocation.full_time_employees;
         }
+
+        // safeguard for above code. If there are just no FTE's on the app, the above simple storage code will set 0 to undefined potentially
+        if (typeof total !== 'number') {
+            total = 0;
+        }
+
         return total;
     }
 
@@ -1176,12 +1197,24 @@ module.exports = class Integration {
      */
     get_location_payroll(location) {
         let total = 0;
+        let totalSet = false;
 
-        location.activityPayrollList.forEach((activtyCodePayroll) => {
-            activtyCodePayroll.employeeTypeList.forEach((employeeType) => {
-                total += employeeType.employeeTypePayroll;
+        // current structure
+        if (location.activityPayrollList) {
+            totalSet = true;
+            location.activityPayrollList.forEach((activtyCodePayroll) => {
+                activtyCodePayroll.employeeTypeList.forEach((employeeType) => {
+                    total += employeeType.employeeTypePayroll;
+                });
             });
-        });
+        }
+
+        // old structure
+        if (!totalSet) {
+            location.activity_codes.forEach(wc_code => {
+                total += wc_code.payroll;
+            });
+        }
 
         return total;
     }
