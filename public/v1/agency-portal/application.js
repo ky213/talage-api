@@ -401,10 +401,12 @@ async function setupReturnedApplicationJSON(applicationJSON){
     }
     // // owners birthday formatting
     try{
+        const activityCodeBO = new ActivityCodeBO()
         if(applicationJSON.owners && applicationJSON.owners.length > 0){
             for(let i = 0; i < applicationJSON.owners.length; i++){
                 // eslint-disable-next-line prefer-const
                 let owner = applicationJSON.owners[i];
+                let activityCode = await activityCodeBO.getById(owner.activityCodeId, true)
                 if(owner._id){
                     delete owner._id;
                 }
@@ -414,11 +416,14 @@ async function setupReturnedApplicationJSON(applicationJSON){
                 if(owner.birthdate){
                     owner.birthdate = moment(owner.birthdate).format("MM/DD/YYYY");
                 }
+                if(owner.activityCodeId){
+                    owner.activityDescription = !activityCode.description ? '' : activityCode.description;
+                }
             }
         }
     }
     catch(err){
-        log.error("Application Owner processing error " + err + __location)
+        log.error(" >>>> ===> Application Owner processing error " + err + __location)
     }
 
     // process location for Activity Code Description
