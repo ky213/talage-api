@@ -406,7 +406,6 @@ async function setupReturnedApplicationJSON(applicationJSON){
             for(let i = 0; i < applicationJSON.owners.length; i++){
                 // eslint-disable-next-line prefer-const
                 let owner = applicationJSON.owners[i];
-                const activityCode = await activityCodeBO.getById(owner.activityCodeId, true)
                 if(owner._id){
                     delete owner._id;
                 }
@@ -416,8 +415,11 @@ async function setupReturnedApplicationJSON(applicationJSON){
                 if(owner.birthdate){
                     owner.birthdate = moment(owner.birthdate).format("MM/DD/YYYY");
                 }
-                if(owner.activityCodeId){
-                    owner.activityDescription = !activityCode.description ? '' : activityCode.description;
+                if(owner.activityCodeId > 0){
+                    const activityCode = await activityCodeBO.getById(owner.activityCodeId, true)
+                    if(activityCode){
+                        owner.activityDescription = !activityCode.description ? '' : activityCode.description;
+                    }
                 }
             }
         }
