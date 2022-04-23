@@ -1914,6 +1914,77 @@ async function CheckAppetite(req, res, next){
 }
 
 
+/**
+ * Responds to post requests for all activity codes related to a given NCCI activity code
+ *
+ * @param {object} req - Expects {territory: 'NV', industry_code: 2880, code:005, sub:01}
+ * @param {object} res - Response object: list of activity codes
+ * @param {function} next - The next function to execute
+ *
+ * @returns {object} res - Returns an array of objects containing activity codes [{"id": 2866}]
+ */
+async function GetActivityCodesByNCCICode(req, res, next){
+
+    const appId = req.params.id;
+    const rightsToApp = await isAuthForApplication(req, appId)
+    if(rightsToApp !== true){
+        log.warn(`Not Authorized access attempted appId ${appId}` + __location);
+        return next(serverHelper.forbiddenError(`Not Authorized`));
+    }
+
+    if (!req.query?.territory) {
+        log.info('GetActivityCodesByNCCICode Bad Request: You must supply a territory' + __location);
+        res.send(400, {
+            message: 'You must supply a territory',
+            status: 'error'
+        });
+        return next();
+    }
+
+    if (!req.query?.ncci_code) {
+        log.info('GetActivityCodesByNCCICode Bad Request: You must supply an NCCI code' + __location);
+        res.send(400, {
+            message: 'You must supply an NCCI code',
+            status: 'error'
+        });
+        return next();
+    }
+
+    const {
+        ncci_code, territory
+    } = req.query
+
+    // Get activity codes by ncci codes, filtered by territory
+    try {
+        //Call Application BO to determine what insurerId should be used.
+        log.info('GetActivityCodesByNCCICode calling applicationBO.NcciActivityCodeLookup ' + __location);
+        // const activityCodes = await ActivityCodeSvc.getActivityCodesByNCCICode(ncci_code, territory)
+        const applicationBO = new ApplicationBO();
+        const activityCodes = await applicationBO.NcciActivityCodeLookup(req.params.id, ncci_code, territory);
+        if (activityCodes?.length) {
+            res.send(200, activityCodes);
+            return next();
+        }
+        else{
+            log.info('No Codes Available' + __location);
+            res.send(404, {
+                message: 'No Codes Available',
+                status: 'error'
+            });
+            return next(false);
+        }
+    }
+    catch (error) {
+        log.error(`GetActivityCodesByNCCICode appId ${req.params.id} ${error}` + __location);
+        res.send(500, {
+            message: 'Internal Server Error',
+            status: 'error'
+        });
+        return next(false);
+    }
+}
+
+
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
     server.addPostAuthAppApi("POST Application",`${basePath}/application`, applicationSave);
@@ -1927,6 +1998,7 @@ exports.registerEndpoint = (server, basePath) => {
     server.addPutAuthAppApi('PUT Price Indication for Application', `${basePath}/application/price`, getPricing);
     server.addGetAuthAppApi('GET Required Fields', `${basePath}/application/:id/getrequiredfields`, GetRequiredFields);
     server.addGetAuthAppApi('CheckAppetite for  Application', `${basePath}/application/:id/checkappetite`, CheckAppetite, 'applications', 'manage');
+    server.addGetAuthAppApi('Get Activity Codes by NCCI code', `${basePath}/application/:id/ncci-activity-codes`, GetActivityCodesByNCCICode);
 
     server.addPutAuthAppApi('PUT Validate Application', `${basePath}/application/:id/validate`, validate);
     server.addPutAuthAppApi('PUT Start Quoting Application', `${basePath}/application/quote`, startQuoting);
