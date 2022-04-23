@@ -550,50 +550,59 @@ async function getApplications(req, res, next){
 
     const orClauseArray = [];
 
-    if((req.params.insurerSlug && req.params.insurerSlug.length > 1) || (req.params.searchText && req.params.searchText.toLowerCase().startsWith("i:"))){
+    if((req.params.insurerSlug && req.params.insurerSlug.length > 1) || req.params.insurerQuoteStatusId > -1
+        || (req.params.quoteNumber && req.params.quoteNumber.length > 2)){
         noCacheUse = true;
         log.debug("Insurer Search")
         try{
-            let insurerText = req.params.insurerSlug
-            if(!req.params.insurerSlug){
-                // Removed After March 20, 2022
-                //insurer search
-                const searchWords = req.params.searchText.split(" ");
-                insurerText = searchWords[0].substring(2);
-                req.params.searchText = '';
-                if(searchWords.length > 1){
-                    //reset searchtext to remove insurer
-
-                    searchWords.forEach((searchWord,index) => {
-                        if(index > 0){
-                            req.params.searchText += ' ' + searchWord;
-                        }
-                    })
-                    req.params.searchText = req.params.searchText.trim();
-                }
-                log.debug("New searchText " + req.params.searchText + __location)
-            }
             let insurerId = 0;
+            let runQuoteQuery = false;
+            const matchClause = {
+                active: true
+            }
             //if string (insure name)
-            if(isNaN(insurerText)){
-                const insurerBO = new InsurerBO();
-                // eslint-disable-next-line object-property-newline
-                const queryInsurer = {$or: [{"name": {"$regex": insurerText,"$options": "i"}}, {slug: insurerText}]}
-                const insurerList = await insurerBO.getList(queryInsurer);
-                if(insurerList && insurerList.length){
-                    insurerId = insurerList[0].insurerId
+            if(req.params.insurerSlug){
+                const insurerText = req.params.insurerSlug
+                if(isNaN(insurerText)){
+                    const insurerBO = new InsurerBO();
+                    // eslint-disable-next-line object-property-newline
+                    const queryInsurer = {$or: [{"name": {"$regex": insurerText,"$options": "i"}}, {slug: insurerText}]}
+                    const insurerList = await insurerBO.getList(queryInsurer);
+                    if(insurerList && insurerList.length){
+                        insurerId = insurerList[0].insurerId
+                    }
+                }
+                else {
+                    insurerId = parseInt(insurerText,10)
+                }
+                if(insurerId > 0){
+                    matchClause.insurerId = insurerId;
+                    runQuoteQuery = true;
                 }
             }
-            else {
-                insurerId = parseInt(insurerText,10)
+
+            if(req.params.insurerQuoteStatusId > -1){
+                try{
+                    const quoteStatusId = parseInt(req.params.insurerQuoteStatusId,10);
+                    if(typeof quoteStatusId === 'number'){
+                        matchClause.quoteStatusId = quoteStatusId
+                        runQuoteQuery = true;
+                    }
+                }
+                catch(err){
+                    log.info(`bad iq parameter ${req.params.insurerQuoteStatusId} ` + __location);
+                }
             }
-            if(insurerId > 0){
+            if(req.params.quoteNumber && req.params.quoteNumber.length > 2){
+                matchClause.quoteNumber = req.params.quoteNumber;
+                runQuoteQuery = true;
+            }
+
+            if(runQuoteQuery){
+
                 //create match
                 // eslint-disable-next-line prefer-const
-                let matchClause = {
-                    active: true,
-                    insurerId: insurerId
-                }
+
                 let dateQuery = null;
                 if(!startDateMoment || !startDateMoment.isValid()){
                     startDateMoment = moment().add(-90,"d");
@@ -647,37 +656,6 @@ async function getApplications(req, res, next){
                 // let policyDateSearch = false;
                 // let policyDateExpiredSearch = false;
                 // let modifiedSearch = false;
-
-
-                if(req.params.insurerQuoteStatusId > -1 || req.params.searchText.toLowerCase().startsWith("iq:")){
-                    let insurerStatusIdText = req.params.insurerQuoteStatusId
-                    if(!req.params.insurerQuoteStatusId){
-                        const searchWords2 = req.params.searchText.split(" ");
-                        insurerStatusIdText = searchWords2[0].substring(3);
-                        req.params.searchText = '';
-                        if(searchWords2.length > 1){
-                            //reset searchtext to remove insurer
-
-                            searchWords2.forEach((searchWord,index) => {
-                                if(index > 0){
-                                    req.params.searchText += ' ' + searchWord;
-                                }
-                            })
-                            req.params.searchText = req.params.searchText.trim();
-                        }
-                    }
-
-                    try{
-                        log.debug(`quoteStatus filter ${insurerStatusIdText}`)
-                        const quoteStatusId = parseInt(insurerStatusIdText,10);
-                        if(typeof quoteStatusId === 'number'){
-                            matchClause.quoteStatusId = quoteStatusId
-                        }
-                    }
-                    catch(err){
-                        log.info(`bad iq parameter ${insurerStatusIdText} ` + __location);
-                    }
-                }
                 log.debug('Insurer match clause ' + JSON.stringify(matchClause))
                 const applicationIdJSONList = await Quote.aggregate([
                     {$match: matchClause},
@@ -710,10 +688,6 @@ async function getApplications(req, res, next){
                     // match sure no applications go back
                     query.applicationId = "asdf";
                 }
-            }
-            else {
-                // match sure no applications go back
-                query.applicationId = "asdf";
             }
         }
         catch(err){

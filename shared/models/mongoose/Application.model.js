@@ -22,7 +22,7 @@ const opts = {toJSON: {virtuals: true}};
 //const optsNoId = {toJSON: {virtuals: true},id: false, _id: false};
 
 const contactSchema = new Schema({
-    email: {type: String, required: true},
+    email: {type: String, required: false},
     firstName: {type: String, required: false},
     lastName: {type: String, required: false},
     phone: {type: String, required: false},
@@ -30,9 +30,9 @@ const contactSchema = new Schema({
 });
 
 const ActivityCodeEmployeeTypeEntrySchema = new Schema({
-    employeeTypePayroll: { type: Number, required: true },
-    employeeType: { type: String, required: true },
-    employeeTypeCount: { type: Number, required: true }
+    employeeTypePayroll: { type: Number, required: true, default: 0},
+    employeeType: { type: String, required: true, default: "Full Time"},
+    employeeTypeCount: { type: Number, required: true, default: 0}
 })
 
 const ActivtyCodeEmployeeTypeSchema = new Schema({
@@ -126,11 +126,11 @@ locationSchema.virtual('territory').
 
 const ownerSchema = new Schema({
     birthdate: {type: Date, required: false},
-    fname: {type: String, required: true},
-    lname: {type: String, required: true},
+    fname: {type: String, required: false},
+    lname: {type: String, required: false},
     ownership: {type: Number, required: false, default: 0},
-    officerTitle: {type: String},
-    include: {type: Boolean, required: false},
+    officerTitle: {type: String, required: false},
+    include: {type: Boolean, required: true, default: false},
     activityCodeId: {type: Number, required: false},
     payroll: {type: Number, required: false}
 });
@@ -146,7 +146,7 @@ const claimSchema = new Schema({
     policyType: {type: String, required: true},
     amountPaid: {type: Number, required: false},
     amountReserved: {type: Number, required: false},
-    eventDate: {type: Date, required: true},
+    eventDate: {type: Date, required: false},
     open: {type: Boolean, default: false},
     missedWork: {type: Boolean, default: false},
     description: {type: String, required: false},
@@ -229,7 +229,8 @@ const PolicySchema = new Schema({
     eventInsurance: eventBasedInsurancePolicySchema,
     bopIndustryCodeId: {type: Number, required: false},
     fireCode: {type: String, required: false},
-    additionalInfo: {type: Object}
+    additionalInfo: {type: Object},
+    isGhostPolicy: {type: Boolean, default: false} //WC
 });
 
 const ApplicationMetricsPremiumSchema = new Schema({
@@ -449,4 +450,9 @@ function populateActivityCodePayroll(schema) {
         }
         schema.set({ activityCodes: activityCodesPayrollSumList });
     }
+}
+
+
+module.exports = {
+    ApplicationSchema: ApplicationSchema
 }

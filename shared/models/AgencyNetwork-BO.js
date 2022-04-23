@@ -92,12 +92,20 @@ module.exports = class AgencyNetworkBO{
         let fileName = stringFunctions.santizeFilename(agencyNetworkName);
         //clean filename for S3 as filesvc does.
         fileName = fileName.replace(/[^a-zA-Z0-9-_/.]/g, '');
+        //need to get spaces too.
+        fileName = fileName.replace(/\s/g, '');
         fileName += isHeader ? "-header-" : "-footer-"
         fileName += uuidv4().toString();
         fileName += `-${stringFunctions.santizeFilename(newFileName)}`
         const s3Path = baseS3Path + fileName;
-        await fileSvc.PutFile(s3Path, logoData).then(function(){
-            return fileName;
+        await fileSvc.PutFile(s3Path, logoData).then(function(result){
+            if (result && s3Path === result.s3KeyUpdated) {
+                return fileName;
+            }
+            else {
+                const updatedFileName = result.s3KeyUpdated.replace(result.s3KeyUpdated, '');
+                return updatedFileName;
+            }
 
         }).catch(function(err){
             log.error("File Service HTTP Put: " + err + __location);

@@ -206,13 +206,13 @@ module.exports = class SoleProWC extends Integration {
         }
 
         // entity type check
-        if(appDoc.entityType !== "Sole Proprietorship"){
-            this.reasons.push(`Wheelhosue only support SolePro Sole Proprietorship submissions at this time.`);
+        if(appDoc.entityType !== "Sole Proprietorship" && appDoc.entityType !== "Corporation (S-Corp)"){
+            this.reasons.push(`Wheelhouse only supports SolePro Sole Proprietorship or S-Corps submissions at this time.`);
             return this.return_result('autodeclined');
         }
         //owner count check only handle one wiht owner SSN issue
         if(appDoc.owners.length !== 1){
-            this.reasons.push(`Wheelhosue only support SolePro for Sole Proprietorship with one owner at this time.`);
+            this.reasons.push(`Wheelhouse only supports SolePro for Sole Proprietorship or S-Corps with one owner at this time.`);
             return this.return_result('autodeclined');
         }
 
@@ -224,7 +224,7 @@ module.exports = class SoleProWC extends Integration {
             primaryLocation = this.applicationDocData.locations[0];
         }
         const governingActivityCodeJson = this.determine_governing_activity_code();
-        primaryAcivityCodeId = governingActivityCodeJson.id
+        primaryAcivityCodeId = governingActivityCodeJson?.id ? governingActivityCodeJson.id : 0;
         log.debug(`${logPrefix} primaryAcivityCodeId ${primaryAcivityCodeId}`)
         //const insurerIAC = await this.get_insurer_code_for_activity_code(this.insurer.insurerDoc.insurerId, primaryLocation.state, governingActivityCodeJson.id);
         //primaryCodesCode = insurerIAC.code;
@@ -282,14 +282,19 @@ module.exports = class SoleProWC extends Integration {
                 numOfEmployees += loc.part_time_employees;
             });
         }
+        if(numOfEmployees > 0){
+            const policyDoc = appDoc.policies.find((pt) => pt.policyType === "WC");
+            if(!policyDoc || !policyDoc.isGhostPolicy){
+                this.reasons.push(`Wheelhouse only supports SolePro with zero employees (Solo-X and Solo-I) at this time.`);
+                return this.return_result('autodeclined');
+            }
+        }
 
 
         //TODO pick correct product
         let soleproProduct = "SLX";
-        if(HasSubcontractor || numOfEmployees > 0){
-            soleproProduct = 'PLS'
-        }
-        else if(appDoc.owners[0].include){ // Refactor once more than one owner is allowed
+
+        if(appDoc.owners[0].include){ // Refactor once more than one owner is allowed
             soleproProduct = "SLI";
         }
 
@@ -402,6 +407,7 @@ module.exports = class SoleProWC extends Integration {
         if(result.decision.status === "Quoted" || result.decision.status === "Referral"){
             this.number = result.reference;
             this.amount = result.decision.premiums?.gross?.amount
+            this.quoteLink = "https://www.solepro.com/account/login"
 
             try{
                 if(result?.covers && result?.covers[0] && result?.covers[0].limits){
@@ -434,6 +440,7 @@ module.exports = class SoleProWC extends Integration {
             }
         }
         else if(result?.decision?.status){
+            this.quoteLink = "https://www.solepro.com/account/login"
             if(result?.decline_reasons){
                 for(const decline_reason of result.decline_reasons){
                     this.reasons.push(decline_reason);

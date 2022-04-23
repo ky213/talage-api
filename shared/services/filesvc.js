@@ -26,8 +26,11 @@ exports.PutFile = function(s3Key, fileContent, contentType = null) {
 
         // Sanitize the file path
         let s3Path = '';
+        let s3KeyClean = s3Key;
         if (s3Key) {
-            s3Path = s3Key.replace(/[^a-zA-Z0-9-_/.]/g, '');
+            s3KeyClean = s3KeyClean.replace(/[^a-zA-Z0-9-_/.]/g, '');
+            s3KeyClean = s3KeyClean.replace(/\s/g, '');
+            s3Path = s3KeyClean;
         }
 
         // Make sure a file path was provided
@@ -71,7 +74,10 @@ exports.PutFile = function(s3Key, fileContent, contentType = null) {
                 log.info('File saved at ' + s3Path + __location);
 
                 // Send the data back to the user
-                resolve({'code': 'Success'});
+                resolve({
+                    'code': 'Success',
+                    s3KeyUpdated: s3KeyClean
+                });
             });
 
         }
@@ -219,8 +225,11 @@ exports.PutFileSecure = function(s3Key, fileContent) {
 
         // Sanitize the file path
         let s3Path = '';
+        let s3KeyClean = s3Key;
         if (s3Key) {
-            s3Path = s3Key.replace(/[^a-zA-Z0-9-_/.]/g, '');
+            s3KeyClean = s3KeyClean.replace(/[^a-zA-Z0-9-_/.]/g, '');
+            s3KeyClean = s3KeyClean.replace(/\s/g, '');
+            s3Path = s3KeyClean;
         }
 
         // Make sure a file path was provided
@@ -255,7 +264,10 @@ exports.PutFileSecure = function(s3Key, fileContent) {
                 log.info('File saved at ' + s3Path + __location);
 
                 // Send the data back to the user
-                resolve({'code': 'Success'});
+                resolve({
+                    'code': 'Success',
+                    s3KeyUpdated: s3KeyClean
+                });
             });
 
         }

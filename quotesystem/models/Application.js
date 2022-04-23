@@ -663,6 +663,29 @@ module.exports = class Application {
                 desired_insurers = Object.keys(this.agencyLocation.insurers);
             }
 
+            //Ghost Policy Check - SolePro Autoadd.
+
+            if(desired_insurers.length > 0){
+                try {
+                    let applicationBO = new ApplicationBO();
+                    const ghostInsurers = await applicationBO.GhostPolicyCheckAndInsurerUpdate(this.applicationDocData, desired_insurers)
+                    if(ghostInsurers?.length > 0){
+                        log.debug(`Ghost Policy Check - SolePro auto-add changed insurers to ${ghostInsurers}` + __location)
+
+                        for(const ghostInsurerId of ghostInsurers){
+                            if(desired_insurers.includes(ghostInsurerId) === false){
+                                this.setupGhostInsurerInAgencyLocation(ghostInsurerId)
+                            }
+                        }
+                        desired_insurers = ghostInsurers
+                    }
+                }
+                catch(err){
+                    log.error(`Ghost Policy Check - SolePro Autoadd check error appId: $(this.applicationDocData.applicationId} error: $[err}` + __location);
+                    throw err;
+                }
+            }
+
             // Loop through each desired insurer
             let insurers = [];
             const insurer_promises = [];
@@ -685,6 +708,36 @@ module.exports = class Application {
             fulfill(insurers);
         });
     }
+
+    async setupGhostInsurerInAgencyLocation(insurerId){
+        //only available to wheelhouse agency
+        if(this.applicationDocData.agencyNetworkId === 1){
+            const wholesaleAgencyLocationId = 1;
+
+            const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
+            const agencyLocationBO = new AgencyLocationBO();
+            const getChildren = true;
+            const agencyPrimeAgencyLocation = await agencyLocationBO.getById(wholesaleAgencyLocationId, getChildren);
+            //Find correct insurer
+            const wholesaleInsurer = agencyPrimeAgencyLocation.insurers.find((ti) => ti.insurerId === insurerId);
+            if(wholesaleInsurer){
+                if(wholesaleInsurer.agencyId){
+                    wholesaleInsurer.agency_id = wholesaleInsurer.agencyId;
+                }
+                if(wholesaleInsurer.insurerId){
+                    wholesaleInsurer.id = wholesaleInsurer.insurerId;
+                }
+                if(wholesaleInsurer.agentId){
+                    wholesaleInsurer.agent_id = wholesaleInsurer.agentId;
+                }
+                this.agencyLocation.insurers[insurerId] = wholesaleInsurer;
+                this.agencyLocation.insurerList.push(wholesaleInsurer)
+                log.debug(`Added Ghost insurer ${insurerId} ${JSON.stringify(wholesaleInsurer)}`)
+            }
+        }
+
+    }
+
 
     /**
 	 * Returns an array of the Talage WC Codes that were included in this application

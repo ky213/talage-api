@@ -67,6 +67,9 @@ const featureSchema = new Schema({
     showTalageUniversityLink: {type: Boolean, required: true, default: true},
     enableApiKeys: {type: Boolean, required: true, default: false},
     ncciInsurerId: {type: Number, required: true, default: 9},
+    enableGhostPolicyCheck: {type: Boolean, required: true, default: false},
+    enableSoleProAutoAddForGhostPolicy: {type: Boolean, required: true, default: false},
+    enableGhostPolicyAgencyPortalSelection: {type: Boolean, required: true, default: false},
     policyEffectiveDateThresholds:
     {
         type: policyEffectiveDateThresholdsSchema,
