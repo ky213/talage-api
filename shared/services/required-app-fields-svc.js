@@ -416,6 +416,8 @@ exports.requiredFields = async(appId) => {
         log.error("requiredFields - Error getting agencyLcoation doc " + err + __location);
     }
 
+    const insurerBO = new InsurerBO();
+
     if(!agencyLocationDB){
         //no agencylocation fall back to policy_type based required Fields.
         log.warn(`Failing back to  Default Required Fields b/c agency location appId  ${appId}` + __location)
@@ -423,7 +425,6 @@ exports.requiredFields = async(appId) => {
     }
     else {
         // load full insuers list so we only do 1 DB or Redis hit for the insurers.
-        const insurerBO = new InsurerBO();
         try{
             insurerList = await insurerBO.getList();
         }
@@ -432,7 +433,6 @@ exports.requiredFields = async(appId) => {
             POLICY_TYPE_BASED = true
         }
     }
-
 
     // Get insurer required fields by policytype.
 
@@ -450,7 +450,21 @@ exports.requiredFields = async(appId) => {
                 requiredFields = processPolicyTypeJson(policyBasedRequiredFields[ptCode], requiredFields);
             }
             else {
-                const ptInsurerList = getAgencyLocationsInsurerByPolicyType(agencyLocationDB, ptCode, insurerList);
+                let ptInsurerList = getAgencyLocationsInsurerByPolicyType(agencyLocationDB, ptCode, insurerList);
+                // Ghost Policy check
+                if(ptInsurerList.length > 0 && ptCode === "WC"){
+                    log.debug(`requiredFields - CHECKING FOR GHOST POLCIES  ` + __location)
+                    const insurerIdArray = insurerList.map(insurerDoc => insurerDoc.insurerId);
+                    log.debug(`requiredFields - Ghost check original insurer list ${ptInsurerList} ` + __location)
+                    const applicationBO2 = new ApplicationBO();
+                    const ghostInsurers = await applicationBO2.GhostPolicyCheckAndInsurerUpdate(applicationDB, insurerIdArray)
+                    log.debug(`requiredFields - Ghost check returned insurer list ${ghostInsurers} ` + __location)
+                    if(ghostInsurers?.length > 0){
+                        const insurerQuery = {insurerId: {$in: ghostInsurers}}
+                        ptInsurerList = await insurerBO.getList(insurerQuery);
+                        log.debug(`requiredFields - Ghost check update insurer list count ${insurerList.length} ` + __location)
+                    }
+                }
                 if(ptInsurerList.length > 0){
                     for(const ptInsurer of ptInsurerList){
                         if(ptInsurer.requiredFields && ptInsurer.requiredFields[ptCode]) {
