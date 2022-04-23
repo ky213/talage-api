@@ -596,21 +596,82 @@ async function GetQuestions(activityCodeStringArray, industryCodeStringArray, zi
  * @returns {array|false} An array of questions structured the way the front end is expecting them, false otherwise
  *
  */
-exports.GetQuestionsForAppBO = async function(activityCodeArray, industryCodeStringArray, zipCodeArray, policyTypeArray, insurerStringArray, questionSubjectArea = "general", return_hidden = true, stateList = []){
-    const questions = await GetQuestions(activityCodeArray, industryCodeStringArray, zipCodeArray, policyTypeArray, insurerStringArray, questionSubjectArea, return_hidden, stateList);
+// exports.GetQuestionsForAppBO = async function(activityCodeArray, industryCodeStringArray, zipCodeArray, policyTypeArray, insurerStringArray, questionSubjectArea = "general", return_hidden = true, stateList = []){
 
-    if(!questions || questions === false){
-        log.debug('GetQuestionsForAppBO no questions ')
-        return false;
+//     const questionPullStart = moment();
+//     const questions = await GetQuestions(activityCodeArray, industryCodeStringArray, zipCodeArray, policyTypeArray, insurerStringArray, questionSubjectArea, return_hidden, stateList);
+
+//     if(!questions || questions === false){
+//         log.debug('GetQuestionsForAppBO no questions ')
+//         return false;
+//     }
+//     for(const question in questions){
+//         if(Object.prototype.hasOwnProperty.call(questions, question)){
+//             if('possible_answers' in questions[question]){
+//                 questions[question].answers = Object.values(questions[question].possible_answers);
+//                 delete questions[question].possible_answers;
+//             }
+//         }
+//     }
+
+
+//     const endQuestionPull = moment();
+//     const diff = endQuestionPull.diff(questionPullStart, 'milliseconds', true);
+//     log.info(`GetQuestionsForAppBO Question pull: ${questions.length} in ${diff} milliseconds`);
+
+//     return questions;
+// }
+
+/**
+ * @param {array} activityCodeArray - An array of all the activity codes in the applicaiton
+ * @param {string} industryCodeStringArray - An array of industry codes of the application
+ * @param {array} zipCodeArray - An array of all the zipcodes (stored as strings) in which the business operates
+ * @param {array.<Object>} policyTypeJsonList - An array containing of all the policy types applied for. Ex: [{type:"WC",effectiveDate:"03-02-2021", insurerIdList: [1,3]}]
+ * @param {string} questionSubjectArea - A string specifying the question subject area ("general", "location", "location.building", ...)
+ * @param {boolean} return_hidden - true to return hidden questions, false to only return visible questions
+ * @param {array} stateList - An array containing the US State Codes for the application
+ *
+ * @returns {array|false} An array of questions structured the way the front end is expecting them, false otherwise
+ *
+ */
+exports.GetQuestionsForAppBO2 = async function(activityCodeArray, industryCodeStringArray, zipCodeArray, policyTypeJsonList, questionSubjectArea = "general", return_hidden = true, stateList = []){
+
+    const questionPullStart = moment();
+    const questions = [];
+    for(const policyTypeJSON of policyTypeJsonList){
+
+        const policyTypeArray = [];
+        policyTypeArray.push(policyTypeJSON)
+        const questionsPT = await GetQuestions(activityCodeArray, industryCodeStringArray, zipCodeArray, policyTypeArray, policyTypeJSON.insurerIdList, questionSubjectArea, return_hidden, stateList);
+
+        if(questionsPT?.length > 0){
+            if(questions.length === 0){
+                questions.push(...questionsPT);
+            }
+            else {
+                for(const newQuestion of questionsPT){
+                    const existingQ = questions.find((q) => q?.talageQuestionId === newQuestion.talageQuestionId);
+                    if(!existingQ){
+                        questions.push(newQuestion)
+                    }
+                }
+            }
+        }
+        log.debug(`GetQuestionsForAppBO2 after ${policyTypeJSON.type} question count ${questions.length}` + __location)
     }
-    for(const question in questions){
-        if(Object.prototype.hasOwnProperty.call(questions, question)){
-            if('possible_answers' in questions[question]){
-                questions[question].answers = Object.values(questions[question].possible_answers);
-                delete questions[question].possible_answers;
+    if(questions?.length > 0){
+        for(const question of questions){
+            if('possible_answers' in question){
+                question.answers = Object.values(question.possible_answers);
+                delete question.possible_answers;
             }
         }
     }
+
+
+    const endQuestionPull = moment();
+    const diff = endQuestionPull.diff(questionPullStart, 'milliseconds', true);
+    log.info(`GetQuestionsForAppBO Question pull: ${questions.length} in ${diff} milliseconds`);
 
     return questions;
 }

@@ -395,8 +395,8 @@ module.exports = class ApplicationModel {
                     newObjectJSON.updatedAt = new Date();
 
                     await ApplicationMongooseModel.updateOne(query, newObjectJSON);
-                    log.debug("Mongo Application updated " + JSON.stringify(query) + __location)
-                    log.debug("updated to " + JSON.stringify(newObjectJSON) + __location);
+                    //log.debug("Mongo Application updated " + JSON.stringify(query) + __location)
+                    //log.debug("updated to " + JSON.stringify(newObjectJSON) + __location);
                     const newApplicationdoc = await ApplicationMongooseModel.findOne(query);
                     this.#applicationMongooseDB = newApplicationdoc
                     if(global.settings.USE_REDIS_APP_LIST_CACHE === "YES"){
@@ -2104,30 +2104,30 @@ module.exports = class ApplicationModel {
         }
 
         //policyType.
-        let policyTypeArray = [];
+        let policyTypeJsonList = [];
         if(applicationDocDB.policies && applicationDocDB.policies.length > 0){
             for(let i = 0; i < applicationDocDB.policies.length; i++){
                 if(!policyTypeRequested){
-                    policyTypeArray.push({
+                    policyTypeJsonList.push({
                         type: applicationDocDB.policies[i].policyType,
                         effectiveDate: applicationDocDB.policies[i].effectiveDate
                     });
                 }
                 else if(policyTypeRequested === applicationDocDB.policies[i].policyType){
-                    policyTypeArray.push({
+                    policyTypeJsonList.push({
                         type: applicationDocDB.policies[i].policyType,
                         effectiveDate: applicationDocDB.policies[i].effectiveDate
                     });
                 }
             }
             //not policy hit
-            if(policyTypeRequested && policyTypeArray.length === 0){
-                policyTypeArray.push({
+            if(policyTypeRequested && policyTypeJsonList.length === 0){
+                policyTypeJsonList.push({
                     type: policyTypeRequested,
                     effectiveDate: moment()
                 });
             }
-            if(policyTypeArray.length === 0){
+            if(policyTypeJsonList.length === 0){
                 log.warn(`AppBO GetQuestions no policy Types got selected for ${applicationDocDB.applicationId}j.` + __location)
                 return {};
             }
@@ -2143,7 +2143,7 @@ module.exports = class ApplicationModel {
         // activity codes are not required for For most GL or BOP. only WC.
         // Future Enhance is to take insurers into account. For Example: Acuity mixes GL and WC concepts.
         // This check may need to become insurer aware.
-        const requireActivityCodes = Boolean(policyTypeArray.filter(policy => policy === "WC").length);
+        const requireActivityCodes = Boolean(policyTypeJsonList.filter(policy => policy === "WC").length);
         // for questionSubjectArea: general, always get the activity codes from the application.
         // if it a location subject area should we be getting the activity codes from the location
         //    not application wide.
@@ -2249,11 +2249,29 @@ module.exports = class ApplicationModel {
         let insurerIdArray = [];
         if(applicationDocDB.agencyLocationId && applicationDocDB.agencyLocationId > 0){
             try{
-                const policyTypeCdList = policyTypeArray.map((pt) => pt.type);
-                insurerIdArray = await this.getAgencyLocationInsurers(applicationDocDB, policyTypeCdList)
+                //const policyTypeCdList = policyTypeJsonList.map((pt) => pt.type);
+                const agencyLocation = await this.getAgencyLocationWithQuotingInsurerList(applicationDocDB)
+                if(agencyLocation){
+                    for(const policyTypeJSON of policyTypeJsonList){
+                        policyTypeJSON.insurerIdList = [];
+                        for(const alInsurer of agencyLocation.insurers){
+                            if(alInsurer.policyTypeInfo[policyTypeJSON.type]?.enabled === true){
+                                policyTypeJSON.insurerIdList.push(alInsurer.insurerId)
+                                if(insurerIdArray.indexOf(alInsurer.insurerId) === -1){
+                                    insurerIdArray.push(alInsurer.insurerId)
+                                }
+                            }
+                        }
+                    }
+                }
+                else {
+                    log.error(`AppBO GetQuestions - No AgencyLocation for ${applicationDocDB.uuid}.` + __location);
+                    throw new Error("Incomplete Application: Missing AgencyLocation")
+                }
             }
             catch(err){
-                throw err
+                log.error(`AppBO GetQuestions - policyTypeJsonList insurers for ${applicationDocDB.uuid} . error ${err}` + __location);
+                throw err;
             }
         }
         else {
@@ -2267,6 +2285,10 @@ module.exports = class ApplicationModel {
             const ghostInsurers = await this.GhostPolicyCheckAndInsurerUpdate(applicationDocDB, insurerIdArray, checkLocation)
             if(ghostInsurers?.length > 0){
                 insurerIdArray = ghostInsurers
+                //update policyTypeJsonList
+                const policyTypeJSON = policyTypeJsonList.find((pt) => pt.type === "WC");
+                policyTypeJSON.insurerIdList = ghostInsurers;
+
             }
         }
 
@@ -2275,11 +2297,7 @@ module.exports = class ApplicationModel {
 
         try {
             //log.debug("insurerArray: " + insurerArray);
-            getQuestionsResult = await questionSvc.GetQuestionsForAppBO(activityCodeList, industryCodeStringArray, zipCodeArray, policyTypeArray, insurerIdArray, questionSubjectArea, returnHidden, stateList);
-            if(getQuestionsResult && getQuestionsResult.length === 0 || getQuestionsResult === false){
-                //no questions returned.
-                log.warn(`AppBO GetQuestions - No questions returned for AppId ${appId} parameter activityCodeList: ${activityCodeList}  industryCodeString: ${industryCodeStringArray}  zipCodeArray: ${zipCodeArray} policyTypeArray: ${JSON.stringify(policyTypeArray)} insurerArray: ${insurerIdArray} + __location`)
-            }
+            getQuestionsResult = await questionSvc.GetQuestionsForAppBO2(activityCodeList, industryCodeStringArray, zipCodeArray, policyTypeJsonList, questionSubjectArea, returnHidden, stateList);
         }
         catch (err) {
             log.error("AppBO GetQuestions - Error call in question service " + err + __location);
@@ -2293,10 +2311,8 @@ module.exports = class ApplicationModel {
     }
 
     async GhostPolicyCheckAndInsurerUpdate(applicationDocDB, insurerIdArray, checkLocation = false){
-        log.debug(`GhostPolicyCheckAndInsurerUpdate - CHECKING FOR GHOST POLCIES  ` + __location)
         const newInsurerIdList = [];
         let ghostPolicy = this.isGhostPolicy(applicationDocDB, checkLocation)
-        log.debug(`GhostPolicyCheckAndInsurerUpdate - ghostPolicy: ${ghostPolicy}  ` + __location)
         if(ghostPolicy){
             //Agency Network have ghost policy check enabled.
             const agencyNetworkBO = new AgencyNetworkBO();
@@ -2325,36 +2341,30 @@ module.exports = class ApplicationModel {
                     }
 
                 }
-                log.debug(`GhostPolicyCheckAndInsurerUpdate appId ${applicationDocDB.applicationId} insurerList ${newInsurerIdList} ` + __location)
             }
         }
         return newInsurerIdList;
     }
 
     isGhostPolicy(applicationDocDB, checkLocation = false){
-        log.debug(`isGhostPolicy - CHECKING FOR GHOST POLCIES checkLocation ${checkLocation}  ` + __location)
         let ghostPolicy = false;
         if(applicationDocDB.policies?.length === 1 && applicationDocDB.policies[0].policyType === "WC"){
-            log.debug(`ghostPolicy appId ${applicationDocDB.applicationId}applicationDocDB.policies[0].isGhostPolicy: ${applicationDocDB.policies[0].isGhostPolicy} ` + __location)
             if(applicationDocDB.policies[0].isGhostPolicy === true){
                 ghostPolicy = true
             }
             if(checkLocation && ghostPolicy === false && applicationDocDB.locations?.length === 1){
-                log.debug(`isGhostPolicy - CHECKING location for employee count  ` + __location)
                 ghostPolicy = true
                 //check for employee
 
                 const location = applicationDocDB.locations[0];
                 //make sure we have full location not just a zip.(page one of Agency portal or QQ)
                 if(location.full_time_employees > 0 || location.part_time_employees > 0){
-                    log.debug(`GhostPolicyCheckAndInsurerUpdate - found full_time_employees  ` + __location)
                     ghostPolicy = false;
                 }
                 else {
                     for(const activityPayroll of location.activityPayrollList){
                         for(const employeeType of activityPayroll.employeeTypeList){
                             if(employeeType.employeeType === "Full Time" || employeeType.employeeType === "Part Time"){
-                                log.debug(`GhostPolicyCheckAndInsurerUpdate - found Full Time  ` + __location)
                                 ghostPolicy = false;
                                 break;
                             }
@@ -2366,20 +2376,12 @@ module.exports = class ApplicationModel {
                 }
             }
         }
-        else {
-            log.debug(`isGhostPolicy ghostPolicy appId ${applicationDocDB.applicationId} multiple policies detected ` + __location)
-        }
-        log.debug(`isGhostPolicy ghostPolicy appId ${applicationDocDB.applicationId} detected a Ghost Policy  ${ghostPolicy}` + __location)
-        if(ghostPolicy){
-            log.debug(`isGhostPolicy ghostPolicy appId ${applicationDocDB.applicationId} detected a Ghost Policy ` + __location)
-        }
         return ghostPolicy;
 
     }
 
-    async getAgencyLocationInsurers(applicationDocDB, policyTypeCdList){
-        let insurerArray = [];
-        log.debug(`Getting  getAgencyLocationInsurers  ${JSON.stringify(policyTypeCdList)}` + __location);
+
+    async getAgencyLocationWithQuotingInsurerList(applicationDocDB){
         const agencyLocationBO = new AgencyLocationBO();
         const getChildren = true;
         const addAgencyPrimaryLocation = true;
@@ -2388,7 +2390,34 @@ module.exports = class ApplicationModel {
         });
         if(agencylocationJSON && agencylocationJSON.useAgencyPrime){
             try{
-                log.debug(`Getting  Primary Agency insurers ` + __location);
+                const insurerObjList = await agencyLocationBO.getAgencyPrimeInsurers(applicationDocDB.agencyId, applicationDocDB.agencyNetworkId);
+                if(!insurerObjList && insurerObjList.length === 0){
+                    log.error(`AppBO GetQuestions Unable got get primary agency's insurers ` + __location);
+                }
+                else {
+                    agencylocationJSON.insurers = insurerObjList
+                }
+            }
+            catch(err){
+                log.error(`Data problem prevented getting App agency location for ${applicationDocDB.uuid} agency ${applicationDocDB.agencyId} Location ${applicationDocDB.agencyLocationId}` + __location)
+                throw new Error("Agency Network Error no Primary Agency Insurers")
+            }
+        }
+        return agencylocationJSON;
+
+    }
+
+
+    async getAgencyLocationInsurers(applicationDocDB, policyTypeCdList){
+        let insurerArray = [];
+        const agencyLocationBO = new AgencyLocationBO();
+        const getChildren = true;
+        const addAgencyPrimaryLocation = true;
+        let agencylocationJSON = await agencyLocationBO.getById(applicationDocDB.agencyLocationId, getChildren, addAgencyPrimaryLocation).catch(function(err) {
+            log.error(`Error getting Agency Primary Location ${applicationDocDB.applicationId} ` + err + __location);
+        });
+        if(agencylocationJSON && agencylocationJSON.useAgencyPrime){
+            try{
                 const insurerObjList = await agencyLocationBO.getAgencyPrimeInsurers(applicationDocDB.agencyId, applicationDocDB.agencyNetworkId);
                 if(!insurerObjList && insurerObjList.length === 0){
                     log.error(`AppBO GetQuestions Unable got get primary agency's insurers ` + __location);
@@ -2400,7 +2429,6 @@ module.exports = class ApplicationModel {
                         }
                     }
                 }
-                log.debug(`Set  Primary Agency insurers ${insurerArray} ` + __location);
             }
             catch(err){
                 log.error(`Data problem prevented getting App agency location for ${applicationDocDB.uuid} agency ${applicationDocDB.agencyId} Location ${applicationDocDB.agencyLocationId}` + __location)
@@ -2408,7 +2436,6 @@ module.exports = class ApplicationModel {
             }
         }
         else if (agencylocationJSON && agencylocationJSON.insurers && agencylocationJSON.insurers.length > 0) {
-            log.debug(`Getting  getAgencyLocationInsurers insurers  ${JSON.stringify(agencylocationJSON.insurers)}` + __location);
             for (const policyTypeCd of policyTypeCdList){
                 for(let i = 0; i < agencylocationJSON.insurers.length; i++){
                     if(agencylocationJSON.insurers[i].policyTypeInfo[policyTypeCd]?.enabled === true && insurerArray.indexOf(agencylocationJSON.insurers[i].insurerId) === -1){

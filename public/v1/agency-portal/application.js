@@ -571,7 +571,7 @@ async function setupReturnedApplicationJSON(applicationJSON){
 
 //Both POST and PUT
 async function applicationSave(req, res, next) {
-    log.debug("Application Post: " + JSON.stringify(req.body));
+    // log.debug("Application Post: " + JSON.stringify(req.body));
     if (!req.body || typeof req.body !== 'object') {
         log.error('Bad Request: No data received ' + __location);
         return next(serverHelper.requestError('Bad Request: No data received'));
