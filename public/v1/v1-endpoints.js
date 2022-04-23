@@ -77,6 +77,7 @@ exports.registerEndpoints = (server) => {
     registerEndpoint(server, 'agency-portal', 'create-agency');
     registerEndpoint(server, 'agency-portal', 'landing-page');
     registerEndpoint(server, 'agency-portal', 'landing-pages');
+    registerEndpoint(server, 'agency-portal', 'pending-applications-rt');
     registerEndpoint(server, 'agency-portal', 'questions');
     registerEndpoint(server, 'agency-portal', 'quote-letter');
     registerEndpoint(server, 'agency-portal', 'reports');
@@ -89,6 +90,7 @@ exports.registerEndpoints = (server) => {
     registerEndpoint(server, 'agency-portal', 'user');
     registerEndpoint(server, 'agency-portal', 'user-groups');
     registerEndpoint(server, 'agency-portal', 'users');
+    registerEndpoint(server, 'agency-portal', 'acord-ocr');
 
     // Auth
     registerEndpoint(server, 'auth', 'administration');

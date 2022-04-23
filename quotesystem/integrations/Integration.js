@@ -983,6 +983,21 @@ module.exports = class Integration {
     }
 
     /**
+     * Returns the total paid on claims associated w/ the application
+     *
+     * @returns {int} - the total amount paid out for claims
+     */
+    get_total_amount_paid_on_claims() {
+        let total = 0;
+        for (const claim of this.applicationDocData.claims) {
+            total += claim.amountPaid;
+        }
+
+        // Return the result
+        return total;
+    }
+
+    /**
      * Returns the total number of employees associated with this application
      *
      * @returns {int} - The total number of employees as an integer
@@ -1083,6 +1098,12 @@ module.exports = class Integration {
         if(total === 0 && appLocation){
             total += appLocation.full_time_employees;
         }
+
+        // safeguard for above code. If there are just no FTE's on the app, the above simple storage code will set 0 to undefined potentially
+        if (typeof total !== 'number') {
+            total = 0;
+        }
+
         return total;
     }
 
@@ -1176,12 +1197,24 @@ module.exports = class Integration {
      */
     get_location_payroll(location) {
         let total = 0;
+        let totalSet = false;
 
-        location.activityPayrollList.forEach((activtyCodePayroll) => {
-            activtyCodePayroll.employeeTypeList.forEach((employeeType) => {
-                total += employeeType.employeeTypePayroll;
+        // current structure
+        if (location.activityPayrollList) {
+            totalSet = true;
+            location.activityPayrollList.forEach((activtyCodePayroll) => {
+                activtyCodePayroll.employeeTypeList.forEach((employeeType) => {
+                    total += employeeType.employeeTypePayroll;
+                });
             });
-        });
+        }
+
+        // old structure
+        if (!totalSet) {
+            location.activity_codes.forEach(wc_code => {
+                total += wc_code.payroll;
+            });
+        }
 
         return total;
     }
@@ -1828,20 +1861,21 @@ module.exports = class Integration {
             // Quote Letter
             if (this.quote_letter && Object.prototype.hasOwnProperty.call(this.quote_letter, 'data') && this.quote_letter.data) {
                 // Generate a UUID to use as the file name
-                const fileName = `${this.generate_uuid()}.pdf`;
-
                 // Store the quote letter in our cloud storage
+                // s3Key should be clean and not changed by PutFileSecure
+                const fileName = `${this.generate_uuid()}.pdf`;
+                const s3Key = `secure/quote-letters/${fileName}`;
                 try {
                     // Store the quote letter in our cloud storage
                     // Secure
-                    const result = await fileSvc.PutFileSecure(`secure/quote-letters/${fileName}`, this.quote_letter.data);
+                    const result = await fileSvc.PutFileSecure(s3Key, this.quote_letter.data);
                     // The file was successfully saved, store the file name in the database
                     if (result && result.code === 'Success') {
                         quoteJSON.quoteLetter = fileName
                     }
                 }
                 catch (err) {
-                    log.error(`Appid: ${this.app.id} Insurer: ${this.insurer.name} S3 error Storing Quote letter: ${fileName}, error: ${err}. ${__location}`);
+                    log.error(`Appid: ${this.app.id} Insurer: ${this.insurer.name} S3 error Storing Quote letter: ${s3Key}, error: ${err}. ${__location}`);
                 }
             }
         }

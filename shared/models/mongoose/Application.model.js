@@ -146,7 +146,7 @@ const claimSchema = new Schema({
     policyType: {type: String, required: true},
     amountPaid: {type: Number, required: false},
     amountReserved: {type: Number, required: false},
-    eventDate: {type: Date, required: true},
+    eventDate: {type: Date, required: false},
     open: {type: Boolean, default: false},
     missedWork: {type: Boolean, default: false},
     description: {type: String, required: false},
@@ -450,4 +450,9 @@ function populateActivityCodePayroll(schema) {
         }
         schema.set({ activityCodes: activityCodesPayrollSumList });
     }
+}
+
+
+module.exports = {
+    ApplicationSchema: ApplicationSchema
 }
