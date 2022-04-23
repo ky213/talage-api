@@ -232,7 +232,7 @@ describe("Filesvc - Putfile ", function (){
             resp = data;
             should.not.exist(error);
             should.exist(resp);
-            assert.deepEqual(resp, successJSON);
+            assert.deepEqual(resp.code, successJSON.code);
             done();
         }).catch(function(err){
             error = err;

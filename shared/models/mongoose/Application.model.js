@@ -126,7 +126,7 @@ locationSchema.virtual('territory').
 
 const ownerSchema = new Schema({
     birthdate: {type: Date, required: false},
-    fname: {type: String, required: false },
+    fname: {type: String, required: false},
     lname: {type: String, required: false},
     ownership: {type: Number, required: false, default: 0},
     officerTitle: {type: String, required: false},
