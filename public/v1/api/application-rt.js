@@ -163,7 +163,7 @@ async function isAuthForAgency(req, agencyId, agencyJSON = null){
 
 
 async function applicationSave(req, res, next) {
-    log.debug("Application Post: " + JSON.stringify(req.body));
+    // log.debug("Application Post: " + JSON.stringify(req.body));
 
     //Does user have rights to manage applications
     if(!req.userTokenData.quoteApp && !(req.userTokenData?.apiToken && req.userTokenData?.permissions?.applications?.manage === true)){
