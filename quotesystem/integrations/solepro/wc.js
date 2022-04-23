@@ -224,7 +224,7 @@ module.exports = class SoleProWC extends Integration {
             primaryLocation = this.applicationDocData.locations[0];
         }
         const governingActivityCodeJson = this.determine_governing_activity_code();
-        primaryAcivityCodeId = governingActivityCodeJson.id
+        primaryAcivityCodeId = governingActivityCodeJson?.id ? governingActivityCodeJson.id : 0;
         log.debug(`${logPrefix} primaryAcivityCodeId ${primaryAcivityCodeId}`)
         //const insurerIAC = await this.get_insurer_code_for_activity_code(this.insurer.insurerDoc.insurerId, primaryLocation.state, governingActivityCodeJson.id);
         //primaryCodesCode = insurerIAC.code;

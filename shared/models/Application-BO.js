@@ -2350,10 +2350,10 @@ module.exports = class ApplicationModel {
                     log.debug(`GhostPolicyCheckAndInsurerUpdate - found full_time_employees  ` + __location)
                     ghostPolicy = false;
                 }
-                if(ghostPolicy){
+                else {
                     for(const activityPayroll of location.activityPayrollList){
                         for(const employeeType of activityPayroll.employeeTypeList){
-                            if(employeeType === "Full Time" || employeeType === "Part Time"){
+                            if(employeeType.employeeType === "Full Time" || employeeType.employeeType === "Part Time"){
                                 log.debug(`GhostPolicyCheckAndInsurerUpdate - found Full Time  ` + __location)
                                 ghostPolicy = false;
                                 break;

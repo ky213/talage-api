@@ -237,7 +237,7 @@ async function runQuoting(app) {
 
                 // Get the agency_location_insurer data for this insurer from the agency location
                 //log.debug(JSON.stringify(app.agencyLocation.insurers[insurer.id]))
-                if (app.agencyLocation.insurers[insurer.id].policyTypeInfo) {
+                if (app.agencyLocation.insurers[insurer.id] && app.agencyLocation.insurers[insurer.id].policyTypeInfo) {
 
                     //Retrieve the data for this policy type
                     const agency_location_insurer_data = app.agencyLocation.insurers[insurer.id].policyTypeInfo[policy.type];
