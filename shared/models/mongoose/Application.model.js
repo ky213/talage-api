@@ -30,9 +30,9 @@ const contactSchema = new Schema({
 });
 
 const ActivityCodeEmployeeTypeEntrySchema = new Schema({
-    employeeTypePayroll: { type: Number, required: true },
-    employeeType: { type: String, required: true },
-    employeeTypeCount: { type: Number, required: true }
+    employeeTypePayroll: { type: Number, required: true, default: 0},
+    employeeType: { type: String, required: true, default: "Full Time"},
+    employeeTypeCount: { type: Number, required: true, default: 0}
 })
 
 const ActivtyCodeEmployeeTypeSchema = new Schema({
@@ -129,8 +129,8 @@ const ownerSchema = new Schema({
     fname: {type: String, required: false},
     lname: {type: String, required: false},
     ownership: {type: Number, required: false, default: 0},
-    officerTitle: {type: String},
-    include: {type: Boolean, required: false},
+    officerTitle: {type: String, required: false},
+    include: {type: Boolean, required: true, default: false},
     activityCodeId: {type: Number, required: false},
     payroll: {type: Number, required: false}
 });
