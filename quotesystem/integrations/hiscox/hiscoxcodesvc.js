@@ -604,7 +604,7 @@ function getList() {
 
 function getByCode(hcode) {
     if (!hcode || typeof hcode !== "number") {
-        const error = `hiscoxcodesvc: Error: Invalid hcode supplied to getById(). ${__location}`;
+        const error = `hiscoxcodesvc: Error: Invalid hcode  ${hcode} supplied to getById(). ${__location}`;
         log.error(error);
         return null;
     }
@@ -623,7 +623,7 @@ function getByCode(hcode) {
 
 function getByDesc(hDesc) {
     if (!hDesc || typeof hDesc !== "number") {
-        const error = `hiscoxcodesvc: Error: Invalid hDesc supplied to getById(). ${__location}`;
+        const error = `hiscoxcodesvc: Error: Invalid hDesc ${hDesc} supplied to getById(). ${__location}`;
         log.error(error);
         return null;
     }

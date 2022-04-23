@@ -612,7 +612,7 @@ const validatePolicies = (applicationDocData,agencyNetworkJSON) => {
             'WC'
         ];
 
-        if (policyTypesWithLimits.includes(policy.policyType)) {
+        if (policyTypesWithLimits.includes(policy.policyType) && policy.limits?.length > 0) {
             // store a temporary limit '/' deliniated, because for some reason, we don't store it that way in mongo...
             //
             const indexes = [];

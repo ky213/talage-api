@@ -22,6 +22,9 @@ const hiscoxGLTemplate = require("jsrender").templates("./quotesystem/integratio
  * @returns {string} COB code
  */
 async function getHiscoxCOBFromDescription(cobDescription) {
+    if(!cobDescription){
+        return null
+    }
     const hiscoxCodeSvc = require('./hiscoxcodesvc.js');
     const result = hiscoxCodeSvc.getByDesc(cobDescription);
     if (result) {
