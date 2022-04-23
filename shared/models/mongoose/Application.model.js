@@ -22,7 +22,7 @@ const opts = {toJSON: {virtuals: true}};
 //const optsNoId = {toJSON: {virtuals: true},id: false, _id: false};
 
 const contactSchema = new Schema({
-    email: {type: String, required: true},
+    email: {type: String, required: false},
     firstName: {type: String, required: false},
     lastName: {type: String, required: false},
     phone: {type: String, required: false},
