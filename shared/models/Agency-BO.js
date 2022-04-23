@@ -330,7 +330,8 @@ module.exports = class AgencyBO {
 
             }
             else {
-                reject(new Error('no id supplied'))
+                log.warn(`Agency-Bo.getByID - no id supplied` + __location)
+                resolve(null);
             }
         });
     }
@@ -769,7 +770,8 @@ module.exports = class AgencyBO {
             return this.getList(query);
         }
         else {
-            throw new Error('no id supplied')
+            log.warn(`Agency-Bo.getByAgencyNetwork - no id supplied` + __location)
+            return null;
         }
 
     }

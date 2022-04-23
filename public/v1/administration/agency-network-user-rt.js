@@ -100,6 +100,9 @@ async function findAgencyNetworkAllAgenciesUsers(req, res, next){
     if (error) {
         return next(error);
     }
+    if(!agencyList){
+        return next(new Error("bad agency lookup "));
+    }
     // eslint-disable-next-line array-element-newline
     const removeProps = ["legalAcceptance","tableOptions","notificationPolicyTypeList","enableGlobalView","openidAuthConfigId","password"]
     // for each agency grab the agency users

@@ -251,7 +251,8 @@ module.exports = class AgencyLocationBO{
 
             }
             else {
-                reject(new Error('no id supplied'))
+                //reject(new Error('no id supplied'))
+                resolve(null);
             }
         });
     }
