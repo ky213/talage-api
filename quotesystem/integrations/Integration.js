@@ -998,6 +998,26 @@ module.exports = class Integration {
     }
 
     /**
+     * Returns a map of policy type: total paid on claims for that policy type. Only policies w/ a matching claim will be included
+     * f.e. totals = {"BOP": 2500, "GL": 500}
+     * 
+     * @returns {object} A map of policy types to total paid on claims for that policy type
+     */
+    get_total_amount_paid_on_claims_by_policy() {
+        const totals = {};
+        for (const claim of this.applicationDocData.claims) {
+            if (totals[claim.policyType]) {
+                totals[claim.policyType] += claim.amountPaid;
+            }
+            else {
+                totals[claim.policyType] = claim.amountPaid;
+            }
+        }
+
+        return totals;
+    }
+
+    /**
      * Returns the total number of employees associated with this application
      *
      * @returns {int} - The total number of employees as an integer
