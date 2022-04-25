@@ -16,6 +16,7 @@ const Integration = require('../Integration.js');
 const tracker = global.requireShared('./helpers/tracker.js');
 //const PaymentPlanSvc = global.requireShared('./services/paymentplansvc.js');
 const moment = require('moment');
+const employersClient = require('./employers-client.js');
 
 module.exports = class EmployersWC extends Integration {
 
@@ -557,11 +558,25 @@ module.exports = class EmployersWC extends Integration {
                 host = 'api.employers.com';
             }
             const path = '/DigitalAgencyServices/quote';
-
-            const additionalHeaders = {
-                    appKey: this.username,
-                    appToken: this.password
-                };
+            let newAuthSystem = false;
+            const additionalHeaders = {};
+            if(this.insurer.insurerDoc?.additionalInfo?.newAuthSystem === true){
+                newAuthSystem = true;
+            }
+            if(newAuthSystem){
+                const authToken = await employersClient.auth(this);
+                if(!authToken){
+                    log.error(`${logPrefix}Failed to get auth token ` + __location);
+                    this.reasons.push(`Failed to get Auth Token`)
+                    fulfill(this.return_result('error'));
+                    return;
+                }
+                additionalHeaders.authorization = `Bearer ${authToken.trim()}`
+            }
+            else {
+                additionalHeaders.appKey = this.username
+                additionalHeaders.appToken = this.password
+            }
 
             let quoteResponse = null;
             log.debug(`Appid: ${this.app.id} Sending application to ${host}${path}. Remember to connect to the VPN. This can take up to 30 seconds.`);
