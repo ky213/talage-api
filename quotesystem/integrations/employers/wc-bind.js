@@ -1,15 +1,33 @@
 const Bind = require('../bind');
 const axios = require('axios');
+const employersClient = require('./employers-client.js');
 
 class EmployersBind extends Bind {
     async bind() {
-        const appKeyEmployers = await this.insurer.get_username()
-        const appTokenEmployers = await this.insurer.get_password()
-        const axiosOptions = {headers: {
-            "appKey": appKeyEmployers,
-            "appToken": appTokenEmployers,
-            "Accept": "application/json"
-        }};
+        //employers-client needs these
+        this.password = await this.insurer.get_password();
+        this.username = await this.insurer.get_username();
+
+
+        let newAuthSystem = false;
+        const axiosOptions = {headers: {"Accept": "application/json"}}
+        if(this.insurer.insurerDoc?.additionalInfo?.newAuthSystem === true){
+            newAuthSystem = true;
+        }
+        if(newAuthSystem){
+            const authToken = await employersClient.auth(this);
+            if(!authToken){
+                log.error(`Employeres Bind Failed to get auth token ` + __location);
+                this.reasons.push(`Failed to get Auth Token`)
+                return "error"
+            }
+            axiosOptions.headers.authorization = `Bearer ${authToken.trim()}`
+        }
+        else {
+            axiosOptions.headers.appKey = this.username
+            axiosOptions.headers.appToken = this.password
+        }
+
         const host = this.insurer.useSandbox ? 'api-qa.employers.com' : 'api.employers.com';
         let employerQuoteId = this.quote.quoteId;
         if(this.quote.requestId){
