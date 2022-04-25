@@ -182,8 +182,6 @@ const childClassificationMap = {
 
 let terrorismCoverageIncluded = false;
 
-// TODO: Add claims information to request
-
 module.exports = class USLIBOP extends Integration {
 
     /**
@@ -501,8 +499,9 @@ module.exports = class USLIBOP extends Integration {
         DurationPeriod.ele('UnitMeasurementCd', "month");
         CommlPolicy.ele('PrintedDocumentsRequestedInd', false);
         const TotalPaidLossAmt = CommlPolicy.ele('TotalPaidLossAmt');
-        TotalPaidLossAmt.ele('Amt', this.get_total_amount_paid_on_claims());
-        CommlPolicy.ele('NumLosses', applicationDocData.claims.length);
+        const lossTotals = this.get_total_amount_paid_on_claims_by_policy();
+        TotalPaidLossAmt.ele('Amt', lossTotals.BOP ? lossTotals.BOP : 0);
+        CommlPolicy.ele('NumLosses', applicationDocData.claims.filter(claim => claim.policyType === "BOP").length);
         CommlPolicy.ele('NumLossesYrs', 0);
         CommlPolicy.ele('FutureEffDateInd', false);
         CommlPolicy.ele('FutureEffDateNumDays', 0);
@@ -953,6 +952,14 @@ module.exports = class USLIBOP extends Integration {
         const msgStatusDesc = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgStatusDesc[0]");
         // const msgErrorCode = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgErrorCd[0]");
 
+        const referralCodes = [
+            "434",
+            "436",
+            "627"
+        ];
+
+        const declineCodes = ["433"];
+
         let missingRespObj = false;
         const requiredResponseObjects = {
             "ACORD.InsuranceSvcRs[0]": response,
@@ -999,8 +1006,8 @@ module.exports = class USLIBOP extends Integration {
             mainReason = mainReason.substring(mainReason.indexOf("Description: ") + 13);
         }
 
-        // declined error code(s)
-        if (errorCd === "433") {
+        // declined
+        if (declineCodes.includes(errorCd)) {
             const declineMessage = `USLI declined the quote: ${mainReason} `;
             const additionalReasons = errorReasons.length > 0 ? `Other reasons: ${errorReasons.join(" | ")}. ` : "";
             log.info(logPrefix + declineMessage + additionalReasons + __location);
@@ -1008,7 +1015,7 @@ module.exports = class USLIBOP extends Integration {
         }
 
         // if not a referred error code, it's an error
-        if (!["434", "436"].includes(errorCd) && !["Success", "SuccessWithInfo"].includes(msgStatusCd)) {
+        if (!referralCodes.includes(errorCd) && !["Success", "SuccessWithInfo"].includes(msgStatusCd)) {
             if (mainReason.includes("class code with Commercial Property")) {
                 mainReason = 'A property classification was not provided with the Commercial Property submission. This could be due to a missing fire code in the submission.';
             }
@@ -1133,7 +1140,7 @@ module.exports = class USLIBOP extends Integration {
         if (statusCd === "0" && msgStatusCd === "Success" && industryCode.attributes?.GLElig !== "PP" && msgStatusDesc !== "Submit") {
             return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType, quoteCoverages);
         }
-        else if (statusCd === "0" && ["434", "436", "627"].includes(errorCd) || premium || msgStatusDesc === "Submit") {
+        else if (statusCd === "0" && referralCodes.includes(errorCd) || premium || msgStatusDesc === "Submit") {
             errorReasons.unshift(mainReason);
             if (errorReasons[0].includes("successfully processed the request.") && industryCode.attributes.GLElig === "PP") {
                 this.reasons = ["The chosen classification has GL Eligibility PP (Premises Preferred)."];
