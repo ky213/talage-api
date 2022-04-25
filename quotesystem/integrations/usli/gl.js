@@ -479,7 +479,6 @@ module.exports = class USLIGL extends Integration {
     const msgStatusCode = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgStatusCd[0]");
     const msgStatusDescription = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgStatusDesc[0]");
     const msgErrorCode = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgErrorCd[0]");
-    const extendedStatusDesc = get(response,"CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0]")
 
 
     let missingRespObj = false;
@@ -514,7 +513,7 @@ module.exports = class USLIGL extends Integration {
         // otherwise, look for extended status and parse into strings with the code and description pairs
         const extendedStatus = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].ExtendedStatus");
         if (extendedStatus) {
-            errorReasons = extendedStatus.map(status => (`${get(statusm, "ExtendedStatusCd[0]")}: ${get(status, "ExtendedStatusDesc[0]")}`));
+            errorReasons = extendedStatus.map(status => (`${get(status, "ExtendedStatusCd[0]")}: ${get(status, "ExtendedStatusDesc[0]")}`));
         }
         else {
             // catch all to just split any reasons provided by newline
@@ -554,7 +553,7 @@ module.exports = class USLIGL extends Integration {
     if (statusCode === "0") {
       const quoteNumber = get(response, "CommlPkgPolicyQuoteInqRs[0].CommlPolicy[0].QuoteInfo[0].CompanysQuoteNumber[0]" );
       const commlCoverage = get(response, "CommlPkgPolicyQuoteInqRs[0].GeneralLiabilityLineBusiness[0].LiabilityInfo[0].CommlCoverage" );
-      const premium = Number(get(response, "CommlPkgPolicyQuoteInqRs[0].PolicySummaryInfo[0].FullTermAmt[0].Amt[0]"));
+      let premium = Number(get(response, "CommlPkgPolicyQuoteInqRs[0].PolicySummaryInfo[0].FullTermAmt[0].Amt[0]"));
       const remarkText = get(response, "CommlPkgPolicyQuoteInqRs[0].RemarkText");
       const quoteMIMEType = 'base64'
       const quoteLimits = {};
@@ -659,7 +658,7 @@ module.exports = class USLIGL extends Integration {
       
       if (["434", "436", "627"].includes(msgErrorCode) || premium || msgStatusDescription === "Submit") {
         errorReasons.unshift(mainReason);
-        if (errorReasons[0].includes("successfully processed the request.") && industryCode.attributes.GLElig === "PP") {
+        if (errorReasons[0].includes("successfully processed the request.") && this.insurerIndustryCode?.attributes.GLElig === "PP") {
             this.reasons = ["The chosen classification has GL Eligibility PP (Premises Preferred)."];
         }
         else {
