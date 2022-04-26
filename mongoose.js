@@ -135,6 +135,7 @@ allConnections.init = function init() {
     require('./shared/models/mongoose/Agency.model');
     require('./shared/models/mongoose/AgencyLocation.model');
     require('./shared/models/mongoose/AgencyLandingPage.model');
+    require('./shared/models/mongoose/AgencyAmsCred.model');
     require('./shared/models/mongoose/ApplicationNotes.model');
 
     require('./shared/models/mongoose/OpenIdAuthConfig.model');
@@ -175,6 +176,7 @@ allConnections.init = function init() {
         AgencyEmail: global.mongodb.model('AgencyEmail'),
         AgencyLandingPage: global.mongodb.model('AgencyLandingPage'),
         AgencyLocation: global.mongodb.model('AgencyLocation'),
+        AgencyAmsCred: global.mongodb.model('AgencyAmsCred'),
         AgencyNetwork: global.mongodb.model('AgencyNetwork'),
         AgencyPortalUser: global.mongodb.model('AgencyPortalUser'),
         AgencyPortalUserGroup: global.mongodb.model('AgencyPortalUserGroup'),
