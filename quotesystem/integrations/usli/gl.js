@@ -43,7 +43,6 @@ module.exports = class USLIGL extends Integration {
    * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
    */
   async _insurer_quote() {
-    const quoteLetter = null;
     const applicationDocData = this.applicationDocData;
     const logPrefix = `USLI GL (Appid: ${applicationDocData.applicationId}): `;
     const GLPolicy = applicationDocData.policies.find((p) => p.policyType === "GL");
@@ -508,19 +507,26 @@ ClassificationRef: "S1"};
     // -------------- PARSE XML RESPONSE ----------------
 
     const response = get(result, "ACORD.InsuranceSvcRs[0]");
-    const statusCode = get(response, "Status[0].StatusCd[0]");
+    const statusCd = get(response, "Status[0].StatusCd[0]");
     const statusDesc = get(response, "Status[0].StatusDesc[0]");
-    const msgStatusCode = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgStatusCd[0]");
-    const msgStatusDescription = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgStatusDesc[0]");
-    const msgErrorCode = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgErrorCd[0]");
+    const msgStatusCd = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgStatusCd[0]"); // not required
+    const msgStatusDesc = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgStatusDesc[0]");
+    // const msgErrorCode = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgErrorCd[0]");
 
+    const referralCodes = [
+        "434",
+        "436",
+        "627"
+    ];
+
+    const declineCodes = ["433"];
 
     let missingRespObj = false;
     const requiredResponseObjects = {
         "ACORD.InsuranceSvcRs[0]": response,
-        "Status[0].StatusCd[0]": statusCode,
+        "Status[0].StatusCd[0]": statusCd,
         "Status[0].StatusDesc[0]": statusDesc,
-        "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgStatusDesc[0]": msgStatusDescription
+        "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgStatusDesc[0]": msgStatusDesc
     };
     
     // check each part of the response we parse and ensure it exists. If it doesn't, report the error, as the response object USLI returns may have changed
@@ -547,7 +553,7 @@ ClassificationRef: "S1"};
         // otherwise, look for extended status and parse into strings with the code and description pairs
         const extendedStatus = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].ExtendedStatus");
         if (extendedStatus) {
-            errorReasons = extendedStatus.map(status => (`${get(status, "ExtendedStatusCd[0]")}: ${get(status, "ExtendedStatusDesc[0]")}`));
+            errorReasons = extendedStatus.map(status => (`${status.ExtendedStatusCd[0]}: ${status.ExtendedStatusDesc[0]}`));
         }
         else {
             // catch all to just split any reasons provided by newline
@@ -561,8 +567,8 @@ ClassificationRef: "S1"};
         mainReason = mainReason.substring(mainReason.indexOf("Description: ") + 13);
     }
 
-    // declined error code(s)
-    if (errorCd === "433") {
+    // declined
+    if (declineCodes.includes(errorCd)) {
         const declineMessage = `USLI declined the quote: ${mainReason} `;
         const additionalReasons = errorReasons.length > 0 ? `Other reasons: ${errorReasons.join(" | ")}. ` : "";
         log.info(logPrefix + declineMessage + additionalReasons + __location);
@@ -570,7 +576,7 @@ ClassificationRef: "S1"};
     }
 
     // if not a referred error code, it's an error
-    if (!["434", "436"].includes(errorCd) && !["Success", "SuccessWithInfo"].includes(msgStatusCode)) {
+    if (!referralCodes.includes(errorCd) && !["Success", "SuccessWithInfo"].includes(msgStatusCd)) {
         if (mainReason.includes("class code with Commercial Property")) {
             mainReason = 'A property classification was not provided with the Commercial Property submission. This could be due to a missing fire code in the submission.';
         }
@@ -583,143 +589,137 @@ ClassificationRef: "S1"};
         log.error(logPrefix + errorMessage + additionalReasons + __location);
         return this.client_error(errorMessage, __location);
     }
-    
-    if (statusCode === "0") {
-      const quoteNumber = get(response, "CommlPkgPolicyQuoteInqRs[0].CommlPolicy[0].QuoteInfo[0].CompanysQuoteNumber[0]");
-      const commlCoverage = get(response, "CommlPkgPolicyQuoteInqRs[0].GeneralLiabilityLineBusiness[0].LiabilityInfo[0].CommlCoverage");
-      let premium = Number(get(response, "CommlPkgPolicyQuoteInqRs[0].PolicySummaryInfo[0].FullTermAmt[0].Amt[0]"));
-      const remarkText = get(response, "CommlPkgPolicyQuoteInqRs[0].RemarkText");
-      const quoteMIMEType = 'base64'
-      const quoteLimits = {};
-      let admitted = false
 
-      if (Array.isArray(remarkText) && remarkText?.length > 0) {
-        const admittedRemark = remarkText.find((remark) => remark?.$?.id === "Admitted Status");
+    // quote response properties
+    let quoteNumber = null;
+    // let quoteProposalId = null;
+    let premium = null;
+    const quoteLimits = {};
+    const quoteLetter = null;
+    const quoteMIMEType = "BASE64";
+    let quoteCoverages = [];
+    let admitted = false;
+
+    quoteNumber = get(response, "CommlPkgPolicyQuoteInqRs[0].CommlPolicy[0].QuoteInfo[0].CompanysQuoteNumber[0]");
+    const commlCoverage = get(response, "CommlPkgPolicyQuoteInqRs[0].GeneralLiabilityLineBusiness[0].LiabilityInfo[0].CommlCoverage");
+    premium = get(response, "CommlPkgPolicyQuoteInqRs[0].PolicySummaryInfo[0].FullTermAmt[0].Amt[0]");
+    const remarkText = get(response, "CommlPkgPolicyQuoteInqRs[0].RemarkText");
+    
+    if (Array.isArray(remarkText) && remarkText.length > 0) {
+        const admittedRemark = remarkText.find(remark => remark?.$?.id === "Admitted Status");
         admitted = admittedRemark && admittedRemark?._ === "This quote is admitted";
 
         // add remarkText to quote additionalInfo
-        this.quoteAdditionalInfo = {
-          ...this.quoteAdditionalInfo,
-          remarkText: remarkText.map((remark) => ({
+        this.quoteAdditionalInfo.remarkText = remarkText.map(remark => ({
             id: remark?.$?.id,
-            description: remark?._
-          }))
-        };
-      }
+            description: remark?._ 
+        }));
+    }
 
-      // remove taxes from premium if quote is not admitted and taxes exist
-      if (!admitted) {
+    // remove taxes from premium if quote is not admitted and taxes exist
+    if (!admitted) {
         const taxesAdditionalInfo = [];
+        premium = parseFloat(premium);
         const taxCoverages = get(response, "CommlPkgPolicyQuoteInqRs[0].CommlPolicy[0].CommlCoverage");
 
         if (Array.isArray(taxCoverages)) {
-          taxCoverages.forEach((tax) => {
-            let taxAmount = get(tax, "CurrentTermAmt[0].Amt[0]");
-            const taxCode = get(tax, "CoverageCd[0]");
-            const taxDescription = get(tax, "CoverageDesc[0]");
+            taxCoverages.forEach(tax => {
+                let taxAmount = tax.CurrentTermAmt[0].Amt[0];
+                const taxCode = tax.CoverageCd[0];
+                const taxDescription = tax.CoverageDesc[0];
 
-            if (taxAmount) {
-              taxAmount = parseFloat(taxAmount);
+                if (taxAmount) {
+                    taxAmount = parseFloat(taxAmount);
 
-              if (!isNaN(premium) && !isNaN(taxAmount)) {
-                premium -= taxAmount;
-              }
-            else {
-                log.warn(
-                  `${logPrefix}Unable to remove tax ${taxDescription} from non-admitted quote premium. Reference quote additionalInfo for tax information. ` +
-                    __location
-                );
-              }
-            }
+                    if (!isNaN(premium) && !isNaN(taxAmount)) {
+                        premium -= taxAmount;
+                    }
+                    else {
+                        log.warn(`${logPrefix}Unable to remove tax ${taxDescription} from non-admitted quote premium. Reference quote additionalInfo for tax information. ` + __location);
+                    }
+                }
 
-            taxesAdditionalInfo.push({
-              taxCode: taxCode,
-              taxDescription: taxDescription,
-              taxAmount: taxAmount
+                taxesAdditionalInfo.push({
+                    code: taxCode,
+                    description: taxDescription,
+                    amount: taxAmount
+                });
             });
-          });
 
-          if (premium < 0) {
-            log.warn(`${logPrefix}Tax and fee deductions resulted in a premium value below 0. ` + __location);
-            premium = 0;
-          }
-          else {
-            premium = `${premium}`.substring(0, `${premium}`.indexOf(".") + 3);
-          }
+            if (premium < 0) {
+                log.warn(`${logPrefix}Tax and fee deductions resulted in a premium value below 0. ` + __location);
+                premium = 0;
+            }
+            else {
+                premium = `${premium}`.substring(0, `${premium}`.indexOf(".") + 3);
+            }
         }
 
         // add tax and fees to quote additional info
         this.quoteAdditionalInfo.taxAndFeeInfo = taxesAdditionalInfo;
-      }
+    }
+    
+    // TODO: Parse remarkText to see if id View Quote Letter exists, if so, use for Quote Letter
 
-      const coverages = commlCoverage?.map((coverage, index) => {
-        const code = get(coverage, "CoverageCd[0]");
-        const description = get(coverage, "CoverageDesc[0]");
-        const limit = get(coverage, "Limit[0].FormatText[0]");
-        let included = get(coverage, "Option[0].OptionCd[0]");
+    if (commlCoverage) {
+        quoteCoverages = commlCoverage?.map((coverage, index) => {
+            const code = coverage.CoverageCd[0];
+            const description = coverage.CoverageDesc[0];
+            const limit = coverage.Limit[0]?.FormatText[0];
+            let included = get(coverage, "Option[0].OptionCd[0]");
+            if (included) {
+                if (included === "Incl") {
+                    included = "Included"
+                }
+                else if (included === "Excl") {
+                    included = "Excluded"
+                }
+                else {
+                    included = "N/A";
+                }
+            }
 
-        if (included) {
-          if (included === "Incl") {
-            included = "Included";
-          }
- else if (included === "Excl") {
-            included = "Excluded";
-          }
- else {
-            included = "N/A";
-          }
-        }
+            let value = "N/A";
+            if (limit) {
+                value = convertToDollarFormat(limit, true);
+            }
+            else if (included) {
+                value = included;
+            }
 
-        let value = "N/A";
-        if (limit) {
-          value = convertToDollarFormat(limit, true);
-        }
-        else if (included) {
-          value = included;
-        }
+            return {
+                description: description,
+                value: value,
+                sort: index,
+                category: "General Limits",
+                insurerIdentifier: code
+            }
+        });
+    }
 
-        return {
-          value: value,
-          description: description,
-          sort: index,
-          category: "General Limits",
-          insurerIdentifier: code
-        };
-      });
-
-      const responseMessage = `USLI ${msgStatusDescription} `;
-      log.info(logPrefix + responseMessage + __location);
-
-      // Even if quoted, any classification with GLElig of PP (Premises Preferred) must be submitted as "SUBMIT" (our referred)
-      if (msgStatusCode === "Success" && this.insurerIndustryCode?.attributes?.GLElig !== "PP" && msgStatusDescription !== "Submit") {
-        return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType, coverages);
-      }  
-      
-      if ([
-        "434",
-        "436",
-        "627"
-        ].includes(msgErrorCode) || 
-        premium || 
-        msgStatusDescription === "Submit"
-        ) {
+    // Even if quoted, any classification with GLElig of PP (Premises Preferred) must be submitted as "SUBMIT" (our referred)
+    if (statusCd === "0" && msgStatusCd === "Success" && this.insurerIndustryCode.attributes?.GLElig !== "PP" && msgStatusDesc !== "Submit") {
+        return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType, quoteCoverages);
+    }
+    else if (statusCd === "0" && referralCodes.includes(errorCd) || premium || msgStatusDesc === "Submit") {
         errorReasons.unshift(mainReason);
-        if (errorReasons[0].includes("successfully processed the request.") && this.insurerIndustryCode?.attributes.GLElig === "PP") {
+        if (errorReasons[0].includes("successfully processed the request.") && this.insurerIndustryCode.attributes.GLElig === "PP") {
             this.reasons = ["The chosen classification has GL Eligibility PP (Premises Preferred)."];
         }
         else {
             this.reasons = errorReasons;
         }
         
-        return this.client_referred(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType, coverages);
-      }
+        return this.client_referred(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType, quoteCoverages);
     }
-
-    const errorMessage = `USLI quote was unsuccessful: ${mainReason}. `;
-    this.reasons = errorReasons;
-    log.error(logPrefix + errorMessage + __location);
-    return this.client_error(errorMessage, __location);
-  }
+    // base error catch-all
+    else {
+        const errorMessage = `USLI quote was unsuccessful: ${mainReason}. `;
+        this.reasons = errorReasons;
+        log.error(logPrefix + errorMessage + __location);
+        return this.client_error(errorMessage, __location);
+    }
+}
 
   async getAgencyInfo() {
     let id = this.app.agencyLocation.agencyId;
