@@ -191,7 +191,7 @@ module.exports = class ApplicationUploadBO {
         try {
             const response = await axios.request({
                 method: "POST",
-                url: `${global.settings.OCR_SERVER_URL}/queue/${fileType}`,
+                url: `https://${global.settings.ENV}ocrapi.internal.talageins.com/ocr/queue/${fileType}`,
                 data: fileData,
                 headers: {"Content-Type": "application/pdf"}
             });
@@ -245,7 +245,7 @@ module.exports = class ApplicationUploadBO {
                 try {
                     status = await axios.request({
                         method: 'GET',
-                        url: `${global.settings.OCR_SERVER_URL}/status/${requestId}`
+                        url: `https://${global.settings.ENV}ocrapi.internal.talageins.com/ocr/queue/${fileType}`
                     });
                 }
                 catch (ex) {
