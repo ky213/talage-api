@@ -111,9 +111,7 @@ const getZip = (addr) => {
  * @param {*} value value
  * @returns {boolean} value
  */
-const isCheckboxChecked = (value) => {
-    return !_.isEmpty(value);
-}
+const isCheckboxChecked = (value) => !_.isEmpty(value);
 
 const convertInsurerIndustryCodeToTalageIndustryCode = async(insurerId, insurerIndustryCode, territory) => {
     const insurerIndustryCodeObj = await InsurerIndustryCode.findOne({
