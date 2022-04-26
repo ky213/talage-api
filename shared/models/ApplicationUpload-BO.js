@@ -106,6 +106,13 @@ const getZip = (addr) => {
     return;
 }
 
+/**
+ * Returns whether or not the checkbox has an appropriate parsed value from the OCR.
+ * @param {*} value value
+ * @returns {boolean} value
+ */
+const isCheckboxChecked = (value) => !_.isEmpty(value);
+
 const convertInsurerIndustryCodeToTalageIndustryCode = async(insurerId, insurerIndustryCode, territory) => {
     const insurerIndustryCodeObj = await InsurerIndustryCode.findOne({
         insurerId: insurerId,
@@ -141,9 +148,10 @@ const convertInsurerActivityCodeToTalageActivityCode = async(insurerId, insurerA
  * will return undefined and log the issue.
  * @param {*} fieldValue fieldValue
  * @param {*} formatterFunc formatterFunc
+ * @param {*} defaultValue Optional default value to return. Feel free to leave undefined
  * @returns {*} formatted attempt
  */
-const tryToFormat = async(fieldValue, formatterFunc) => {
+const tryToFormat = async(fieldValue, formatterFunc, defaultValue) => {
     try {
         return await formatterFunc(fieldValue);
     }
@@ -155,7 +163,7 @@ const tryToFormat = async(fieldValue, formatterFunc) => {
 
         // additionalInfo.push(`Bad validaion for field: ${prevMethod} ${fieldValue}`);
         log.warn(`Bad validaion for field: ${prevMethod} ${fieldValue}`);
-        return;
+        return defaultValue;
     }
 }
 
@@ -191,7 +199,7 @@ module.exports = class ApplicationUploadBO {
         try {
             const response = await axios.request({
                 method: "POST",
-                url: `${global.settings.OCR_SERVER_URL}/queue/${fileType}`,
+                url: `https://${global.settings.ENV}ocrapi.internal.talageins.com/ocr/queue/${fileType}`,
                 data: fileData,
                 headers: {"Content-Type": "application/pdf"}
             });
@@ -245,7 +253,7 @@ module.exports = class ApplicationUploadBO {
                 try {
                     status = await axios.request({
                         method: 'GET',
-                        url: `${global.settings.OCR_SERVER_URL}/status/${requestId}`
+                        url: `https://${global.settings.ENV}ocrapi.internal.talageins.com/ocr/status/${requestId}`
                     });
                 }
                 catch (ex) {
@@ -277,12 +285,12 @@ module.exports = class ApplicationUploadBO {
      * @returns {void}
      */
     async saveOcrResult(requestId, ocrResult, agencyMetadata, doCreateInApplicationUpload = true) {
-        await ApplicationUploadStatus.updateOne({requestId: requestId}, {status: 'SUCCESS'});
-
         const data = {};
         for (const k of ocrResult.ocrResponse) {
             _.set(data, k.question, k.answer);
         }
+
+        await ApplicationUploadStatus.updateOne({requestId: requestId}, {status: 'SUCCESS'});
 
         // filter out blank entries that OCR might've given us.
         data.Individual = data.Individual.filter(t => t.Name !== '');
@@ -326,32 +334,38 @@ module.exports = class ApplicationUploadBO {
                 state: await tryToFormat(l.Address, async(v) => getState(v)),
                 zipcode: await tryToFormat(l.Address, async(v) => getZip(v)),
                 activityPayrollList: await Promise.all(data.Rating.map(async(r) => ({
-                    ncciCode: await tryToFormat(r.Class_Code, async(v) => parseInt(v, 10)), // Convert to talage NCCI
-                    payroll: await tryToFormat(r.Annual_Remuneration, async(v) => parseInt(v.replace(',', ''), 10)),
+                    // ncciCode: await tryToFormat(r.Class_Code, async(v) => parseInt(v, 10)), // Convert to talage NCCI
+                    payroll: await tryToFormat(r.Annual_Remuneration, async(v) => {
+                        const out = parseInt(v.replace(',', ''), 10);
+                        if (isNaN(out)) {
+                            return 0;
+                        }
+                        return out;
+                    }, 0),
                     activityCodeId: await tryToFormat([r.Class_Code, l.Address], () => convertInsurerActivityCodeToTalageActivityCode(insurerId, parseInt(r.Class_Code, 10), getState(l.Address))) // Convert to talage NCCI
                 })))
             }))),
 
             contacts: [{
+                firstName: await tryToFormat(data.Contact_Inspection_Name, async(v) => getFirstName(v)),
+                lastName: await tryToFormat(data.Contact_Inspection_Name, async(v) => getLastName(v)),
+                email: data.Contact_Inspection_Email,
+                phone: data.Contact_Inspection_Office_Phone,
+                primary: false
+            },
+            {
                 firstName: await tryToFormat(data.Contact_Accounting_Name, async(v) => getFirstName(v)),
                 lastName: await tryToFormat(data.Contact_Accounting_Name, async(v) => getLastName(v)),
                 email: data.Contact_Accounting_Email,
                 phone: data.Contact_Accounting_Office_Phone,
-                primary: true // XXX: change me
+                primary: false
             },
             {
                 firstName: await tryToFormat(data.Contact_Claims_Name, async(v) => getFirstName(v)),
                 lastName: await tryToFormat(data.Contact_Claims_Name, async(v) => getLastName(v)),
                 email: data.Contact_Claims_Email,
                 phone: data.Contact_Claims_Office_Phone,
-                primary: false // XXX: change me
-            },
-            {
-                firstName: await tryToFormat(data.Contact_Inspection_Name, async(v) => getFirstName(v)),
-                lastName: await tryToFormat(data.Contact_Inspection_Name, async(v) => getLastName(v)),
-                email: data.Contact_Inspection_Email,
-                phone: data.Contact_Inspection_Office_Phone,
-                primary: false // XXX: change me
+                primary: false
             }],
 
             owners: await Promise.all(data.Individual.map(async(i) => ({
@@ -362,7 +376,7 @@ module.exports = class ApplicationUploadBO {
                 // eslint-disable-next-line
                 birthdate: await tryToFormat(i.DOB, async(v) => v ? moment(v) : ''),
                 include: i.Inc_Exc === 'INC',
-                activityCodeId: i.Class_Code
+                activityCodeId: await tryToFormat(i.Class_Code, () => convertInsurerActivityCodeToTalageActivityCode(insurerId, parseInt(i.Class_Code, 10), getState(data.Applicant_Mailing_Address))) // Convert to talage NCCI
             }))),
 
             policies: [{
@@ -379,12 +393,22 @@ module.exports = class ApplicationUploadBO {
             // // buildingLimit: ,
         };
 
+        // remove blank contacts from the list.
+        applicationUploadObj.contacts = applicationUploadObj.contacts.filter(t => !_.isEmpty(t.firstName) || !_.isEmpty(t.lastName));
+
+        if (_.get(applicationUploadObj, 'contacts[0]')) {
+            applicationUploadObj.contacts[0].primary = true;
+        }
+        if (_.get(applicationUploadObj, 'Location[0]')) {
+            applicationUploadObj.Location[0].primary = true;
+        }
+
         if (data.NAICS) {
             applicationUploadObj.industryCode = await convertInsurerIndustryCodeToTalageIndustryCode(insurerId,
                 parseInt(data.NAICS, 10),
                 applicationUploadObj.mailingState);
         }
-        if (data.Corporation === 'X') {
+        if (isCheckboxChecked(data.Corporation)) {
             applicationUploadObj.entityType = 'Corporation';
         }
         try {
@@ -398,7 +422,7 @@ module.exports = class ApplicationUploadBO {
             }
         }
         catch (ex) {
-            log.error("Error  Amtrust Import deleteTaskQueueItem " + ex.message + __location);
+            log.error("Error  saveOcrResult " + ex.message + __location);
         }
     }
 
