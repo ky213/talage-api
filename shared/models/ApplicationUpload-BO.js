@@ -106,6 +106,15 @@ const getZip = (addr) => {
     return;
 }
 
+/**
+ * Returns whether or not the checkbox has an appropriate parsed value from the OCR.
+ * @param {*} value value
+ * @returns {boolean} value
+ */
+const isCheckboxChecked = (value) => {
+    return !_.isEmpty(value);
+}
+
 const convertInsurerIndustryCodeToTalageIndustryCode = async(insurerId, insurerIndustryCode, territory) => {
     const insurerIndustryCodeObj = await InsurerIndustryCode.findOne({
         insurerId: insurerId,
@@ -326,32 +335,32 @@ module.exports = class ApplicationUploadBO {
                 state: await tryToFormat(l.Address, async(v) => getState(v)),
                 zipcode: await tryToFormat(l.Address, async(v) => getZip(v)),
                 activityPayrollList: await Promise.all(data.Rating.map(async(r) => ({
-                    ncciCode: await tryToFormat(r.Class_Code, async(v) => parseInt(v, 10)), // Convert to talage NCCI
+                    // ncciCode: await tryToFormat(r.Class_Code, async(v) => parseInt(v, 10)), // Convert to talage NCCI
                     payroll: await tryToFormat(r.Annual_Remuneration, async(v) => parseInt(v.replace(',', ''), 10)),
                     activityCodeId: await tryToFormat([r.Class_Code, l.Address], () => convertInsurerActivityCodeToTalageActivityCode(insurerId, parseInt(r.Class_Code, 10), getState(l.Address))) // Convert to talage NCCI
                 })))
             }))),
 
             contacts: [{
+                firstName: await tryToFormat(data.Contact_Inspection_Name, async(v) => getFirstName(v)),
+                lastName: await tryToFormat(data.Contact_Inspection_Name, async(v) => getLastName(v)),
+                email: data.Contact_Inspection_Email,
+                phone: data.Contact_Inspection_Office_Phone,
+                primary: false
+            },
+            {
                 firstName: await tryToFormat(data.Contact_Accounting_Name, async(v) => getFirstName(v)),
                 lastName: await tryToFormat(data.Contact_Accounting_Name, async(v) => getLastName(v)),
                 email: data.Contact_Accounting_Email,
                 phone: data.Contact_Accounting_Office_Phone,
-                primary: true // XXX: change me
+                primary: false
             },
             {
                 firstName: await tryToFormat(data.Contact_Claims_Name, async(v) => getFirstName(v)),
                 lastName: await tryToFormat(data.Contact_Claims_Name, async(v) => getLastName(v)),
                 email: data.Contact_Claims_Email,
                 phone: data.Contact_Claims_Office_Phone,
-                primary: false // XXX: change me
-            },
-            {
-                firstName: await tryToFormat(data.Contact_Inspection_Name, async(v) => getFirstName(v)),
-                lastName: await tryToFormat(data.Contact_Inspection_Name, async(v) => getLastName(v)),
-                email: data.Contact_Inspection_Email,
-                phone: data.Contact_Inspection_Office_Phone,
-                primary: false // XXX: change me
+                primary: false
             }],
 
             owners: await Promise.all(data.Individual.map(async(i) => ({
@@ -379,12 +388,22 @@ module.exports = class ApplicationUploadBO {
             // // buildingLimit: ,
         };
 
+        // remove blank contacts from the list.
+        data.contacts = data.contacts.filter(t => !_.isEmpty(t.firstName) || !_.isEmpty(t.lastName));
+
+        if (_.get(data, 'contacts[0]')) {
+            data.contacts[0].primary = true;
+        }
+        if (_.get(data, 'Location[0]')) {
+            data.Location[0].primary = true;
+        }
+
         if (data.NAICS) {
             applicationUploadObj.industryCode = await convertInsurerIndustryCodeToTalageIndustryCode(insurerId,
                 parseInt(data.NAICS, 10),
                 applicationUploadObj.mailingState);
         }
-        if (data.Corporation === 'X') {
+        if (isCheckboxChecked(data.Corporation)) {
             applicationUploadObj.entityType = 'Corporation';
         }
         try {
