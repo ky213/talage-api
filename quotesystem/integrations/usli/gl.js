@@ -56,51 +56,72 @@ module.exports = class USLIGL extends Integration {
 
     // To do check policy
     const entityTypes = {
-      Corporation: {abbr: "CP",
-id: "CORPORATION"},
-      Partnership: {abbr: "PT",
-id: "PARTNERSHIP"},
-      "Non Profit Corporation": {abbr: "NP",
-id: "NON PROFIT CORPORATION"},
-      "Limited Liability Company": {abbr: "LL",
-id: "LIMITED LIABILITY COMPANY"}
+      Corporation: {
+        abbr: "CP",
+        id: "CORPORATION"
+      },
+      Partnership: {
+        abbr: "PT",
+        id: "PARTNERSHIP"
+      },
+      "Non Profit Corporation": {
+        abbr: "NP",
+        id: "NON PROFIT CORPORATION"
+      },
+      "Limited Liability Company": {
+        abbr: "LL",
+        id: "LIMITED LIABILITY COMPANY"
+      }
     };
 
     const ignoredQuestionIds = ["usli.general.terrorismCoverage"];
 
     const supportedLimitsMap = {
-      "1000000/1000000/1000000": ["1000000",
-"2000000",
-"2000000"],
-      "1000000/2000000/1000000": ["1000000",
-"2000000",
-"2000000"],
-      "1000000/2000000/2000000": ["1000000",
-"2000000",
-"2000000"],
-      "2000000/4000000/4000000": ["2000000",
-"4000000",
-"4000000"]
+      "1000000/1000000/1000000": [
+        "1000000",
+        "2000000",
+        "2000000"
+      ],
+      "1000000/2000000/1000000": [
+        "1000000",
+        "2000000",
+        "2000000"
+      ],
+      "1000000/2000000/2000000": [
+        "1000000",
+        "2000000",
+        "2000000"
+      ],
+      "2000000/4000000/4000000": [
+        "2000000",
+        "4000000",
+        "4000000"
+      ]
     };
 
     // usli class code to usli gl code map
     // These class codes require a child classification be sent w/ the provided gl code
     // additionally, if a child classification is required, all classification questions should be provided for this child classification (denoted as ID S1 instead of C1)
     const childClassificationMap = {
-      173: {id: "5864",
-description: "Barber Shops - Part-time employee"},
-      191: {id: "5862",
-description: "Beauty Parlors and Hair Styling Salons - Part-time employee"},
-      1082: {id: "5863",
-description: "Nail Salons - Part-time employee"},
+      173: {
+        id: "5864",
+        description: "Barber Shops - Part-time employee"
+      },
+      191: {
+        id: "5862",
+        description: "Beauty Parlors and Hair Styling Salons - Part-time employee"
+      },
+      1082: {
+        id: "5863",
+        description: "Nail Salons - Part-time employee"
+      },
       6547: {
         id: "6548",
         description: "Janitorial Services - Cleaning of only Residential or Office Locations (part-time worker)"
       },
       6549: {
         id: "6550",
-        description:
-          "Janitorial Services - Cleaning of only Residential, Office or Mercantile Locations (part-time worker)"
+        description: "Janitorial Services - Cleaning of only Residential, Office or Mercantile Locations (part-time worker)"
       },
       5884: {
         id: "5885",
@@ -257,9 +278,9 @@ description: "Nail Salons - Part-time employee"},
               },
               PrintedDocumentsRequestedInd: false,
               TotalPaidLossAmt: {
-                Amt: applicationDocData.claims?.reduce((total, {amountPaid}) => total + (amountPaid || 0), 0)
+                Amt: this.get_total_amount_paid_on_claims_by_policy().GL || 0
               },
-              NumLosses: applicationDocData.claims?.length,
+              NumLosses: applicationDocData.claims?.filter(({policyType}) => policyType === "GL").length,
               NumLossesYrs: 0,
               FutureEffDateInd: false,
               FutureEffDateNumDays: 0,
@@ -328,16 +349,16 @@ ClassificationRef: "S1"};
             Location: applicationDocData.locations
               // eslint-disable-next-line array-callback-return
               .map((location, index) => ({
-                  "@id": `${index + 1}`,
-                  Addr: {
-                    AddrTypeCd: "PhysicalRisk",
-                    Addr1: location?.address,
-                    City: location?.city,
-                    StateProvCd: location?.state,
-                    PostalCode: location?.zipcode?.substring(0, 5),
-                    CountryCd: "USA"
-                  }
-                })),
+                "@id": `${index + 1}`,
+                Addr: {
+                  AddrTypeCd: "PhysicalRisk",
+                  Addr1: location?.address,
+                  City: location?.city,
+                  StateProvCd: location?.state,
+                  PostalCode: location?.zipcode?.substring(0, 5),
+                  CountryCd: "USA"
+                }
+              })),
             CommlPropertyLineBusiness: {
               LOBCd: "CGL",
               MinPremInd: false
@@ -603,7 +624,7 @@ ClassificationRef: "S1"};
               if (!isNaN(premium) && !isNaN(taxAmount)) {
                 premium -= taxAmount;
               }
- else {
+            else {
                 log.warn(
                   `${logPrefix}Unable to remove tax ${taxDescription} from non-admitted quote premium. Reference quote additionalInfo for tax information. ` +
                     __location
@@ -622,7 +643,7 @@ ClassificationRef: "S1"};
             log.warn(`${logPrefix}Tax and fee deductions resulted in a premium value below 0. ` + __location);
             premium = 0;
           }
- else {
+          else {
             premium = `${premium}`.substring(0, `${premium}`.indexOf(".") + 3);
           }
         }
@@ -653,7 +674,7 @@ ClassificationRef: "S1"};
         if (limit) {
           value = convertToDollarFormat(limit, true);
         }
- else if (included) {
+        else if (included) {
           value = included;
         }
 
@@ -674,9 +695,14 @@ ClassificationRef: "S1"};
         return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType, coverages);
       }  
       
-      if (["434",
-"436",
-"627"].includes(msgErrorCode) || premium || msgStatusDescription === "Submit") {
+      if ([
+        "434",
+        "436",
+        "627"
+        ].includes(msgErrorCode) || 
+        premium || 
+        msgStatusDescription === "Submit"
+        ) {
         errorReasons.unshift(mainReason);
         if (errorReasons[0].includes("successfully processed the request.") && this.insurerIndustryCode?.attributes.GLElig === "PP") {
             this.reasons = ["The chosen classification has GL Eligibility PP (Premises Preferred)."];
