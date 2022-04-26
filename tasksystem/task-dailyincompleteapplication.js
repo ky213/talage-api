@@ -1,10 +1,11 @@
 'use strict';
 
 const moment = require('moment');
-// eslint-disable-next-line no-unused-vars
+const util = require("util");
+const csvStringify = util.promisify(require("csv-stringify"));
 const emailSvc = global.requireShared('./services/emailsvc.js');
-//const slack = global.requireShared('./services/slacksvc.js');
-const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
+const slack = global.requireShared('./services/slacksvc.js');
+const AgencyBO = global.requireShared('models/Agency-BO.js');
 const ApplicationBO = global.requireShared('models/Application-BO.js');
 
 /**
@@ -21,8 +22,6 @@ exports.processtask = async function(queueMessage){
     const messageAge = now.unix() - sentDatetime.unix();
     //log.debug("messageAge: " + messageAge );
     if(messageAge < 1800){
-        // DO STUFF
-
         dailyIncompleteApplicationTask().catch(function(err){
             log.error("Error Daily Incomplete Application Task " + err + __location);
         });
@@ -48,7 +47,7 @@ exports.processtask = async function(queueMessage){
 }
 
 /**
- * Exposes DailyDigestTask for testing
+ * Exposes Daily Incomplete Application Task for testing
  *
  * @returns {void}
  */
@@ -63,26 +62,25 @@ exports.taskProcessorExternal = async function(){
 
 const dailyIncompleteApplicationTask = async function(){
 
-    const yesterdayBegin = moment().tz("America/Los_Angeles").subtract(1,'d').startOf('day');
-    const yesterdayEnd = moment().tz("America/Los_Angeles").subtract(1,'d').endOf('day');
+    const todayBegin = moment().tz("America/Los_Angeles").startOf('day');
+    const todayEnd = moment().tz("America/Los_Angeles").endOf('day');
+    const query = {"active": true};
 
-    let agencyLocationList = null;
-    const agencyLocationBO = new AgencyLocationBO();
-    const query = {};
-    const getAgencyName = true;
-    const loadChildren = false;
-    agencyLocationList = await agencyLocationBO.getList(query, getAgencyName, loadChildren).catch(function(err){
-        log.error(`Error get agency location list from DB. error:  ${err}` + __location);
+    let agencyList = null;
+
+    const agencyBO = new AgencyBO();
+    agencyList = await agencyBO.getList(query).catch(function(err){
+        log.error(`Error get agency list from DB. error:  ${err}` + __location);
         return false;
     });
 
-    if(agencyLocationList && agencyLocationList.length > 0){
-        for(let i = 0; i < agencyLocationList.length; i++){
-            const agencyLocationDB = agencyLocationList[i];
+    if(agencyList?.length > 0){
+        for(const agency in agencyList){
             // process each agency location. make sure we have an active Agency
-            if(agencyLocationDB && agencyLocationDB.systemId && agencyLocationDB.agencyNetworkId && (agencyLocationDB.email || agencyLocationDB.agencyEmail)){
-                await processAgencyLocation(agencyLocationDB, yesterdayBegin, yesterdayEnd).catch(function(err){
-                    log.error("Error Agency Location Daily Digest error. AL: " + JSON.stringify(agencyLocationDB) + " error: " + err + __location);
+            if(agency?.systemId && agency?.agencyNetworkId && (agency?.email || agency?.agencyEmail)){
+                log.debug('Agency: ' + JSON.stringify(agency));
+                await processApplications(agency, todayBegin, todayEnd).catch(function(err){
+                    log.error("Error Agency Location Daily Incomplete Application error. AL: " + JSON.stringify(agency) + " error: " + err + __location);
                 })
             }
         }
@@ -92,25 +90,27 @@ const dailyIncompleteApplicationTask = async function(){
 }
 
 /**
- * Exposes processAgencyLocation
+ * Process Applications for each agency
  *
- * @param {string} agencyLocationDB - from db query not full object.
+ * @param {string} agency - from db query not full object.
+ * @param {date} todayBegin - starting date of today
+ * @param {date} todayEnd - ending date of today
  * @returns {void}
  */
 
-var processAgencyLocation = async function(agencyLocationDB, yesterdayBegin, yesterdayEnd){
+const processApplications = async function(agency, todayBegin, todayEnd){
 
-    if(!agencyLocationDB.agencyNetworkId){
-        log.error(`Error Daily Incomplete Applications - Agency Location agency_network not set for Agency Location: ${agencyLocationDB.alid}` + __location);
+    if(!agency?.agencyNetworkId){
+        log.error(`Error Daily Incomplete Applications - Agency agency_network not set for Agency: ${agency.systemid}` + __location);
         return false;
     }
     //const agencyNetwork = agencyLocationDB.agencyNetworkId;
 
     const query = {
-        "agencyLocationId": agencyLocationDB.systemId,
-        "searchenddate": yesterdayEnd,
-        "searchbegindate": yesterdayBegin,
-        "appStatusId": 0 //incomplete applications
+        "agencyId": agency.systemId,
+        "searchbegindate": todayBegin,
+        "searchenddate": todayEnd,
+        "status":"incomplete"
     };
     let appList = null;
     const applicationBO = new ApplicationBO();
@@ -128,9 +128,64 @@ var processAgencyLocation = async function(agencyLocationDB, yesterdayBegin, yes
     //let appCount = 0;
     if(appList && appList.length > 0){
         // Create spreadsheet and send the email
+        sendApplicationsSpreadsheet(appList, agency)
     }
     else {
-        log.info(`DailyDigest: No Activity for Agency Location: ${agencyLocationDB.systemId}.`)
+        log.info(`Daily Incomplete Application: No Activity for Agency: ${agency.systemId}.`)
     }
     return true;
+}
+
+/**
+ * Send Applications to the agency customer
+ *
+ * @param {object} applicationList - from db query not full object.
+ * @param {object} agency - starting date of today
+ * @returns {void}
+ */
+const sendApplicationsSpreadsheet = async function(applicationList, agency){
+    const dbDataColumns = {
+        "applicationId": "Application ID",
+        "businessName": "Business Name",
+        "createdAt": "Created",
+        "updatedAt": "Last Update"
+    };
+
+    const stringifyOptions = {
+        "header": true,
+        "columns": dbDataColumns
+    };
+    const csvData = await csvStringify(applicationList, stringifyOptions).catch(function(err){
+        log.error("Agency Report JSON to CSV error: " + err + __location);
+        return;
+    });
+
+    if(csvData){
+        const buffer = Buffer.from(csvData);
+        const csvContent = buffer.toString('base64');
+        const todayBegin = moment().tz("America/Los_Angeles").startOf('day');
+        const fileName = `IncompleteApplications-${todayBegin.format("YYYY-MM-DD")}.csv`;
+
+        const attachmentJson = {
+            'content': csvContent,
+            'filename': fileName,
+            'type': 'text/csv',
+            'disposition': 'attachment'
+        };
+        const agencyName = agency.name;
+        const attachments = [];
+        attachments.push(attachmentJson);
+        const subject = `Daily Incomplete Applications list for Agency: ${agencyName}`;
+        const emailBody = 'Incomplete Applications for '
+
+        const emailResp = await emailSvc.send(agency.email, subject, emailBody, {}, global.WHEELHOUSE_AGENCYNETWORK_ID, 'talage', 1, attachments);
+        if(emailResp === false){
+            slack.send('#alerts', 'warning',`The system failed to send Daily Incomplete Applications Report email.`);
+        }
+        return;
+    }
+    else {
+        log.error("Daily Incomplete Application Report JSON to CSV error: csvData empty file: " + __location);
+        return;
+    }
 }
