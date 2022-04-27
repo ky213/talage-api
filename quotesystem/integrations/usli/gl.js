@@ -116,6 +116,8 @@ module.exports = class USLIGL extends Integration {
         const supportedLimits = supportedLimitsMap[this.policy.limits] || [];
         const agencyInfo = await this.getAgencyInfo();
         const childClassificationRequired = Object.keys(childClassificationMap).includes(this.insurerIndustryCode.code);
+        const terrorismCoverageQuestion = applicationDocData.questions.find(question => question.insurerQuestionIdentifier === "usli.general.terrorismCoverage");
+        const terrorismCoverageIncluded = terrorismCoverageQuestion && terrorismCoverageQuestion.answerValue?.toLowerCase() === "yes"
 
         if (!this.industry_code?.insurerIndustryCodeId) {
             const errorMessage = `No Industry Code was found for GL. `;
@@ -210,9 +212,9 @@ module.exports = class USLIGL extends Integration {
                             BusinessInfo: {
                                 BusinessStartDt: moment(applicationDocData.founded).year(),
                                 OperationsDesc:
-                    applicationDocData?.questions?.find(
-                      ({insurerQuestionIdentifier}) => insurerQuestionIdentifier === "usli.general.operationsDesc"
-                    )?.answerValue || "Not Provided"
+                        applicationDocData?.questions?.find(
+                          ({insurerQuestionIdentifier}) => insurerQuestionIdentifier === "usli.general.operationsDesc"
+                        )?.answerValue || "Not Provided"
                             }
                         }
                     },
@@ -255,62 +257,68 @@ module.exports = class USLIGL extends Integration {
                         ],
                         AnyLossesAccidentsConvictionsInd: applicationDocData.claims?.length > 0,
                         "usli:DynamicQuestion": applicationDocData.questions
-                ?.map((question) => {
-                    if (!ignoredQuestionIds.includes(question.insurerQuestionIdentifier)) {
-                        return {
-                            "usli:QuestionId": question.insurerQuestionIdentifier,
-                            "usli:QuestionType": question.insurerQuestionAttributes?.questionType,
-                            "usli:Answer": question.answerValue || "Unknown"
-                        };
-                    }
-                })
-                .concat(
-                  applicationDocData.locations.flatMap((location, i) => location?.questions.flatMap((q) => {
-                      if (!ignoredQuestionIds.includes(q.insurerQuestionIdentifier)) {
-                          const isClassificationQuestion = q.insurerQuestionAttributes?.questionType === "Classification";
+                    ?.map((question) => {
+                        if (!ignoredQuestionIds.includes(question.insurerQuestionIdentifier)) {
+                            return {
+                                "usli:QuestionId": question.insurerQuestionIdentifier,
+                                "usli:QuestionType": question.insurerQuestionAttributes?.questionType,
+                                "usli:Answer": question.answerValue || "Unknown"
+                            };
+                        }
+                    })
+                    .concat(
+                      applicationDocData.locations.flatMap((location, i) => location?.questions.flatMap((q) => {
+                          if (!ignoredQuestionIds.includes(q.insurerQuestionIdentifier)) {
+                              const isClassificationQuestion =
+                              q.insurerQuestionAttributes?.questionType === "Classification";
 
-                          const classification = {
-                              "@LocationRef": `${i + 1}`,
-                              ClassificationRef: "C1",
-                              "usli:QuestionId": q.insurerQuestionIdentifier,
-                              "usli:QuestionType": q.insurerQuestionAttributes?.questionType,
-                              "usli:Answer": q.answerValue || "Unknown"
-                          };
-
-                          let childClassification = null;
-
-                          if (isClassificationQuestion && childClassificationRequired) {
-                              childClassification = {
-                                  ...classification,
-                                  ClassificationRef: "S1"
+                              const classification = {
+                                  "@LocationRef": `${i + 1}`,
+                                  ClassificationRef: "C1",
+                                  "usli:QuestionId": q.insurerQuestionIdentifier,
+                                  "usli:QuestionType": q.insurerQuestionAttributes?.questionType,
+                                  "usli:Answer": q.answerValue || "Unknown"
                               };
+
+                              let childClassification = null;
+
+                              if (isClassificationQuestion && childClassificationRequired) {
+                                  childClassification = {
+                                      ...classification,
+                                      ClassificationRef: "S1"
+                                  };
+                              }
+                              return [classification, childClassification];
                           }
-                          return [classification, childClassification];
-                      }
-                  }))
-                )
-                .filter((q) => q),
+                      }))
+                    )
+                    .filter((q) => q),
                         "usli:Status": "Quote",
                         "usli:Carrier": "MTV",
                         "usli:FilingId": 0,
                         "usli:IsUnsolicited": 0
                     },
-                    Location: applicationDocData.locations.
-                    // eslint-disable-next-line array-callback-return
-                        map((location, index) => ({
-                            "@id": `${index + 1}`,
-                            Addr: {
-                                AddrTypeCd: "PhysicalRisk",
-                                Addr1: location?.address,
-                                City: location?.city,
-                                StateProvCd: location?.state,
-                                PostalCode: location?.zipcode?.substring(0, 5),
-                                CountryCd: "USA"
-                            }
-                        })),
+                    Location: applicationDocData.locations.map((location, index) => ({
+                        "@id": `${index + 1}`,
+                        Addr: {
+                            AddrTypeCd: "PhysicalRisk",
+                            Addr1: location?.address,
+                            City: location?.city,
+                            StateProvCd: location?.state,
+                            PostalCode: location?.zipcode?.substring(0, 5),
+                            CountryCd: "USA"
+                        }
+                    })),
                     CommlPropertyLineBusiness: {
                         LOBCd: "CGL",
-                        MinPremInd: false
+                        MinPremInd: false,
+                        PropertyInfo: !terrorismCoverageIncluded ? null : {CommlPropertyInfo: {
+                            "@id": "TRIA1",
+                            "@LocationRef": 1,
+                            ClassCd: "08811",
+                            ClassCdDesc: "Terrorism Coverage",
+                            "usli:CoverageTypeId": "6197"
+                        }}
                     },
                     GeneralLiabilityLineBusiness: {
                         LOBCd: "CGL",
@@ -410,6 +418,7 @@ module.exports = class USLIGL extends Integration {
                                 };
 
                                 let childClassification = null;
+                                let TIAGeneralLiabilityClassification = null;
 
                                 if (childClassificationRequired) {
                                     childClassification = {
@@ -421,7 +430,19 @@ module.exports = class USLIGL extends Integration {
                                     };
                                 }
 
-                                return [classification, childClassification].filter((c) => c);
+                                if (terrorismCoverageIncluded && index + 1 === 1) {
+                                    TIAGeneralLiabilityClassification = {
+                                        "@id": "TRIA1",
+                                        "@LocationRef": 1,
+                                        ClassCd: "08811",
+                                        ClassCdDesc: "Terrorism Coverage",
+                                        "usli:CoverageTypeId": "6197"
+                                    };
+                                }
+
+                                return [classification,
+                                    childClassification,
+                                    TIAGeneralLiabilityClassification].filter((c) => c);
                             }),
                             EarnedPremiumPct: 0
                         }
