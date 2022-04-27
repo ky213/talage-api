@@ -1,6 +1,7 @@
 'use strict';
 
 const moment = require('moment');
+const moment_timezone = require('moment-timezone');
 const util = require("util");
 const csvStringify = util.promisify(require("csv-stringify"));
 const emailSvc = global.requireShared('./services/emailsvc.js');
@@ -23,27 +24,25 @@ exports.processtask = async function(queueMessage){
     //log.debug("messageAge: " + messageAge );
     if(messageAge < 1800){
         dailyIncompleteApplicationTask().catch(function(err){
-            log.error("Error Daily Incomplete Application Task " + err + __location);
+            log.error("Error Daily Incomplete Applications Task " + err + __location);
         });
         error = null;
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(function(err){
             error = err;
         });
         if(error){
-            log.error("Error daily incomplete application deleteTaskQueueItem " + error + __location);
+            log.error("Error daily incomplete applications deleteTaskQueueItem " + error + __location);
         }
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle);
-
-        return;
     }
     else {
         log.debug('removing old daily incomplete application Message from queue');
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(err => error = err)
         if(error){
-            log.error("Error Daily Incomplete Application - deleteTaskQueueItem old " + error + __location);
+            log.error("Error Daily Incomplete Applications - deleteTaskQueueItem old " + error + __location);
         }
-        return;
     }
+    return;
 }
 
 /**
@@ -62,9 +61,12 @@ exports.taskProcessorExternal = async function(){
 
 const dailyIncompleteApplicationTask = async function(){
 
-    const todayBegin = moment().tz("America/Los_Angeles").startOf('day');
-    const todayEnd = moment().tz("America/Los_Angeles").endOf('day');
-    const query = {"active": true};
+    const todayBegin = moment_timezone.tz("America/Los_Angeles").startOf('day');
+    const todayEnd = moment_timezone.tz("America/Los_Angeles").endOf('day');
+    const query = {
+        "active": true,
+        "dailyApplicationEmail": true
+    };
 
     let agencyList = null;
 
@@ -75,15 +77,19 @@ const dailyIncompleteApplicationTask = async function(){
     });
 
     if(agencyList?.length > 0){
-        for(const agency in agencyList){
-            // process each agency location. make sure we have an active Agency
+        for(const agency of agencyList){
+            log.debug(`This is the agency ${JSON.stringify(agency, null, 2)}`);
+            // process each agency. make sure we have an active Agency
             if(agency?.systemId && agency?.agencyNetworkId && (agency?.email || agency?.agencyEmail)){
                 log.debug('Agency: ' + JSON.stringify(agency));
                 await processApplications(agency, todayBegin, todayEnd).catch(function(err){
-                    log.error("Error Agency Location Daily Incomplete Application error. AL: " + JSON.stringify(agency) + " error: " + err + __location);
+                    log.error("Error Agency Daily Incomplete Application error. AL: " + JSON.stringify(agency) + " error: " + err + __location);
                 })
             }
         }
+    }
+    else{
+        log.info(`Daily Incomplete Applications: No Active Agencies with dailyApplicationEmail set`)
     }
 
     return;
@@ -126,12 +132,12 @@ const processApplications = async function(agency, todayBegin, todayEnd){
 
 
     //let appCount = 0;
-    if(appList && appList.length > 0){
+    if(appList?.length > 0){
         // Create spreadsheet and send the email
-        sendApplicationsSpreadsheet(appList, agency)
+        await sendApplicationsSpreadsheet(appList, agency)
     }
     else {
-        log.info(`Daily Incomplete Application: No Activity for Agency: ${agency.systemId}.`)
+        log.info(`Daily Incomplete Applications: No Activity for Agency: ${agency.systemId}.`)
     }
     return true;
 }
@@ -163,8 +169,8 @@ const sendApplicationsSpreadsheet = async function(applicationList, agency){
     if(csvData){
         const buffer = Buffer.from(csvData);
         const csvContent = buffer.toString('base64');
-        const todayBegin = moment().tz("America/Los_Angeles").startOf('day');
-        const fileName = `IncompleteApplications-${todayBegin.format("YYYY-MM-DD")}.csv`;
+        const today = moment_timezone.tz("America/Los_Angeles");
+        const fileName = `IncompleteApplications-${today.format("YYYY-MM-DD")}.csv`;
 
         const attachmentJson = {
             'content': csvContent,
@@ -175,12 +181,16 @@ const sendApplicationsSpreadsheet = async function(applicationList, agency){
         const agencyName = agency.name;
         const attachments = [];
         attachments.push(attachmentJson);
-        const subject = `Daily Incomplete Applications list for Agency: ${agencyName}`;
-        const emailBody = 'Incomplete Applications for '
+        const subject = `Daily Incomplete Applications for Agency: ${agencyName}`;
+        const emailBody = `Hi, you will find attached the file with the incomplete applications for the Agency ${agency.name} of today`
 
+        log.debug(`Sending spreadsheet of the incomplete applications for Agency: ${agency.systemId} - ${agency.name}`);
         const emailResp = await emailSvc.send(agency.email, subject, emailBody, {}, global.WHEELHOUSE_AGENCYNETWORK_ID, 'talage', 1, attachments);
         if(emailResp === false){
             slack.send('#alerts', 'warning',`The system failed to send Daily Incomplete Applications Report email.`);
+        }
+        else {
+            log.debug(`Successfuly send the email to - ${agency.email}`)
         }
         return;
     }
