@@ -71,6 +71,7 @@ async function performOcrOnAcodPdfFile(req, res, next) {
         insurerId: parseInt(req.body.insurerId, 10),
         tag: req.body.tag,
         markAsPending: req.body?.markAsPending === 'true',
+        advanceDate: req.body?.advanceDate === 'true',
         agencyPortalUserId: req.authentication.userID
     };
 
