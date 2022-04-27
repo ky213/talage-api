@@ -2,8 +2,8 @@ const axios = require("axios");
 const Application = global.mongoose.Application;
 const ApplicationUpload = global.mongoose.ApplicationUpload;
 const ApplicationUploadStatus = global.mongoose.ApplicationUploadStatus;
-const InsurerIndustryCode = global.mongoose.InsurerIndustryCode;
 const InsurerActivityCode = global.mongoose.InsurerActivityCode;
+const IndustryCode = global.mongoose.IndustryCode;
 const fs = require('fs');
 const moment = require('moment');
 const _ = require('lodash');
@@ -113,33 +113,32 @@ const getZip = (addr) => {
  */
 const isCheckboxChecked = (value) => !_.isEmpty(value);
 
-const convertInsurerIndustryCodeToTalageIndustryCode = async(insurerId, insurerIndustryCode, territory) => {
-    const insurerIndustryCodeObj = await InsurerIndustryCode.findOne({
-        insurerId: insurerId,
-        territoryList: territory,
-        code: insurerIndustryCode.toString()
-    });
-    if (!insurerIndustryCodeObj) {
-        log.warn(`Cannot find insurer industry code: ${insurerIndustryCode} @ ${insurerId} for territory: ${territory}`)
+const convertNaicsToTalageIndustryCode = async(insurerIndustryCode) => {
+    const industryCodeObj = await IndustryCode.findOne({naics: insurerIndustryCode.toString()});
+    if (!industryCodeObj || !industryCodeObj?.activityCodeIdList?.[0]) {
+        log.warn(`Cannot find insurer industry code: ${insurerIndustryCode}`)
         return;
     }
 
-    return insurerIndustryCodeObj.talageIndustryCodeIdList[0];
+    return industryCodeObj?.activityCodeIdList?.[0];
 }
 
 const convertInsurerActivityCodeToTalageActivityCode = async(insurerId, insurerActivityCode, territory) => {
-    const insurerIndustryCodeObj = await InsurerActivityCode.findOne({
-        insurerId: insurerId,
+    const code = insurerActivityCode.split('-');
+    const insurerIndustryCodeObj = await InsurerActivityCode.findOne(_.omitBy({
+        insurerId: parseInt(insurerId, 10),
         territoryList: territory,
-        code: insurerActivityCode.toString()
-    });
+        code: code[0],
+        sub: code?.[1],
+        active: true
+    }, _.isNil));
     if (!insurerIndustryCodeObj) {
         log.warn(`Cannot find insurer activity code: ${insurerActivityCode} @ ${insurerId} for territory: ${territory}`)
         return '';
     }
 
     // Just pick the first Talage Activity Code mapping.
-    return _.get(insurerIndustryCodeObj, 'talageActivityCodeIdList[0]');
+    return insurerIndustryCodeObj?.talageActivityCodeIdList?.[0];
 }
 
 /**
@@ -344,7 +343,7 @@ module.exports = class ApplicationUploadBO {
                         }
                         return out;
                     }, 0),
-                    activityCodeId: await tryToFormat([r.Class_Code, l.Address], () => convertInsurerActivityCodeToTalageActivityCode(insurerId, parseInt(r.Class_Code, 10), getState(l.Address))) // Convert to talage NCCI
+                    activityCodeId: await tryToFormat([r.Class_Code, l.Address], () => convertInsurerActivityCodeToTalageActivityCode(insurerId, r.Class_Code, getState(l.Address) || getState(data.Applicant_Mailing_Address))) // Convert to talage NCCI
                 })))
             }))),
 
@@ -412,9 +411,7 @@ module.exports = class ApplicationUploadBO {
         }
 
         if (data.NAICS) {
-            applicationUploadObj.industryCode = await convertInsurerIndustryCodeToTalageIndustryCode(insurerId,
-                parseInt(data.NAICS, 10),
-                applicationUploadObj.mailingState);
+            applicationUploadObj.industryCode = await convertNaicsToTalageIndustryCode(parseInt(data.NAICS, 10));
         }
         if (isCheckboxChecked(data.Corporation)) {
             applicationUploadObj.entityType = 'Corporation';
