@@ -406,8 +406,8 @@ module.exports = class ApplicationUploadBO {
         if (applicationUploadObj?.contacts?.[0]) {
             applicationUploadObj.contacts[0].primary = true;
         }
-        if (applicationUploadObj?.Location?.[0]) {
-            applicationUploadObj.Location[0].primary = true;
+        if (applicationUploadObj?.locations?.[0]) {
+            applicationUploadObj.locations[0].primary = true;
         }
 
         if (data.NAICS) {
