@@ -4,6 +4,7 @@ const ApplicationUpload = global.mongoose.ApplicationUpload;
 const ApplicationUploadStatus = global.mongoose.ApplicationUploadStatus;
 const InsurerIndustryCode = global.mongoose.InsurerIndustryCode;
 const InsurerActivityCode = global.mongoose.InsurerActivityCode;
+const IndustryCode = global.mongoose.IndustryCode;
 const fs = require('fs');
 const moment = require('moment');
 const _ = require('lodash');
@@ -113,18 +114,16 @@ const getZip = (addr) => {
  */
 const isCheckboxChecked = (value) => !_.isEmpty(value);
 
-const convertInsurerIndustryCodeToTalageIndustryCode = async(insurerId, insurerIndustryCode, territory) => {
-    const insurerIndustryCodeObj = await InsurerIndustryCode.findOne({
-        insurerId: parseInt(insurerId, 10),
-        territoryList: territory,
-        code: insurerIndustryCode.toString()
+const convertNaicsToTalageIndustryCode = async(insurerIndustryCode) => {
+    const industryCodeObj = await IndustryCode.findOne({
+        naics: insurerIndustryCode.toString()
     });
-    if (!insurerIndustryCodeObj) {
-        log.warn(`Cannot find insurer industry code: ${insurerIndustryCode} @ ${insurerId} for territory: ${territory}`)
+    if (!industryCodeObj || !industryCodeObj?.activityCodeIdList?.[0]) {
+        log.warn(`Cannot find insurer industry code: ${insurerIndustryCode}`)
         return;
     }
 
-    return insurerIndustryCodeObj.talageIndustryCodeIdList[0];
+    return industryCodeObj?.activityCodeIdList?.[0];
 }
 
 const convertInsurerActivityCodeToTalageActivityCode = async(insurerId, insurerActivityCode, territory) => {
@@ -415,9 +414,7 @@ module.exports = class ApplicationUploadBO {
         }
 
         if (data.NAICS) {
-            applicationUploadObj.industryCode = await convertInsurerIndustryCodeToTalageIndustryCode(insurerId,
-                parseInt(data.NAICS, 10),
-                applicationUploadObj.mailingState);
+            applicationUploadObj.industryCode = await convertNaicsToTalageIndustryCode(parseInt(data.NAICS, 10));
         }
         if (isCheckboxChecked(data.Corporation)) {
             applicationUploadObj.entityType = 'Corporation';
