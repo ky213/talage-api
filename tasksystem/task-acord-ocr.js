@@ -30,7 +30,7 @@ async function processtask(){
                 log.error(`OCR microservice error: ${result.message}`);
                 return;
             }
-            await applicationUploadBO.saveOcrResult(requestId, result, uploadStatus, uploadStatus.markAsPending === 'true');
+            await applicationUploadBO.saveOcrResult(requestId, result, uploadStatus, uploadStatus.markAsPending);
             sendFinishEmails.push(uploadStatus.agencyPortalUserId);
         }));
     }
