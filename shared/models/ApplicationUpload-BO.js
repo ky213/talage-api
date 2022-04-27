@@ -310,6 +310,7 @@ module.exports = class ApplicationUploadBO {
                 ocrRequestId: requestId
             },
             active: true,
+            agencyPortalCreated: true,
             appStatusId: 0, // Mark awspplication as incomplete by default
             agencyId: agencyMetadata.agencyId,
             agencyLocationId: agencyMetadata.agencyLocationId,
