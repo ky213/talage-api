@@ -120,7 +120,7 @@ const convertInsurerIndustryCodeToTalageIndustryCode = async(insurerId, insurerI
         code: insurerIndustryCode.toString()
     });
     if (!insurerIndustryCodeObj) {
-        log.error(`Cannot find insurer industry code: ${insurerIndustryCode} @ ${insurerId} for territory: ${territory}`)
+        log.warn(`Cannot find insurer industry code: ${insurerIndustryCode} @ ${insurerId} for territory: ${territory}`)
         return;
     }
 
@@ -134,7 +134,7 @@ const convertInsurerActivityCodeToTalageActivityCode = async(insurerId, insurerA
         code: insurerActivityCode.toString()
     });
     if (!insurerIndustryCodeObj) {
-        log.error(`Cannot find insurer activity code: ${insurerActivityCode} @ ${insurerId} for territory: ${territory}`)
+        log.warn(`Cannot find insurer activity code: ${insurerActivityCode} @ ${insurerId} for territory: ${territory}`)
         return '';
     }
 
@@ -222,7 +222,8 @@ module.exports = class ApplicationUploadBO {
                 status: 'QUEUED',
                 fileName: acordFile.name,
                 type: fileType,
-                agencyPortalUserId: metadata?.agencyPortalUserId
+                agencyPortalUserId: metadata?.agencyPortalUserId,
+                advanceDate: metadata?.advanceDate
             });
         }
         catch (error) {
@@ -396,10 +397,16 @@ module.exports = class ApplicationUploadBO {
         // remove blank contacts from the list.
         applicationUploadObj.contacts = applicationUploadObj.contacts.filter(t => !_.isEmpty(t.firstName) || !_.isEmpty(t.lastName));
 
-        if (_.get(applicationUploadObj, 'contacts[0]')) {
+        // If the user checked the advanceDate checkbox.
+        if (agencyMetadata?.advanceDate) {
+            applicationUploadObj.policies[0].effectiveDate = moment().add(1, 'year').format('MM/DD/YYYY');
+            applicationUploadObj.policies[0].expirationDate = await tryToFormat(data.Proposed_Exp_Date, async(v) => moment(v, 'MM/DD/YYYY').add(1, 'year'));
+        }
+
+        if (applicationUploadObj?.contacts?.[0]) {
             applicationUploadObj.contacts[0].primary = true;
         }
-        if (_.get(applicationUploadObj, 'Location[0]')) {
+        if (applicationUploadObj?.Location?.[0]) {
             applicationUploadObj.Location[0].primary = true;
         }
 
@@ -606,7 +613,6 @@ module.exports = class ApplicationUploadBO {
                                 application.agencyState = agencyLoc.state;
                             }
                         }
-
 
                         //industry desc
                         const industryCodeBO = new IndustryCodeBO();
