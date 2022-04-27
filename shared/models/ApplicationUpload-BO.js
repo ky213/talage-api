@@ -2,7 +2,6 @@ const axios = require("axios");
 const Application = global.mongoose.Application;
 const ApplicationUpload = global.mongoose.ApplicationUpload;
 const ApplicationUploadStatus = global.mongoose.ApplicationUploadStatus;
-const InsurerIndustryCode = global.mongoose.InsurerIndustryCode;
 const InsurerActivityCode = global.mongoose.InsurerActivityCode;
 const IndustryCode = global.mongoose.IndustryCode;
 const fs = require('fs');
@@ -115,9 +114,7 @@ const getZip = (addr) => {
 const isCheckboxChecked = (value) => !_.isEmpty(value);
 
 const convertNaicsToTalageIndustryCode = async(insurerIndustryCode) => {
-    const industryCodeObj = await IndustryCode.findOne({
-        naics: insurerIndustryCode.toString()
-    });
+    const industryCodeObj = await IndustryCode.findOne({naics: insurerIndustryCode.toString()});
     if (!industryCodeObj || !industryCodeObj?.activityCodeIdList?.[0]) {
         log.warn(`Cannot find insurer industry code: ${insurerIndustryCode}`)
         return;
