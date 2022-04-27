@@ -294,7 +294,7 @@ module.exports = class ApplicationUploadBO {
             _.set(data, k.question, k.answer);
         }
 
-        // await ApplicationUploadStatus.updateOne({requestId: requestId}, {status: 'SUCCESS'});
+        await ApplicationUploadStatus.updateOne({requestId: requestId}, {status: 'SUCCESS'});
 
         // filter out blank entries that OCR might've given us.
         data.Individual = data.Individual.filter(t => t.Name !== '');
