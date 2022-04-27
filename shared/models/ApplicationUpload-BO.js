@@ -115,7 +115,7 @@ const isCheckboxChecked = (value) => !_.isEmpty(value);
 
 const convertInsurerIndustryCodeToTalageIndustryCode = async(insurerId, insurerIndustryCode, territory) => {
     const insurerIndustryCodeObj = await InsurerIndustryCode.findOne({
-        insurerId: insurerId,
+        insurerId: parseInt(insurerId, 10),
         territoryList: territory,
         code: insurerIndustryCode.toString()
     });
@@ -128,18 +128,21 @@ const convertInsurerIndustryCodeToTalageIndustryCode = async(insurerId, insurerI
 }
 
 const convertInsurerActivityCodeToTalageActivityCode = async(insurerId, insurerActivityCode, territory) => {
-    const insurerIndustryCodeObj = await InsurerActivityCode.findOne({
-        insurerId: insurerId,
+    const code = insurerActivityCode.split('-');
+    const insurerIndustryCodeObj = await InsurerActivityCode.findOne(_.omitBy({
+        insurerId: parseInt(insurerId, 10),
         territoryList: territory,
-        code: insurerActivityCode.toString()
-    });
+        code: code[0],
+        sub: code?.[1],
+        active: true
+    }, _.isNil));
     if (!insurerIndustryCodeObj) {
         log.warn(`Cannot find insurer activity code: ${insurerActivityCode} @ ${insurerId} for territory: ${territory}`)
         return '';
     }
 
     // Just pick the first Talage Activity Code mapping.
-    return _.get(insurerIndustryCodeObj, 'talageActivityCodeIdList[0]');
+    return insurerIndustryCodeObj?.talageActivityCodeIdList?.[0];
 }
 
 /**
@@ -291,7 +294,7 @@ module.exports = class ApplicationUploadBO {
             _.set(data, k.question, k.answer);
         }
 
-        await ApplicationUploadStatus.updateOne({requestId: requestId}, {status: 'SUCCESS'});
+        // await ApplicationUploadStatus.updateOne({requestId: requestId}, {status: 'SUCCESS'});
 
         // filter out blank entries that OCR might've given us.
         data.Individual = data.Individual.filter(t => t.Name !== '');
@@ -344,7 +347,7 @@ module.exports = class ApplicationUploadBO {
                         }
                         return out;
                     }, 0),
-                    activityCodeId: await tryToFormat([r.Class_Code, l.Address], () => convertInsurerActivityCodeToTalageActivityCode(insurerId, parseInt(r.Class_Code, 10), getState(l.Address))) // Convert to talage NCCI
+                    activityCodeId: await tryToFormat([r.Class_Code, l.Address], () => convertInsurerActivityCodeToTalageActivityCode(insurerId, r.Class_Code, getState(l.Address) || getState(data.Applicant_Mailing_Address))) // Convert to talage NCCI
                 })))
             }))),
 
