@@ -1,3 +1,5 @@
+/* eslint-disable no-confusing-arrow */
+/* eslint-disable no-undefined */
 const axios = require("axios");
 const Application = global.mongoose.Application;
 const ApplicationUpload = global.mongoose.ApplicationUpload;
@@ -12,6 +14,7 @@ const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
 const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js');
 const zipcodeHelper = global.requireShared('./helpers/formatZipcode.js');
+const crypt = global.requireShared('./services/crypt.js');
 
 const getFirstName = (name) => {
     const nameSplit = name.split(' ');
@@ -166,7 +169,7 @@ const tryToFormat = async(fieldValue, formatterFunc, defaultValue) => {
     }
 }
 
-const cleanLimit = (limit) => limit.replace(/,/g, '').replace(/\./g, '');
+const cleanLimit = (limit) => limit.replace(/,/g, '').replace(/\./g, '').replace(/\s/g, '');
 
 module.exports = class ApplicationUploadBO {
     async submitFile(metadata, fileType, acordFile) {
@@ -325,7 +328,12 @@ module.exports = class ApplicationUploadBO {
             mailingZipcode: await tryToFormat(data.Applicant_Mailing_Address, async(v) => getZip(v)),
             website: data.Website,
             ein: data.FEIN,
-            founded: await tryToFormat(data.Years_In_Business, async(v) => moment().subtract(parseInt(v, 10), 'years')),
+            founded: await tryToFormat(data.Years_In_Business, async(v) => {
+                if (!v) {
+                    return;
+                }
+                return moment().subtract(parseInt(v, 10), 'years');
+            }),
             businessName: data.Applicant_Name,
 
             locations: await Promise.all(data.Location.map(async(l) => ({
@@ -382,8 +390,8 @@ module.exports = class ApplicationUploadBO {
 
             policies: [{
                 policyType: 'WC',
-                effectiveDate: moment().format('MM/DD/YYYY'),
-                expirationDate: await tryToFormat(data.Proposed_Exp_Date, async(v) => moment(v, 'MM/DD/YYYY')),
+                effectiveDate: await tryToFormat(data.Policy_Proposed_Eff_Date, async(v) => v ? moment(v, 'MM/DD/YYYY') : undefined),
+                expirationDate: await tryToFormat(data.Proposed_Exp_Date, async(v) => v ? moment(v, 'MM/DD/YYYY') : undefined),
                 limits: await tryToFormat(data.Liability_Disease_Employee, async(v) => cleanLimit(v)) +
                     await tryToFormat(data.Liability_Disease_Limit, async(v) => cleanLimit(v)) +
                     await tryToFormat(data.Liability_Each_Accident, async(v) => cleanLimit(v))
@@ -399,8 +407,8 @@ module.exports = class ApplicationUploadBO {
 
         // If the user checked the advanceDate checkbox.
         if (agencyMetadata?.advanceDate) {
-            applicationUploadObj.policies[0].effectiveDate = moment().add(1, 'year').format('MM/DD/YYYY');
-            applicationUploadObj.policies[0].expirationDate = await tryToFormat(data.Proposed_Exp_Date, async(v) => moment(v, 'MM/DD/YYYY').add(1, 'year'));
+            applicationUploadObj.policies[0].effectiveDate = await tryToFormat(data.Policy_Proposed_Eff_Date, async(v) => v ? moment(v, 'MM/DD/YYYY').add(1, 'year') : undefined);
+            applicationUploadObj.policies[0].expirationDate = await tryToFormat(data.Proposed_Exp_Date, async(v) => v ? moment(v, 'MM/DD/YYYY').add(1, 'year') : undefined);
         }
 
         if (applicationUploadObj?.contacts?.[0]) {
@@ -408,6 +416,13 @@ module.exports = class ApplicationUploadBO {
         }
         if (applicationUploadObj?.locations?.[0]) {
             applicationUploadObj.locations[0].primary = true;
+        }
+
+        if (applicationUploadObj.ein) {
+            applicationUploadObj.hasEin = true;
+            applicationUploadObj.einEncrypted = await crypt.encrypt(applicationUploadObj.ein);
+            applicationUploadObj.einEncryptedT2 = await crypt.encrypt(applicationUploadObj.ein);
+            applicationUploadObj.einHash = await crypt.hash(applicationUploadObj.ein);
         }
 
         if (data.NAICS) {
