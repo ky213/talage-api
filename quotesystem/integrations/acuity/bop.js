@@ -29,6 +29,7 @@ module.exports = class AcuityBOP extends Integration {
     async _insurer_quote() {
         const appDoc = this.applicationDocData
 
+        const logPrefix = `Appid: ${this.app.id} Acuity BOP `
         const insurerBO = new InsurerBO();
         const insurerSlug = 'acuity';
         const insurer = await insurerBO.getBySlug(insurerSlug);
@@ -271,7 +272,7 @@ module.exports = class AcuityBOP extends Integration {
 
         // <CommlPolicy>
         const CommlPolicy = BOPPolicyQuoteInqRq.ele('CommlPolicy');
-        CommlPolicy.ele('LOBCd', 'CGL');
+        CommlPolicy.ele('LOBCd', 'BOP');
         CommlPolicy.ele('ControllingStateProvCd', this.app.business.primary_territory);
 
         // <ContractTerm>
@@ -311,7 +312,7 @@ module.exports = class AcuityBOP extends Integration {
             const totalClaimAmount = this.get_total_amount_incurred_on_claims(3);
             const OtherOrPriorPolicy = CommlPolicy.ele('OtherOrPriorPolicy');
             OtherOrPriorPolicy.ele('PolicyCd', 'com.acuity_LossHistory');
-            OtherOrPriorPolicy.ele('LOBCd', 'CGL');
+            OtherOrPriorPolicy.ele('LOBCd', 'BOP');
             OtherOrPriorPolicy.ele('NumLosses', totalClaimCount);
             OtherOrPriorPolicy.ele('ContractTerm').ele('DurationPeriod').ele('NumUnits', 3);
             OtherOrPriorPolicy.ele('TotalPaidLossesAmt').ele('Amt', totalClaimAmount);
@@ -325,7 +326,7 @@ module.exports = class AcuityBOP extends Integration {
             question_identifiers = await this.get_question_identifiers();
         }
         catch (error) {
-            log.error(`${this.insurer.name} WC is unable to get question identifiers.${error}` + __location);
+            log.error(`${this.insurer.name} BOP is unable to get question identifiers.${error}` + __location);
             return this.return_result('autodeclined');
         }
         const questionCodes = Object.values(question_identifiers);
@@ -439,7 +440,6 @@ module.exports = class AcuityBOP extends Integration {
 
         // <BOPLineBusiness>
         const BOPLineBusiness = BOPPolicyQuoteInqRq.ele('BOPLineBusiness');
-        BOPLineBusiness.ele('LOBCd', 'CGL');
 
         // <LiabilityInfo>
         const LiabilityInfo = BOPLineBusiness.ele('LiabilityInfo');
@@ -475,56 +475,74 @@ module.exports = class AcuityBOP extends Integration {
         // Exposures
 
 
-        for (let i = 0; i < appDoc.locations.length; i++) {
-            const location = appDoc.locations[i];
-
-            const cobPayrollList = [];
-            // eslint-disable-next-line prefer-const
-            for (let activityCode of location.activityPayrollList){
-                //check for new application doc
-                if(!activityCode.activityCodeId){
-                    activityCode.activityCodeId = activityCode.ncciCode;
-                }
-                const acuityActivityCode = await this.get_insurer_code_for_activity_code(insurer.id, location.state, activityCode.activityCodeId);
-                if (acuityActivityCode && acuityActivityCode.attributes && acuityActivityCode.attributes.hasOwnProperty("assocGLClass")) {
-                    const cglCode = acuityActivityCode.attributes.assocGLClass;
-                    let cobPayroll = cobPayrollList.find((cp) => cp.cglCode === cglCode);
-                    if (!cobPayroll) {
-                        cobPayroll = {
-                            cglCode: cglCode,
-                            payroll: 0
-                        };
-                        cobPayrollList.push(cobPayroll);
-                    }
-                    //loop through EmployeeType payroll
-                    if(activityCode.employeeTypeList && activityCode.employeeTypeList.length > 0){
-                        activityCode.employeeTypeList.forEach((employeTypePayroll) => {
-                            cobPayroll.payroll += employeTypePayroll.employeeTypePayroll;
-                        });
-                    }
-                    else {
-                        cobPayroll.payroll += activityCode.payroll;
-                    }
-                }
-                else {
-                    log.error(`Acuity GL (application ${this.app.id}): ActivityCode ${activityCode.activityCodeId}  had no assocGLClass. Application may fail at Acuit, acuityActivityCode ${JSON.stringify(acuityActivityCode)}` + __location);
-                }
-            }
-            // Fill in the exposure. The Acuity CGL spreadsheet does not specify exposures per class code so we send PAYROLL for now until we get clarity.
-            if(cobPayrollList.length > 0){
-                for (const cobPayroll of cobPayrollList) {
-                    const GeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification');
-                    GeneralLiabilityClassification.att('LocationRef', `L${i + 1}`);
-                    GeneralLiabilityClassification.ele('ClassCd', cobPayroll.cglCode);
-                    // GeneralLiabilityClassification.ele('ClassCdDesc', this.industry_code.description);
-                    GeneralLiabilityClassification.ele('PremiumBasisCd', 'PAYRL');
-                    GeneralLiabilityClassification.ele('Exposure', cobPayroll.payroll);
-                }
-            }
-            else {
-                log.error(`Acuity GL (application ${this.app.id}): application issue no payroll. Application will fail at Acuity` + __location);
-            }
+        const GeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification');
+        if (this.insurerIndustryCode?.attributes?.cgl) {
+            GeneralLiabilityClassification.ele('ClassCd', this.insurerIndustryCode.attributes.cgl);
         }
+        else (
+            log.error(`${logPrefix}: Insurer Industry Code "${this.insurerIndustryCode.code}" did not have Class in attributes.cgl`)
+        )
+
+        if (appDoc.grossSalesAmt) {
+            GeneralLiabilityClassification.ele('Exposure', appDoc.grossSalesAmt);
+        }
+        else {
+            log.error(`${logPrefix}: Missing Gross Sales Amount`);
+        }
+
+        GeneralLiabilityClassification.ele('PremiumBasisCd', 'GrSales');
+
+        // Old GL Integration stuff
+        // for (let i = 0; i < appDoc.locations.length; i++) {
+        //     const location = appDoc.locations[i];
+
+        //     const cobPayrollList = [];
+        //     // eslint-disable-next-line prefer-const
+        //     for (let activityCode of location.activityPayrollList){
+        //         //check for new application doc
+        //         if(!activityCode.activityCodeId){
+        //             activityCode.activityCodeId = activityCode.ncciCode;
+        //         }
+        //         const acuityActivityCode = await this.get_insurer_code_for_activity_code(insurer.id, location.state, activityCode.activityCodeId);
+        //         if (acuityActivityCode && acuityActivityCode.attributes && acuityActivityCode.attributes.hasOwnProperty("assocGLClass")) {
+        //             const cglCode = acuityActivityCode.attributes.assocGLClass;
+        //             let cobPayroll = cobPayrollList.find((cp) => cp.cglCode === cglCode);
+        //             if (!cobPayroll) {
+        //                 cobPayroll = {
+        //                     cglCode: cglCode,
+        //                     payroll: 0
+        //                 };
+        //                 cobPayrollList.push(cobPayroll);
+        //             }
+        //             //loop through EmployeeType payroll
+        //             if(activityCode.employeeTypeList && activityCode.employeeTypeList.length > 0){
+        //                 activityCode.employeeTypeList.forEach((employeTypePayroll) => {
+        //                     cobPayroll.payroll += employeTypePayroll.employeeTypePayroll;
+        //                 });
+        //             }
+        //             else {
+        //                 cobPayroll.payroll += activityCode.payroll;
+        //             }
+        //         }
+        //         else {
+        //             log.error(`Acuity GL (application ${this.app.id}): ActivityCode ${activityCode.activityCodeId}  had no assocGLClass. Application may fail at Acuit, acuityActivityCode ${JSON.stringify(acuityActivityCode)}` + __location);
+        //         }
+        //     }
+        //     // Fill in the exposure. The Acuity CGL spreadsheet does not specify exposures per class code so we send PAYROLL for now until we get clarity.
+        //     if(cobPayrollList.length > 0){
+        //         for (const cobPayroll of cobPayrollList) {
+        //             const GeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification');
+        //             GeneralLiabilityClassification.att('LocationRef', `L${i + 1}`);
+        //             GeneralLiabilityClassification.ele('ClassCd', cobPayroll.cglCode);
+        //             // GeneralLiabilityClassification.ele('ClassCdDesc', this.industry_code.description);
+        //             GeneralLiabilityClassification.ele('PremiumBasisCd', 'PAYRL');
+        //             GeneralLiabilityClassification.ele('Exposure', cobPayroll.payroll);
+        //         }
+        //     }
+        //     else {
+        //         log.error(`Acuity GL (application ${this.app.id}): application issue no payroll. Application will fail at Acuity` + __location);
+        //     }
+        // }
 
         // </BOPLineBusiness>
         // </BOPPolicyQuoteInqRq>
@@ -586,7 +604,7 @@ module.exports = class AcuityBOP extends Integration {
         }
 
         // Find the PolicySummaryInfo, PolicySummaryInfo.PolicyStatusCode, and optionally the PolicySummaryInfo.FullTermAmt.Amt
-        const policySummaryInfo = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.GeneralLiabilityPolicyQuoteInqRs.PolicySummaryInfo');
+        const policySummaryInfo = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.BOPPolicyQuoteInqRs.PolicySummaryInfo');
         if (!policySummaryInfo) {
             log.error(`Acuity (application ${this.app.id}): Could not find PolicySummaryInfo ${__location}`);
             this.reasons.push(`Could not find PolicySummaryInfo in response`);
@@ -600,7 +618,7 @@ module.exports = class AcuityBOP extends Integration {
         }
 
         // If the first message status begins with "Rating is not available ...", it is an autodecline
-        const extendedStatusDescription = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.GeneralLiabilityPolicyQuoteInqRs.MsgStatus.ExtendedStatus.ExtendedStatusDesc');
+        const extendedStatusDescription = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.BOPPolicyQuoteInqRs.MsgStatus.ExtendedStatus.ExtendedStatusDesc');
         if (extendedStatusDescription && extendedStatusDescription.startsWith("Rating is not available for this type of business")) {
             this.reasons.push('Rating is not available for this type of business.');
             return this.return_result('autodeclined');
@@ -621,7 +639,7 @@ module.exports = class AcuityBOP extends Integration {
                 }
                 // Get the returned limits
                 let foundLimitsCount = 0;
-                const commlCoverage = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.GeneralLiabilityPolicyQuoteInqRs.BOPLineBusiness.LiabilityInfo.CommlCoverage', true);
+                const commlCoverage = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.BOPPolicyQuoteInqRs.BOPLineBusiness.LiabilityInfo.CommlCoverage', true);
                 if (!commlCoverage) {
                     this.reasons.push(`Could not find CommlCoverage node  with Limit information in response.`);
                     log.error(`Acuity GL (application ${this.app.id}): Could not find the CommlCoverage with Limit information node. ${__location}`);
@@ -673,7 +691,7 @@ module.exports = class AcuityBOP extends Integration {
                 }
 
                 // Retrieve and the quote letter if it exists
-                const fileAttachmentInfoList = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.GeneralLiabilityPolicyQuoteInqRs.FileAttachmentInfo', true);
+                const fileAttachmentInfoList = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.BOPPolicyQuoteInqRs.FileAttachmentInfo', true);
                 if(fileAttachmentInfoList){
                     for (const fileAttachmentInfo of fileAttachmentInfoList) {
                         switch (fileAttachmentInfo.AttachmentDesc[0]) {
@@ -694,7 +712,7 @@ module.exports = class AcuityBOP extends Integration {
                 }
 
                 // Set payment plans
-                const insurerPaymentPlans = this.get_xml_child(res.ACORD, "InsuranceSvcRs.GeneralLiabilityPolicyQuoteInqRs.CommlPolicy.PaymentOption", true);
+                const insurerPaymentPlans = this.get_xml_child(res.ACORD, "InsuranceSvcRs.BOPPolicyQuoteInqRs.CommlPolicy.PaymentOption", true);
 
                 this.insurerPaymentPlans = insurerPaymentPlans.map(({
                     $, ...rest
@@ -744,7 +762,7 @@ module.exports = class AcuityBOP extends Integration {
                 log.info(`Acuity: Returning ${status} ${policyAmount ? "with price" : ""}`);
                 return this.return_result(status);
             case "com.acuity_Declined":
-                const extendedStatusList = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.GeneralLiabilityPolicyQuoteInqRs.MsgStatus.ExtendedStatus', true);
+                const extendedStatusList = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.BOPPolicyQuoteInqRs.MsgStatus.ExtendedStatus', true);
                 if (extendedStatusList) {
                     for (const extendedStatus of extendedStatusList) {
                         if (extendedStatus.hasOwnProperty('com.acuity_ExtendedStatusType') && extendedStatus['com.acuity_ExtendedStatusType'].length) {
