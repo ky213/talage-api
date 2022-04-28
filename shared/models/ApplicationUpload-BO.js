@@ -326,7 +326,12 @@ module.exports = class ApplicationUploadBO {
             mailingZipcode: await tryToFormat(data.Applicant_Mailing_Address, async(v) => getZip(v)),
             website: data.Website,
             ein: data.FEIN,
-            founded: await tryToFormat(data.Years_In_Business, async(v) => moment().subtract(parseInt(v, 10), 'years')),
+            founded: await tryToFormat(data.Years_In_Business, async(v) => {
+                if (!v) {
+                    return;
+                }
+                return moment().subtract(parseInt(v, 10), 'years');
+            }),
             businessName: data.Applicant_Name,
 
             locations: await Promise.all(data.Location.map(async(l) => ({
