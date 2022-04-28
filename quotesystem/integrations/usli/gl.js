@@ -515,7 +515,12 @@ module.exports = class USLIGL extends Integration {
         let errorReasons = null;
         if (statusDesc.indexOf("Script Errors:") !== -1) {
         // if script errors are reported, parse them a particular way
-            errorReasons = statusDesc.substring(statusDesc.indexOf("Script Errors:") + 16).split("\n").filter(reason => reason !== "");
+            const errorsString = statusDesc.
+                substring(statusDesc.indexOf("Script Errors:") + 16).
+                replace(/\n|\r|\./g, '');
+            const reasonsList = errorsString.split("Description: ").filter((r) => r);
+
+            errorReasons = [...new Set(reasonsList)];
         }
         else {
         // otherwise, look for extended status and parse into strings with the code and description pairs
@@ -531,9 +536,6 @@ module.exports = class USLIGL extends Integration {
 
         // main reason is just the first reason for an error reported
         let mainReason = errorReasons.shift();
-        if (mainReason.indexOf("Description: ") !== -1) {
-            mainReason = mainReason.substring(mainReason.indexOf("Description: ") + 13);
-        }
 
         // declined
         if (declineCodes.includes(errorCd)) {
