@@ -163,8 +163,8 @@ const tryToFormat = async(fieldValue, formatterFunc, defaultValue) => {
         const stack = err.stack.split('\n');
         const prevMethod = stack[3].trim().replace('at ', '');
 
-        // additionalInfo.push(`Bad validaion for field: ${prevMethod} ${fieldValue}`);
-        log.warn(`Bad validaion for field: ${prevMethod} ${fieldValue}`);
+        // additionalInfo.push(`Bad validation for field: ${prevMethod} ${fieldValue}`);
+        log.warn(`Bad validation for field: ${prevMethod} ${fieldValue}`);
         return defaultValue;
     }
 }
@@ -305,6 +305,17 @@ module.exports = class ApplicationUploadBO {
 
         const additionalInfo = [];
 
+        const checkIfRealOwner = (ownerInfo) => {
+            const fname = ownerInfo.fname.replace(/[^a-z0-9]/gi, '').trim();
+            const lname = ownerInfo.lname.replace(/[^a-z0-9]/gi, '').trim();
+            if (fname !== '' && lname !== '') {
+                return ownerInfo;
+            }
+            else {
+                return undefined;
+            }
+        }
+
         // -> Compwest Ins
         let applicationUploadObj = {
             additionalInfo: {
@@ -328,12 +339,7 @@ module.exports = class ApplicationUploadBO {
             mailingZipcode: await tryToFormat(data.Applicant_Mailing_Address, async(v) => getZip(v)),
             website: data.Website,
             ein: data.FEIN,
-            founded: await tryToFormat(data.Years_In_Business, async(v) => {
-                if (!v) {
-                    return;
-                }
-                return moment().subtract(parseInt(v, 10), 'years');
-            }),
+            founded: await tryToFormat(data.Years_In_Business, async(v) => v ? moment().subtract(parseInt(v, 10), 'years').month(11).date(31) : undefined),
             businessName: data.Applicant_Name,
 
             locations: await Promise.all(data.Location.map(async(l) => ({
@@ -377,7 +383,7 @@ module.exports = class ApplicationUploadBO {
                 primary: false
             }],
 
-            owners: await Promise.all(data.Individual.map(async(i) => ({
+            owners: await Promise.all(data.Individual.map(async(i) => checkIfRealOwner({
                 fname: getFirstName(i.Name),
                 lname: getLastName(i.Name),
                 ownership: await tryToFormat(i.Ownership, async(v) => parseInt(v, 10)),
@@ -404,6 +410,7 @@ module.exports = class ApplicationUploadBO {
 
         // remove blank contacts from the list.
         applicationUploadObj.contacts = applicationUploadObj.contacts.filter(t => !_.isEmpty(t.firstName) || !_.isEmpty(t.lastName));
+        applicationUploadObj.owners = applicationUploadObj.owners.filter(t => !_.isNil(t));
 
         // If the user checked the advanceDate checkbox.
         if (agencyMetadata?.advanceDate) {
