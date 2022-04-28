@@ -1,7 +1,6 @@
 'use strict';
 
 const moment = require('moment');
-const moment_timezone = require('moment-timezone');
 const util = require("util");
 const csvStringify = util.promisify(require("csv-stringify"));
 const emailSvc = global.requireShared('./services/emailsvc.js');
@@ -63,8 +62,8 @@ exports.taskProcessorExternal = async function(){
 
 const dailyIncompleteApplicationTask = async function(){
 
-    const todayBegin = moment_timezone.tz("America/Los_Angeles").startOf('day');
-    const todayEnd = moment_timezone.tz("America/Los_Angeles").endOf('day');
+    const yesterdayBegin = moment().tz("America/Los_Angeles").subtract(1,'d').startOf('day');
+    const yesterdayEnd = moment().tz("America/Los_Angeles").subtract(1,'d').endOf('day');
     const query = {
         "active": true,
         "dailyApplicationEmail": true
@@ -82,8 +81,7 @@ const dailyIncompleteApplicationTask = async function(){
         for(const agency of agencyList){
             // process each agency. make sure we have an active Agency
             if(agency?.systemId && agency?.agencyNetworkId && (agency?.email || agency?.agencyEmail)){
-                log.debug('Agency: ' + JSON.stringify(agency));
-                await processApplications(agency, todayBegin, todayEnd).catch(function(err){
+                await processApplications(agency, yesterdayBegin, yesterdayEnd).catch(function(err){
                     log.error("Error Agency Daily Incomplete Application error. AL: " + JSON.stringify(agency) + " error: " + err + __location);
                 })
             }
@@ -100,12 +98,12 @@ const dailyIncompleteApplicationTask = async function(){
  * Process Applications for each agency
  *
  * @param {string} agency - from db query not full object.
- * @param {date} todayBegin - starting date of today
- * @param {date} todayEnd - ending date of today
+ * @param {date} yesterdayBegin - starting date of yesterday
+ * @param {date} yesterdayEnd - ending date of yesterday
  * @returns {void}
  */
 
-const processApplications = async function(agency, todayBegin, todayEnd){
+const processApplications = async function(agency, yesterdayBegin, yesterdayEnd){
 
     if(!agency?.agencyNetworkId){
         log.error(`Error Daily Incomplete Applications - Agency agency_network not set for Agency: ${agency.systemid}` + __location);
@@ -115,8 +113,8 @@ const processApplications = async function(agency, todayBegin, todayEnd){
 
     const query = {
         "agencyId": agency.systemId,
-        "searchbegindate": todayBegin,
-        "searchenddate": todayEnd,
+        "searchbegindate": yesterdayBegin,
+        "searchenddate": yesterdayEnd,
         "status":"incomplete"
     };
     let appList = null;
@@ -157,6 +155,7 @@ const processApplications = async function(agency, todayBegin, todayEnd){
                 }
             }
         }
+        log.debug(JSON.stringify(appList, null, 2));
         // Create spreadsheet and send the email
         await sendApplicationsSpreadsheet(appList, agency)
     }
@@ -170,7 +169,7 @@ const processApplications = async function(agency, todayBegin, todayEnd){
  * Send Applications to the agency customer
  *
  * @param {object} applicationList - from db query not full object.
- * @param {object} agency - starting date of today
+ * @param {object} agency - starting date of yesterday
  * @returns {void}
  */
 const sendApplicationsSpreadsheet = async function(applicationList, agency){
@@ -180,7 +179,7 @@ const sendApplicationsSpreadsheet = async function(applicationList, agency){
         "createdAt": "Created",
         "updatedAt": "Last Update",
         "industryname": "Industry Name",
-        "businessaddress": "Business Address",
+        "businessAddress": "Business Address",
         "customerContact.firstName": "Customer First Name",
         "customerContact.lastName": "Customer Last Name",
         "customerContact.email": "Customer Email",
@@ -199,8 +198,8 @@ const sendApplicationsSpreadsheet = async function(applicationList, agency){
     if(csvData){
         const buffer = Buffer.from(csvData);
         const csvContent = buffer.toString('base64');
-        const today = moment_timezone.tz("America/Los_Angeles");
-        const fileName = `IncompleteApplications-${today.format("YYYY-MM-DD")}.csv`;
+        const yesterday = moment().tz("America/Los_Angeles").subtract(1,'d');
+        const fileName = `IncompleteApplications-${yesterday.format("YYYY-MM-DD")}.csv`;
 
         const attachmentJson = {
             'content': csvContent,
@@ -212,7 +211,7 @@ const sendApplicationsSpreadsheet = async function(applicationList, agency){
         const attachments = [];
         attachments.push(attachmentJson);
         const subject = `Daily Incomplete Applications for Agency: ${agencyName}`;
-        const emailBody = `Hi, you will find attached the file with the incomplete applications for the Agency ${agency.name} of today`
+        const emailBody = `Hi, you will find attached the file with the incomplete applications for the Agency ${agency.name} of ${yesterday}`
 
         log.debug(`Sending spreadsheet of the incomplete applications for Agency: ${agency.systemId} - ${agency.name}`);
         const emailResp = await emailSvc.send(agency.email, subject, emailBody, {}, global.WHEELHOUSE_AGENCYNETWORK_ID, 'talage', 1, attachments);
