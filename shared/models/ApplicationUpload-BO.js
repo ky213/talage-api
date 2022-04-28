@@ -163,8 +163,8 @@ const tryToFormat = async(fieldValue, formatterFunc, defaultValue) => {
         const stack = err.stack.split('\n');
         const prevMethod = stack[3].trim().replace('at ', '');
 
-        // additionalInfo.push(`Bad validaion for field: ${prevMethod} ${fieldValue}`);
-        log.warn(`Bad validaion for field: ${prevMethod} ${fieldValue}`);
+        // additionalInfo.push(`Bad validation for field: ${prevMethod} ${fieldValue}`);
+        log.warn(`Bad validation for field: ${prevMethod} ${fieldValue}`);
         return defaultValue;
     }
 }
@@ -310,7 +310,8 @@ module.exports = class ApplicationUploadBO {
             const lname = ownerInfo.lname.replace(/[^a-z0-9]/gi, '').trim();
             if (fname !== '' && lname !== '') {
                 return ownerInfo;
-            } else {
+            }
+            else {
                 return undefined;
             }
         }
@@ -338,7 +339,7 @@ module.exports = class ApplicationUploadBO {
             mailingZipcode: await tryToFormat(data.Applicant_Mailing_Address, async(v) => getZip(v)),
             website: data.Website,
             ein: data.FEIN,
-            founded: await tryToFormat(data.Years_In_Business, async(v) => v ? moment().subtract(parseInt(v, 10), 'years') : undefined),
+            founded: await tryToFormat(data.Years_In_Business, async(v) => v ? moment().subtract(parseInt(v, 10), 'years').month(11).date(31) : undefined),
             businessName: data.Applicant_Name,
 
             locations: await Promise.all(data.Location.map(async(l) => ({
