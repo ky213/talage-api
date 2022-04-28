@@ -6,8 +6,10 @@ const util = require("util");
 const csvStringify = util.promisify(require("csv-stringify"));
 const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
+const formatPhone = global.requireShared('./helpers/formatPhone.js');
 const AgencyBO = global.requireShared('models/Agency-BO.js');
 const ApplicationBO = global.requireShared('models/Application-BO.js');
+const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
 
 /**
  * Daily Incomplete Application Task processor
@@ -78,7 +80,6 @@ const dailyIncompleteApplicationTask = async function(){
 
     if(agencyList?.length > 0){
         for(const agency of agencyList){
-            log.debug(`This is the agency ${JSON.stringify(agency, null, 2)}`);
             // process each agency. make sure we have an active Agency
             if(agency?.systemId && agency?.agencyNetworkId && (agency?.email || agency?.agencyEmail)){
                 log.debug('Agency: ' + JSON.stringify(agency));
@@ -110,7 +111,7 @@ const processApplications = async function(agency, todayBegin, todayEnd){
         log.error(`Error Daily Incomplete Applications - Agency agency_network not set for Agency: ${agency.systemid}` + __location);
         return false;
     }
-    //const agencyNetwork = agencyLocationDB.agencyNetworkId;
+    const industryCodeBO = new IndustryCodeBO();
 
     const query = {
         "agencyId": agency.systemId,
@@ -130,9 +131,32 @@ const processApplications = async function(agency, todayBegin, todayEnd){
         throw err;
     }
 
-
-    //let appCount = 0;
     if(appList?.length > 0){
+        for (const applicationDoc of appList){
+            //process customer contact
+            const customerContact = applicationDoc.contacts.find(contact => contact.primary === true);
+            if(customerContact){
+                customerContact.phone = customerContact?.phone ? formatPhone(customerContact.phone) : 'unknown';
+                customerContact.firstName = customerContact?.firstName ? customerContact.firstName : 'unknown';
+                customerContact.lastName = customerContact?.lastName ? customerContact.lastName : 'unknown';
+                customerContact.customerEmail = customerContact?.email ? customerContact.email : 'unknown'
+
+                applicationDoc.customerContact = customerContact;
+
+                //process industry name
+                const industryDoc = await industryCodeBO.getById(applicationDoc.industryCode).catch(function(err){
+                    log.error(`Error getting Industry Codes from database - ${err}` + __location);
+                })
+
+                if(industryDoc?.description){
+                    applicationDoc.industryName = industryDoc.description;
+                }
+                //process business address
+                if(applicationDoc.mailingAddress){
+                    applicationDoc.businessAddress = `${applicationDoc.mailingAddress} ${applicationDoc.mailingCity} ${applicationDoc.mailingState} ${applicationDoc.mailingZipcode}`
+                }
+            }
+        }
         // Create spreadsheet and send the email
         await sendApplicationsSpreadsheet(appList, agency)
     }
@@ -154,7 +178,13 @@ const sendApplicationsSpreadsheet = async function(applicationList, agency){
         "applicationId": "Application ID",
         "businessName": "Business Name",
         "createdAt": "Created",
-        "updatedAt": "Last Update"
+        "updatedAt": "Last Update",
+        "industryname": "Industry Name",
+        "businessaddress": "Business Address",
+        "customerContact.firstName": "Customer First Name",
+        "customerContact.lastName": "Customer Last Name",
+        "customerContact.email": "Customer Email",
+        "customerContact.phone": "Customer Phone"
     };
 
     const stringifyOptions = {
