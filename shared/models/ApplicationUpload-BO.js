@@ -167,7 +167,7 @@ const tryToFormat = async(fieldValue, formatterFunc, defaultValue) => {
     }
 }
 
-const cleanLimit = (limit) => limit.replace(/,/g, '').replace(/\./g, '');
+const cleanLimit = (limit) => limit.replace(/,/g, '').replace(/\./g, '').replace(/\s/g, '');
 
 module.exports = class ApplicationUploadBO {
     async submitFile(metadata, fileType, acordFile) {
