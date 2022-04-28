@@ -1,3 +1,5 @@
+/* eslint-disable no-confusing-arrow */
+/* eslint-disable no-undefined */
 const axios = require("axios");
 const Application = global.mongoose.Application;
 const ApplicationUpload = global.mongoose.ApplicationUpload;
@@ -388,8 +390,8 @@ module.exports = class ApplicationUploadBO {
 
             policies: [{
                 policyType: 'WC',
-                effectiveDate: moment().format('MM/DD/YYYY'),
-                expirationDate: await tryToFormat(data.Proposed_Exp_Date, async(v) => moment(v, 'MM/DD/YYYY')),
+                effectiveDate: await tryToFormat(data.Policy_Proposed_Eff_Date, async(v) => v ? moment(v, 'MM/DD/YYYY') : undefined),
+                expirationDate: await tryToFormat(data.Proposed_Exp_Date, async(v) => v ? moment(v, 'MM/DD/YYYY') : undefined),
                 limits: await tryToFormat(data.Liability_Disease_Employee, async(v) => cleanLimit(v)) +
                     await tryToFormat(data.Liability_Disease_Limit, async(v) => cleanLimit(v)) +
                     await tryToFormat(data.Liability_Each_Accident, async(v) => cleanLimit(v))
@@ -405,8 +407,8 @@ module.exports = class ApplicationUploadBO {
 
         // If the user checked the advanceDate checkbox.
         if (agencyMetadata?.advanceDate) {
-            applicationUploadObj.policies[0].effectiveDate = moment().add(1, 'year').format('MM/DD/YYYY');
-            applicationUploadObj.policies[0].expirationDate = await tryToFormat(data.Proposed_Exp_Date, async(v) => moment(v, 'MM/DD/YYYY').add(1, 'year'));
+            applicationUploadObj.policies[0].effectiveDate = await tryToFormat(data.Policy_Proposed_Eff_Date, async(v) => v ? moment(v, 'MM/DD/YYYY').add(1, 'year') : undefined);
+            applicationUploadObj.policies[0].expirationDate = await tryToFormat(data.Proposed_Exp_Date, async(v) => v ? moment(v, 'MM/DD/YYYY').add(1, 'year') : undefined);
         }
 
         if (applicationUploadObj?.contacts?.[0]) {
