@@ -12,6 +12,7 @@ const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
 const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js');
 const zipcodeHelper = global.requireShared('./helpers/formatZipcode.js');
+const crypt = global.requireShared('./services/crypt.js');
 
 const getFirstName = (name) => {
     const nameSplit = name.split(' ');
@@ -408,6 +409,13 @@ module.exports = class ApplicationUploadBO {
         }
         if (applicationUploadObj?.locations?.[0]) {
             applicationUploadObj.locations[0].primary = true;
+        }
+
+        if (applicationUploadObj.ein) {
+            applicationUploadObj.hasEin = true;
+            applicationUploadObj.einEncrypted = await crypt.encrypt(applicationUploadObj.ein);
+            applicationUploadObj.einEncryptedT2 = await crypt.encrypt(applicationUploadObj.ein);
+            applicationUploadObj.einHash = await crypt.hash(applicationUploadObj.ein);
         }
 
         if (data.NAICS) {
