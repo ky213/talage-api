@@ -751,6 +751,14 @@ module.exports = class Application {
                 ids.push(activity_code.id);
             });
         });
+        //Ghost policy support get included owners.
+        for(const owner of this.applicationDocData.owners){
+            if(owner.include && owner.activityCodeId){
+                if(ids.indexOf(owner.activityCodeId) === -1){
+                    ids.push(owner.activityCodeId);
+                }
+            }
+        }
         return ids;
     }
 
