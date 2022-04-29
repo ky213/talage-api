@@ -8,6 +8,7 @@ const ApplicationUploadStatus = global.mongoose.ApplicationUploadStatus;
 /**
  * Acord OCR Task processor
  *
+ * @param {string} queueMessage - message from queue
  * @returns {void}
  */
 async function processtask(queueMessage){
@@ -15,7 +16,7 @@ async function processtask(queueMessage){
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle);
     }
     catch (ex) {
-        log.error("Error acordOcrTask " + error + __location);
+        log.error("Error acordOcrTask " + ex + __location);
     }
 
     // list of User IDs to send emails to if they have finished OCR jobs.
