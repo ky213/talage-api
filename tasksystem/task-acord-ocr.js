@@ -37,8 +37,11 @@ async function processtask(queueMessage){
             // This will block until OCR is finished.
             const result = await applicationUploadBO.getOcrResult(requestId);
             if (_.get(result, 'status') === 'ERROR') {
-                log.error(`OCR microservice error: ${result.message}`);
+                log.error(`OCR microservice error: ${requestId} ${result.message}`);
                 return;
+            }
+            if (_.get(result, 'status') === 'WARNING') {
+                log.warn(`OCR microservice warning: ${requestId} ${result.message}`);
             }
             await applicationUploadBO.saveOcrResult(requestId, result, uploadStatus, uploadStatus.markAsPending);
             sendFinishEmails.push(uploadStatus.agencyPortalUserId);
