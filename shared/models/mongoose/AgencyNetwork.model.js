@@ -70,7 +70,7 @@ const featureSchema = new Schema({
     enableGhostPolicyCheck: {type: Boolean, required: true, default: false},
     enableSoleProAutoAddForGhostPolicy: {type: Boolean, required: true, default: false},
     enableGhostPolicyAgencyPortalSelection: {type: Boolean, required: true, default: false},
-    enableAcordOcr: {type: Boolean, required: true, default: true},
+    enableAcordOcr: {type: Boolean, required: true, default: false},
     policyEffectiveDateThresholds:
     {
         type: policyEffectiveDateThresholdsSchema,
