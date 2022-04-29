@@ -1,6 +1,6 @@
 'use strict';
 
-const moment = require('moment');
+const moment = require('moment-timezone');
 const util = require("util");
 const csvStringify = util.promisify(require("csv-stringify"));
 const emailSvc = global.requireShared('./services/emailsvc.js');
@@ -27,7 +27,7 @@ exports.processtask = async function(queueMessage){
         dailyIncompleteApplicationTask().catch(function(err){
             log.error("Error Daily Incomplete Applications Task " + err + __location);
         });
-        error = null;
+        //error = null;
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(function(err){
             error = err;
         });
@@ -37,7 +37,7 @@ exports.processtask = async function(queueMessage){
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle);
     }
     else {
-        log.debug('removing old daily incomplete application Message from queue');
+        log.debug('Removing old daily incomplete application Message from queue');
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(err => error = err)
         if(error){
             log.error("Error Daily Incomplete Applications - deleteTaskQueueItem old " + error + __location);
@@ -109,19 +109,18 @@ const processApplications = async function(agency, yesterdayBegin, yesterdayEnd)
         log.error(`Error Daily Incomplete Applications - Agency agency_network not set for Agency: ${agency.systemid}` + __location);
         return false;
     }
-    const industryCodeBO = new IndustryCodeBO();
 
+    const applicationBO = new ApplicationBO();
+    const industryCodeBO = new IndustryCodeBO();
     const query = {
         "agencyId": agency.systemId,
         "searchbegindate": yesterdayBegin,
         "searchenddate": yesterdayEnd,
-        "status":"incomplete"
+        "status": "incomplete"
     };
     let appList = null;
-    const applicationBO = new ApplicationBO();
 
     try{
-
         appList = await applicationBO.getList(query);
     }
     catch(err){
@@ -140,22 +139,22 @@ const processApplications = async function(agency, yesterdayBegin, yesterdayEnd)
                 customerContact.customerEmail = customerContact?.email ? customerContact.email : 'unknown'
 
                 applicationDoc.customerContact = customerContact;
+            }
 
-                //process industry name
-                const industryDoc = await industryCodeBO.getById(applicationDoc.industryCode).catch(function(err){
-                    log.error(`Error getting Industry Codes from database - ${err}` + __location);
-                })
+            //process industry name
+            const industryDoc = await industryCodeBO.getById(applicationDoc.industryCode).catch(function(err){
+                log.error(`Error getting Industry Codes from database - ${err}` + __location);
+            })
 
-                if(industryDoc?.description){
-                    applicationDoc.industryName = industryDoc.description;
-                }
-                //process business address
-                if(applicationDoc.mailingAddress){
-                    applicationDoc.businessAddress = `${applicationDoc.mailingAddress} ${applicationDoc.mailingCity} ${applicationDoc.mailingState} ${applicationDoc.mailingZipcode}`
-                }
+            if(industryDoc?.description){
+                applicationDoc.industryName = industryDoc.description;
+            }
+
+            //process business address
+            if(applicationDoc.mailingAddress){
+                applicationDoc.businessAddress = `${applicationDoc.mailingAddress} ${applicationDoc.mailingCity} ${applicationDoc.mailingState} ${applicationDoc.mailingZipcode}`
             }
         }
-        log.debug(JSON.stringify(appList, null, 2));
         // Create spreadsheet and send the email
         await sendApplicationsSpreadsheet(appList, agency)
     }
@@ -178,7 +177,7 @@ const sendApplicationsSpreadsheet = async function(applicationList, agency){
         "businessName": "Business Name",
         "createdAt": "Created",
         "updatedAt": "Last Update",
-        "industryname": "Industry Name",
+        "industryName": "Industry Name",
         "businessAddress": "Business Address",
         "customerContact.firstName": "Customer First Name",
         "customerContact.lastName": "Customer Last Name",
@@ -199,7 +198,7 @@ const sendApplicationsSpreadsheet = async function(applicationList, agency){
         const buffer = Buffer.from(csvData);
         const csvContent = buffer.toString('base64');
         const yesterday = moment().tz("America/Los_Angeles").subtract(1,'d');
-        const fileName = `IncompleteApplications-${yesterday.format("YYYY-MM-DD")}.csv`;
+        const fileName = `Incomplete Applications - ${yesterday.format("YYYY-MM-DD")}.csv`;
 
         const attachmentJson = {
             'content': csvContent,
@@ -211,16 +210,14 @@ const sendApplicationsSpreadsheet = async function(applicationList, agency){
         const attachments = [];
         attachments.push(attachmentJson);
         const subject = `Daily Incomplete Applications for Agency: ${agencyName}`;
-        const emailBody = `Hi, you will find attached the file with the incomplete applications for the Agency ${agency.name} of ${yesterday}`
+        const emailBody = `Daily report with the incomplete applications for the Agency ${agency.name} on ${yesterday.format("YYYY-MM-DD")}`
 
-        log.debug(`Sending spreadsheet of the incomplete applications for Agency: ${agency.systemId} - ${agency.name}`);
+        //log.debug(`Sending spreadsheet of the incomplete applications for Agency: ${agency.systemId} - ${agency.name}`);
         const emailResp = await emailSvc.send(agency.email, subject, emailBody, {}, global.WHEELHOUSE_AGENCYNETWORK_ID, 'talage', 1, attachments);
         if(emailResp === false){
             slack.send('#alerts', 'warning',`The system failed to send Daily Incomplete Applications Report email.`);
         }
-        else {
-            log.debug(`Successfuly send the email to - ${agency.email}`)
-        }
+
         return;
     }
     else {
