@@ -3,13 +3,22 @@ const ApplicationUploadStatusBO = global.requireShared('./models/ApplicationUplo
 const AgencyPortalUserBO = global.requireShared('./models/AgencyPortalUser-BO.js');
 const emailsvc = global.requireShared('./services/emailsvc.js');
 const _ = require('lodash');
+const ApplicationUploadStatus = global.mongoose.ApplicationUploadStatus;
 
 /**
  * Acord OCR Task processor
  *
+ * @param {string} queueMessage - message from queue
  * @returns {void}
  */
-async function processtask(){
+async function processtask(queueMessage){
+    try {
+        await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle);
+    }
+    catch (ex) {
+        log.error("Error acordOcrTask " + ex + __location);
+    }
+
     // list of User IDs to send emails to if they have finished OCR jobs.
     let sendFinishEmails = [];
     const agencyPortalUserBO = new AgencyPortalUserBO();
@@ -23,6 +32,7 @@ async function processtask(){
 
         await Promise.all(results.map(async(uploadStatus) => {
             const requestId = uploadStatus.requestId;
+            await ApplicationUploadStatus.updateOne({requestId: requestId}, {status: 'PROCESSING'});
 
             // This will block until OCR is finished.
             const result = await applicationUploadBO.getOcrResult(requestId);

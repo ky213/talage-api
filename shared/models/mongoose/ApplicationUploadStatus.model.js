@@ -40,6 +40,7 @@ const ApplicationUploadStatus = new Schema({
     status: {
         type: String,
         enum: ["QUEUED",
+            "PROCESSING",
             "SUCCESS",
             "ERROR"],
         default: "QUEUED"
