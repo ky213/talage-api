@@ -75,7 +75,8 @@ var agencyReportTask = async function(){
     try{
         // Load the request data into it
         // get all non-deleted agencies
-        const query = {};
+        //Wheelhouse only 2022-04-29
+        const query = {agencyNetworkId: 1};
         const agencyBO = new AgencyBO();
         agencyList = await agencyBO.getList(query);
     }
@@ -85,7 +86,7 @@ var agencyReportTask = async function(){
 
 
     const dbDataColumns = {
-        "id": "Agency ID",
+        "systemId": "Agency ID",
         "name": "Angency Name",
         "state": "Active",
         "networkName": "Agency Network",
