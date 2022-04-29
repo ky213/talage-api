@@ -150,6 +150,8 @@ allConnections.init = function init() {
     //Insurer, Code and Questions DB
     require('./shared/models/mongoose/FireCode.model');
     require('./shared/models/mongoose/Insurer.model');
+    require('./shared/models/mongoose/InsurerPortalUser.model');
+    require('./shared/models/mongoose/InsurerPortalUserGroup.model');
     require('./shared/models/mongoose/InsurerPolicyType.model');
     require('./shared/models/mongoose/InsurerIndustryCode.model');
     require('./shared/models/mongoose/InsurerQuestion.model');
@@ -199,6 +201,8 @@ allConnections.init = function init() {
         ActivityCode: global.insurerMongodb.model('ActivityCode'),
         CodeGroup: global.insurerMongodb.model('CodeGroup'),
         Insurer: global.insurerMongodb.model('Insurer'),
+        InsurerPortalUser: global.insurerMongodb.model('InsurerPortalUser'),
+        InsurerPortalUserGroup: global.insurerMongodb.model('InsurerPortalUserGroup'),
         InsurerActivityCode: global.insurerMongodb.model('InsurerActivityCode'),
         InsurerIndustryCode: global.insurerMongodb.model('InsurerIndustryCode'),
         InsurerPolicyType: global.insurerMongodb.model('InsurerPolicyType'),

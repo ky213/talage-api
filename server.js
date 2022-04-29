@@ -9,6 +9,7 @@ const restifyCORS = require('restify-cors-middleware');
 const jwtRestify = require('restify-jwt-community');
 const jwt = require('jsonwebtoken');
 const agencyportalAuth = require('./public/v1/agency-portal/helpers/auth-agencyportal.js');
+const insurerPortalAuth = require('./public/v1/insurer-portal/helpers/auth-insurerportal.js');
 const moment = require('moment');
 const util = require('util');
 const socketIO = require('socket.io');
@@ -48,6 +49,14 @@ function validateJWT(options) {
         // Validate the JWT and user permissions - for Agency Portal
         if (options.agencyPortal === true) {
             const errorMessage = await agencyportalAuth.validateJWT(req, options.permission, options.permissionType);
+            if (errorMessage) {
+                // There was an error. Return a Forbidden error (403)
+                return next(new RestifyError.ForbiddenError(errorMessage));
+            }
+            return options.handler(req, res, next);
+        }
+        else if (options.insurerPortalAuth === true) {
+            const errorMessage = await insurerPortalAuth.validateJWT(req, options.permission, options.permissionType);
             if (errorMessage) {
                 // There was an error. Return a Forbidden error (403)
                 return next(new RestifyError.ForbiddenError(errorMessage));
@@ -290,7 +299,7 @@ class AbstractedHTTPServer {
         handlerWrapper(path, handler));
     }
 
-    addPostAuth(name, path, handler, permission = null, permissionType = null) {
+    addPostAuth(name, path, handler, permission = null, permissionType = null, options = {agencyPortal: true}) {
         name += ' (auth)';
         this.server.post({
             name: name,
@@ -301,11 +310,11 @@ class AbstractedHTTPServer {
             handler: handlerWrapper(path, handler),
             permission: permission,
             permissionType: permissionType,
-            agencyPortal: true
+            ...options
         }));
     }
 
-    addPostMFA(name, path, handler, permission = null, permissionType = null) {
+    addPostMFA(name, path, handler, permission = null, permissionType = null, options = {agencyPortal: true}) {
         name += ' (auth)';
         this.server.post({
             name: name,
@@ -316,7 +325,7 @@ class AbstractedHTTPServer {
             handler: handlerWrapper(path, handler),
             permission: permission,
             permissionType: permissionType,
-            agencyPortal: true
+            ...options
         }));
     }
 
@@ -420,7 +429,7 @@ class AbstractedHTTPServer {
         handlerWrapper(path, handler));
     }
 
-    addGetAuth(name, path, handler, permission = null, permissionType = null) {
+    addGetAuth(name, path, handler, permission = null, permissionType = null, options = {agencyPortal: true}) {
         name += ' (auth)';
         this.server.get({
             name: name,
@@ -431,7 +440,7 @@ class AbstractedHTTPServer {
             handler: handlerWrapper(path, handler),
             permission: permission,
             permissionType: permissionType,
-            agencyPortal: true
+            ... options
         }));
     }
 
@@ -443,7 +452,7 @@ class AbstractedHTTPServer {
         handlerWrapper(path, handler));
     }
 
-    addPutAuth(name, path, handler, permission = null, permissionType = null) {
+    addPutAuth(name, path, handler, permission = null, permissionType = null, options = {agencyPortal: true}) {
         name += ' (auth)';
         this.server.put({
             name: name,
@@ -454,7 +463,7 @@ class AbstractedHTTPServer {
             handler: handlerWrapper(path, handler),
             permission: permission,
             permissionType: permissionType,
-            agencyPortal: true
+            ...options
         }));
     }
 
@@ -481,7 +490,7 @@ class AbstractedHTTPServer {
         handlerWrapper(path, handler));
     }
 
-    addDeleteAuth(name, path, handler, permission = null, permissionType = null) {
+    addDeleteAuth(name, path, handler, permission = null, permissionType = null, options = {agencyPortal: true}) {
         name += ' (auth)';
         this.server.del({
             name: name,
@@ -492,7 +501,7 @@ class AbstractedHTTPServer {
             handler: handlerWrapper(path, handler),
             permission: permission,
             permissionType: permissionType,
-            agencyPortal: true
+            ...options
         }));
     }
 

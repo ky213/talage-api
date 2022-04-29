@@ -168,6 +168,14 @@ exports.registerEndpoints = (server) => {
     registerEndpoint(server, 'digalent', 'application-meta-rt');
     registerEndpoint(server, 'digalent', 'auth-quote-rt');
 
+    // Insurer Portal Endpoints
+    registerEndpoint(server, 'insurer-portal', 'auth');
+    // registerEndpoint(server, 'insurer-portal', 'account');
+    // registerEndpoint(server, 'insurer-portal', 'agencies');
+    // registerEndpoint(server, 'insurer-portal', 'applications');
+    // registerEndpoint(server, 'insurer-portal', 'reports');
+    // registerEndpoint(server, 'insurer-portal', 'users');
+
 
     // Server.AddGet('Uptime Check', '/', GetUptime);
     // AWS load balancers and pingdom send /uptime
