@@ -86,18 +86,16 @@ async function getbyId(req, res, next) {
         let useTalageWholesale = false;
         if(location.agencyId){
             try{
+                const agencyBO = new AgencyBO();
+                const agency = await agencyBO.getById(location.agencyId);
                 let agencyNetworkId = null;
                 // Check if Agency Network Id is defined in location
                 if(location && location.agencyNetworkId) {
                     agencyNetworkId = location.agencyNetworkId;
                 }
-                else{
-                    const agencyBO = new AgencyBO();
-                    const agency = await agencyBO.getById(location.agencyId);
-                    // Get Agency Network Id if Agency was retrieved successfully
-                    if(agency && agency.agencyNetworkId) {
-                        agencyNetworkId = agency.agencyNetworkId;
-                    }
+                // Get Agency Network Id if Agency was retrieved successfully
+                else if(agency && agency.agencyNetworkId) {
+                    agencyNetworkId = agency.agencyNetworkId;
                 }
                 // Get Agency Network if Agency Network is Properly Defined
                 if(agencyNetworkId) {
@@ -109,6 +107,9 @@ async function getbyId(req, res, next) {
                     if(agencyNetwork.featureJson?.talageWholesale && agencyNetwork.featureJson?.agencyPrimePerInsurer === false) {
                         useTalageWholesale = true;
                     }
+                }
+                if(agency.primaryAgency){
+                    useTalageWholesale = true;
                 }
             }
             catch(err){
