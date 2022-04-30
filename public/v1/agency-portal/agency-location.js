@@ -237,6 +237,9 @@ async function createAgencyLocation(req, res, next) {
     if(agencyNetworkDB?.featureJson?.agencyPrimePerInsurer === false && agencyNetworkDB?.featureJson?.talageWholesale === true){
         useTalageWholesale = true;
     }
+    if(agencyDB.primaryAgency){
+        useTalageWholesale = true;
+    }
 
     //Fix insures
     if (req.body.insurers) {
@@ -254,6 +257,9 @@ async function createAgencyLocation(req, res, next) {
             }
             if(useTalageWholesale && Object.prototype.hasOwnProperty.call(insurer, 'talageWholesale') === false){
                 insurer.talageWholesale = insurer.useAgencyPrime
+            }
+            else {
+                insurer.talageWholesale = false;
             }
         }
     }
@@ -482,9 +488,10 @@ async function updateAgencyLocation(req, res, next) {
     }
 
     let useTalageWholesale = false;
-    if(agencyNetworkDB?.featureJson?.talageWholesale === true){
+    if(agencyNetworkDB?.featureJson?.talageWholesale === true || agencyDB.primaryAgency){
         useTalageWholesale = true;
     }
+
 
     // Security Check: Make sure this Agency Network has access to this Agency
     if(req.authentication.isAgencyNetworkUser && req.body.agency){
@@ -520,6 +527,13 @@ async function updateAgencyLocation(req, res, next) {
             }
             if(useTalageWholesale){
                 insurer.talageWholesale = insurer.useAgencyPrime
+                insurer.useAgencyPrime = false;
+            }
+            else {
+                insurer.talageWholesale = false;
+            }
+            if(agencyDB.systemId === 1){ //talage
+                insurer.talageWholesale = false;
                 insurer.useAgencyPrime = false;
             }
         }
@@ -575,6 +589,7 @@ async function getSelectionList(req, res, next) {
     // Determine the agency ID, if network id then we will have an agencyId in the query else not
     let agencyId = parseInt(req.authentication.agents[0], 10);
 
+
     if(req.authentication.isAgencyNetworkUser){
         if(req.authentication.isAgencyNetworkUser && req.authentication.agencyNetworkId === 1
             && req.authentication.permissions.talageStaff === true
@@ -598,6 +613,10 @@ async function getSelectionList(req, res, next) {
             }
         }
     }
+
+    const agencyBO = new AgencyBO();
+    const agency = await agencyBO.getById(agencyId);
+
     // Initialize
     const agencyLocationBO = new AgencyLocationBO();
 
@@ -607,6 +626,9 @@ async function getSelectionList(req, res, next) {
     const getChildren = true;
     const useAgencyPrimeInsurers = true;
     let useTalageWholesale = false;
+    if(agency?.primaryAgency){
+        useTalageWholesale = true;
+    }
 
     locationList = await agencyLocationBO.getList(query, getAgencyName, getChildren, useAgencyPrimeInsurers).catch(function(err){
         log.error(err.message + __location);
@@ -627,13 +649,8 @@ async function getSelectionList(req, res, next) {
                 if(location && location.agencyNetworkId) {
                     agencyNetworkId = location.agencyNetworkId;
                 }
-                else{
-                    const agencyBO = new AgencyBO();
-                    const agency = await agencyBO.getById(location.agencyId);
-                    // Get Agency Network Id if Agency was retrieved successfully
-                    if(agency && agency.agencyNetworkId) {
-                        agencyNetworkId = agency.agencyNetworkId;
-                    }
+                else if(agency && agency.agencyNetworkId) {
+                    agencyNetworkId = agency.agencyNetworkId;
                 }
                 // Get Agency Network if Agency Network is Properly Defined
                 if(agencyNetworkId) {
