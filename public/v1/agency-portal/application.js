@@ -553,7 +553,6 @@ async function setupReturnedApplicationJSON(applicationJSON){
                 }   
             }
             else {
-                log.debug(`NO BOP Policy` + __location)
                 applicationJSON.bopCodeIndustryCodeName = "";
             }
         }
