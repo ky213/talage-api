@@ -2189,7 +2189,7 @@ module.exports = class ApplicationModel {
         }
         //check for included owners
         for(const owner of applicationDocDB.owners){
-            if(owner.include && owner.activityCodeId){
+            if((owner.include || activityCodeList.length === 0) && owner.activityCodeId){
                 if(activityCodeList.indexOf(owner.activityCodeId) === -1){
                     activityCodeList.push(owner.activityCodeId);
                 }

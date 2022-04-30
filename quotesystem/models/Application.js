@@ -515,6 +515,10 @@ module.exports = class Application {
                     stateList.push(this.applicationDocData.locations[i].state)
                 }
             }
+
+            //TODO change to pull from AppBO so logic is maintained in one place
+            // const applicationBO = new ApplicationBO();
+            // getQuestionsResult = await applicationBO.GetQuestions(appId, agencies, questionSubjectArea, locationId, stateList, skipAgencyCheck, activityCodeList, policyType);
             log.info(`Quoting Application Model loading questions for ${this.id} ` + __location)
             talageQuestionDefList = await questionsSvc.GetQuestionsForBackend(wc_codes, industryCodeStringArray, zipCodeArray, policyList, insurer_ids, "general", true, stateList);
             log.info(`Got questions Quoting Application Model loading questions for  ` + __location)
@@ -753,7 +757,7 @@ module.exports = class Application {
         });
         //Ghost policy support get included owners.
         for(const owner of this.applicationDocData.owners){
-            if(owner.include && owner.activityCodeId){
+            if((owner.include || ids.length === 0) && owner.activityCodeId){
                 if(ids.indexOf(owner.activityCodeId) === -1){
                     ids.push(owner.activityCodeId);
                 }
