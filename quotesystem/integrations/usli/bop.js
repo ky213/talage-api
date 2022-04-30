@@ -1341,21 +1341,17 @@ module.exports = class USLIBOP extends Integration {
         let firstName = this.app.agencyLocation.first_name;
         let lastName = this.app.agencyLocation.last_name;
 
-        // If talageWholeSale
-        if (this.app.agencyLocation.insurers[this.insurer.id].talageWholesale) {
-            //Use Talage Agency.
-            id = 1;
-            const AgencyBO = global.requireShared('./models/Agency-BO.js');
-            const agencyBO = new AgencyBO();
-            const agencyInfo = await agencyBO.getById(this.agencyId);
-            name = agencyInfo.name;
-            const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
-            const agencyLocationBO = new AgencyLocationBO();
-            const agencyLocationInfo = await agencyLocationBO.getById(1);
-            email = agencyLocationInfo.email;
-            phone = agencyLocationInfo.phone;
-            firstName = agencyLocationInfo.firstName
-            lastName = agencyLocationInfo.lastName
+        // If WholeSale
+        if (this.app.agencyLocation.insurers[this.insurer.id].talageWholesale
+            || this.app.agencyLocation.insurers[this.insurer.id].useAgencyPrime) {
+            //Use Wholesale Agency.
+
+            id = this.quotingAgencyLocationDB.agencyId
+            name = this.quotingAgencyLocationDB.name
+            email = this.quotingAgencyLocationDB.email;
+            phone = this.quotingAgencyLocationDB.phone;
+            firstName = this.quotingAgencyLocationDB.firstName
+            lastName = this.quotingAgencyLocationDB.lastName
         }
 
         return {

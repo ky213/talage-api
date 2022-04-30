@@ -639,16 +639,8 @@ module.exports = class AgencyLocationBO{
         });
     }
 
-    // updateProperty(){
-    //     const dbJSON = this.#dbTableORM.cleanJSON()
-    //     // eslint-disable-next-line guard-for-in
-    //     for (const property in properties) {
-    //         this[property] = dbJSON[property];
-    //     }
-    // }
 
-
-    getByAgencyPrimary(agencyId, children = false, returnMongooseModel = false){
+    getByAgencyPrimary(agencyId, children = false){
         return new Promise(async(resolve, reject) => {
             if(agencyId){
                 const query = {
@@ -656,27 +648,18 @@ module.exports = class AgencyLocationBO{
                     primary: true,
                     active: true
                 };
-                let agencyLocationDoc = null;
-                let docDB = null;
+                let docJsonDB = null;
                 try {
-                    docDB = await AgencyLocationMongooseModel.findOne(query, '-__v');
+                    docJsonDB = await AgencyLocationMongooseModel.findOne(query, '-__v').lean();
                     if(children === true){
-                        await this.loadChildrenMongo(docDB)
-                    }
-                    if (docDB) {
-                        agencyLocationDoc = mongoUtils.objCleanup(docDB);
+                        await this.loadChildrenMongo(docJsonDB)
                     }
                 }
                 catch (err) {
                     log.error("Getting Agency Location error " + err + __location);
                     reject(err);
                 }
-                if(returnMongooseModel){
-                    resolve(docDB);
-                }
-                else {
-                    resolve(agencyLocationDoc);
-                }
+                resolve(mongoUtils.objCleanup(docJsonDB));
 
             }
             else {
@@ -702,14 +685,19 @@ module.exports = class AgencyLocationBO{
 
     async shouldNotifyTalage(agencyLocationId,insurerId){
         //  const insurerIdTest = insureId.toString;
-
-
         let notifyTalage = false;
         try{
             const agencyLocationJSON = await this.getById(agencyLocationId);
             const insurerJSON = agencyLocationJSON.insurers.find(insurer => insurerId === insurer.insurerId);
             if(insurerJSON && insurerJSON.talageWholesale){
                 notifyTalage = true;
+            }
+            else if(insurerJSON?.useAgencyPrime){
+                const primaryAL = await this.getByAgencyPrimary(agencyLocationJSON.agencyId,true);
+                const primaryInsurerJSON = primaryAL.insurers.find(insurer => insurerId === insurer.insurerId);
+                if(primaryInsurerJSON && primaryInsurerJSON.talageWholesale){
+                    notifyTalage = true;
+                }
             }
         }
         catch(err){
@@ -720,24 +708,6 @@ module.exports = class AgencyLocationBO{
 
 
     }
-
-
-    /**
-	 * Load new business JSON into ORM. can be used to filter JSON to busines properties
-     *
-	 * @param {object} inputJSON - business JSON
-	 * @returns {void}
-	 */
-    // async loadORM(inputJSON){
-    //     await this.#dbTableORM.load(inputJSON, skipCheckRequired);
-    //     this.updateProperty();
-    //     return true;
-    // }
-
-    // cleanJSON(noNulls = true){
-    //     return this.#dbTableORM.cleanJSON(noNulls);
-    // }
-
 
     // ***************************
     //    For administration site

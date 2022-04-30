@@ -136,11 +136,14 @@ module.exports = class Integration {
             }
         }
         //Determine what is the quotingAgencyLocation
-        if(app?.agencyLocation?.insurers[this.insurer.id].talageWholesale 
-            || app?.agencyLocation?.insurers[this.insurer.id].useAgencyPrime){
+        if(app?.agencyLocation?.insurers[this.insurer.id].talageWholesale){
+            this.quotingAgencyLocationDB = app.agencyLocation.talageWholesaleAgencyLocationDB;
+        }
+        else if(app?.agencyLocation?.insurers[this.insurer.id].useAgencyPrime){
             this.quotingAgencyLocationDB = app.agencyLocation.agencyPrimeAgencyLocationDB;
         }
         else {
+            //Normal Direct Appointment and Use All of Primary Agency (not per insurer)
             this.quotingAgencyLocationDB = app.agencyLocation.quotingAgencyLocationDB;
         }
         
@@ -1936,6 +1939,7 @@ module.exports = class Integration {
 
         try{
             //shouldNotifyTalage is based on talageWholesale Setting
+            //TODO change to look this.app.agencyLocation.insurer to handle PrimaryAgency using talageWholesale.
             const notifiyTalageTest = this.app.agencyLocation.shouldNotifyTalage(quoteJSON.insurerId);
             //We only need one AL insurer to be set to notifyTalage to send it to Slack.
             if(notifiyTalageTest === true){
