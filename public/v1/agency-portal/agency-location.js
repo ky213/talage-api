@@ -590,7 +590,6 @@ async function getSelectionList(req, res, next) {
     let agencyId = parseInt(req.authentication.agents[0], 10);
 
 
-
     if(req.authentication.isAgencyNetworkUser){
         if(req.authentication.isAgencyNetworkUser && req.authentication.agencyNetworkId === 1
             && req.authentication.permissions.talageStaff === true
