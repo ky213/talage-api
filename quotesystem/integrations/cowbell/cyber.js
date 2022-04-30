@@ -534,8 +534,8 @@ module.exports = class cowbellCyber extends Integration {
         // Coverage Eligibilty Rule change - $1,000,000 maximum for these NAICS codes
         const naics = this.industry_code.naics;
         if (naics.indexOf(municNAICSPrefix) === 0 || naics.indexOf(eduNAICSPrefix) === 0 || techNAICSCodes.includes(naics)) {
-            if (parseInt(policyaggregateLimit, 10) > 1000000) {
-                policyaggregateLimit = "1000000";
+            if (parseInt(policyaggregateLimit, 10) > specialCaseEligibleAggregateMaximum) {
+                policyaggregateLimit = `${specialCaseEligibleAggregateMaximum}`;
             }
         }
 
