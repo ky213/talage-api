@@ -386,7 +386,7 @@ module.exports = class EmployersWC extends Integration {
                         locationJSON.owners.push(ownerObj)
 
                         //class and payroll for rating.
-                        if(owner.activityCodeId > 0 && owner.payroll){
+                        if(owner.activityCodeId > 0){
                             let insurerActivityCode = null;
 
                             if (location.state) {
@@ -408,14 +408,20 @@ module.exports = class EmployersWC extends Integration {
                                 const existingRateClass = locationJSON.rateClasses.find((rc) => rc.classCode === classCode)
                                 if(existingRateClass){
                                     newClassCode = false;
-                                    existingRateClass.payrollAmount += owner.payroll
+                                    if(owner.include && owner.payroll){
+                                        existingRateClass.payrollAmount += owner.payroll
+                                    }
                                 }
                             }
                             if(newClassCode){
                                 const rateClass = {
                                     "classCode": classCode,
-                                    "payrollAmount": owner.payroll
+                                    "payrollAmount": 0
                                 }
+                                if(owner.include && owner.payroll){
+                                    rateClass.payrollAmount += owner.payroll
+                                }
+
                                 locationJSON.rateClasses.push(rateClass);
                             }
                         }
