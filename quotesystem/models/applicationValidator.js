@@ -896,13 +896,19 @@ const validateAgencyLocation = async(applicationDocData, agencyLocationModel) =>
     if(applicationDocData.policies?.length > 0){
         applicationDocData.policies.forEach((policy) => {
             let gotHit = false;
-            for(const insurer of agencyLocationModel.insurerList){
-                if(insurer.policyTypeInfo[policy.policyType.toUpperCase()] && insurer.policyTypeInfo[policy.policyType.toUpperCase()].enabled === true){
-                    gotHit = true;
-                    break;
+            if(agencyLocationModel.insurerList.length > 0){
+                for(const insurer of agencyLocationModel.insurerList){
+                    if(insurer.policyTypeInfo[policy.policyType.toUpperCase()] && insurer.policyTypeInfo[policy.policyType.toUpperCase()].enabled === true){
+                        gotHit = true;
+                        break;
+                    }
+                }
+                if(!gotHit){
+                    throw new Error(`Application's Agency Location does not cover -  ${policy.policyType}  `)
                 }
             }
-            if(!gotHit){
+            else {
+                log.error(`AGency: ${agencyLocationModel.agencyId} locId ${agencyLocationModel.systemId} does not have insurers ` + __location);
                 throw new Error(`Application's Agency Location does not cover -  ${policy.policyType}  `)
             }
         });

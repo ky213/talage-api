@@ -3,8 +3,6 @@
  * Defines a single agent
  */
 
-'use strict';
-
 const validator = global.requireShared('./helpers/validator.js');
 const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
 const AgencyBO = global.requireShared('./models/Agency-BO.js');
