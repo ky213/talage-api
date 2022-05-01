@@ -479,6 +479,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeStringArray, zi
     start = moment();
     let missing_questions = find_missing_questions(questions);
     while (missing_questions) {
+        log.debug(`Adding missing Parent questions ${missing_questions}` + __location)
         const added_questions = await getTalageQuestionFromInsureQuestionList(missing_questions, null,return_hidden);
         // If Added questions is empty then the break out of loop, will return empty if parent questions are inactive
         if(added_questions.length === 0){

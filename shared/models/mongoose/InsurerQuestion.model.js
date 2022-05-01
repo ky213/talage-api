@@ -29,6 +29,10 @@ const InsurerQuestionSchema = new Schema({
     expirationDate: {type: Date, required: true},
     allTerritories: {type: Boolean, required: true, default: true},
     territoryList: [String],
+    defaultValue: {type: String, required: false},
+    useDefaultValue: {type: Boolean, default: false},
+    insurerQuestionType: {type: String, required: false},
+    answerMap: {type: Object, required: false}, //map to checklist and select type questions
     active: {type: Boolean, default: true}
 },opts)
 
