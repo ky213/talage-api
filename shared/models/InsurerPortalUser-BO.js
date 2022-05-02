@@ -387,7 +387,7 @@ module.exports = class InsurerPortalUserBO{
     }
 
     async newMaxSystemId(){
-        let maxId = 0;
+        let maxId = 1;
         try{
 
             //small collection - get the collection and loop through it.
@@ -401,7 +401,7 @@ module.exports = class InsurerPortalUserBO{
             const docList = await InsurerPortalUserModel.find(query, queryProjection, queryOptions)
             if(docList && docList.length > 0){
                 for(let i = 0; i < docList.length; i++){
-                    if(docList[i].insurerPortalUserId > maxId){
+                    if(docList[i].insurerPortalUserId >= maxId){
                         maxId = docList[i].insurerPortalUserId + 1;
                     }
                 }

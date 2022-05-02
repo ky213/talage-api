@@ -54,8 +54,8 @@ InsurerPortalUserSchema.plugin(mongooseHistory, {
 
 InsurerPortalUserSchema.pre('validate', function(next) {
     if (this.isNew) {
-        if (!this.agencyPortalUserUuidId) {
-            this.agencyPortalUserUuidId = uuid.v4();
+        if (!this.insurerPortalUserUuidId) {
+            this.insurerPortalUserUuidId = uuid.v4();
         }
     }
     next();

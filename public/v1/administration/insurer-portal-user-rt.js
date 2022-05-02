@@ -99,7 +99,7 @@ async function add(req, res, next) {
     if (!req.body.email) {
         return next(serverHelper.requestError('Missing email'))
     }
-    if (!req.body.group) {
+    if (!req.body.insurerPortalUserGroupId) {
         return next(serverHelper.requestError('Missing group'))
     }
     if (req.body.password) {
@@ -245,10 +245,10 @@ async function deleteUser(req, res, next) {
 
 
 exports.registerEndpoint = (server, basePath) => {
-    server.addGetAuthAdmin('Get Agency Network Users list', `${basePath}/insurer-portal/users`, findAll, 'administration', 'all');
-    server.addGetAuthAdmin('GET Agency Network User  Object', `${basePath}/insurer-portal/user/:id`, findOne, 'administration', 'all');
-    server.addGetAuthAdmin('Get Agency Network User Groups list', `${basePath}/insurer-portal/user-groups`, findGroupAll, 'administration', 'all');
-    server.addPutAuthAdmin('PUT Agency Network User', `${basePath}/insurer-portal/user/:id`, update, 'administration', 'all');
-    server.addPostAuthAdmin('POST Agency Network User', `${basePath}/insurer-portal/user`, add, 'administration', 'all');
-    server.addDeleteAuthAdmin('Delete Agency Network User', `${basePath}/insurer-portal/user/:id`, deleteUser, 'administration', 'all');
+    server.addGetAuthAdmin('GET Insurer Portal Users list', `${basePath}/insurer-portal/user`, findAll, 'administration', 'all');
+    server.addGetAuthAdmin('GET Insurer Portal User  Object', `${basePath}/insurer-portal/user/:id`, findOne, 'administration', 'all');
+    server.addGetAuthAdmin('GET Insurer Portal User Groups list', `${basePath}/insurer-portal/user-groups`, findGroupAll, 'administration', 'all');
+    server.addPutAuthAdmin('PUT Insurer Portal User', `${basePath}/insurer-portal/user/:id`, update, 'administration', 'all');
+    server.addPostAuthAdmin('POST Insurer Portal User', `${basePath}/insurer-portal/user`, add, 'administration', 'all');
+    server.addDeleteAuthAdmin('DELETE Insurer Portal User', `${basePath}/insurer-portal/user/:id`, deleteUser, 'administration', 'all');
 };

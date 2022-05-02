@@ -30,8 +30,9 @@ const PermissionSchema = new Schema({
     analytics: PermissionRightsSchema,
     applications: PermissionRightsSchema,
     dashboard: PermissionRightsSchema,
-    owner: PermissionRightsSchema,
-    settings: PermissionRightsSchema
+    executive: PermissionRightsSchema,
+    settings: PermissionRightsSchema,
+    users: PermissionRightsSchema
 },{_id : false})
 
 const InsurerPortalUserGroupSchema = new Schema({
