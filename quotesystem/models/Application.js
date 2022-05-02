@@ -554,6 +554,33 @@ module.exports = class Application {
                             log.error(`AppId: ${this.id} set answer for ${q.id} problem ${e} ` + __location);
                         }
                     }
+                    else {
+                        // add question to Application Talage Question List - might be a hidden question client did not send in.
+                        // use default answer if hidden
+                        // Question Svc Enhancment
+                        const talageQuestion = JSON.parse(JSON.stringify(questionDef))
+                        talageQuestion.questionId = talageQuestion.talageQuestionId;
+                        talageQuestion.questionType = talageQuestion.typeDesc;
+                        if(talageQuestion.answers && talageQuestion.hidden){
+                            for(const answer of talageQuestion.answers){
+                                if(answer.default){
+                                    talageQuestion.answerId = answer.answerId
+                                    talageQuestion.answerValue = answer.answer
+                                }
+                            }
+                        }
+                        try {
+                            q.set_answer(talageQuestion);
+                        }
+                        catch (e) {
+                            //do not stop porcess with throwing an error.  Caused Production problem.
+                            //log the issue
+                            //throw e;
+                            log.error(`AppId: ${this.id} set answer for ${q.id} problem ${e} ` + __location);
+                        }
+                        this.applicationDocData.questions.push(talageQuestion)
+
+                    }
                 }
 
                 // Store the question object in the Application for later use
