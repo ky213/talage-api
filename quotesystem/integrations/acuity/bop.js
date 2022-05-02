@@ -266,6 +266,8 @@ module.exports = class AcuityBOP extends Integration {
         BusinessInfo.ele('OperationsDesc', operationsDescription);
         BusinessInfo.ele('NumOwners', this.app.business.num_owners);
         BusinessInfo.ele('NumEmployees', this.get_total_employees());
+        BusinessInfo.ele('NumEmployeesFullTime', this.get_total_full_time_employees());
+        BusinessInfo.ele('NumEmployeesPartTime', this.get_total_part_time_employees());
         // </BusinessInfo>
         // </InsuredOrPrincipalInfo>
         // </InsuredOrPrincipal>
@@ -280,6 +282,16 @@ module.exports = class AcuityBOP extends Integration {
         ContractTerm.ele('EffectiveDt', this.policy.effective_date.format('YYYY-MM-DD'));
         ContractTerm.ele('ExpirationDt', this.policy.expiration_date.format('YYYY-MM-DD'));
         // </ContractTerm>
+
+        // <CommlPolicySupplement>
+        const CommlPolicySupplement = CommlPolicy.ele('CommlPolicySupplement');
+        if (appDoc.grossSalesAmt) {
+            CommlPolicySupplement.ele('AnnualSalesAmt').ele('Amt', appDoc.grossSalesAmt);
+        }
+        else {
+            log.error(`${logPrefix}: Missing Gross Sales Amount`)
+        }
+        // </CommlPolicySupplement>
 
         // <MiscParty>
         const MiscParty = CommlPolicy.ele('MiscParty');
@@ -331,10 +343,15 @@ module.exports = class AcuityBOP extends Integration {
         }
         const questionCodes = Object.values(question_identifiers);
 
-        // Loop through each question
-        for (const question_id in this.questions) {
-            if (Object.prototype.hasOwnProperty.call(this.questions, question_id)) {
-                const question = this.questions[question_id];
+        // Insurer Question Loop
+        for (const insurerQuestion of this.insurerQuestionList) {
+            if (Object.prototype.hasOwnProperty.call(this.questions, insurerQuestion.talageQuestionId)) {
+                const question = this.questions[insurerQuestion.talageQuestionId];
+                if(!question){
+                    log.debug(`Acuity question processing ${insurerQuestion?.attributes?.elementName} no TalageQuestion`)
+                    continue;
+                }
+
                 const QuestionCd = question_identifiers[question.id];
 
                 // Don't process questions without a code (not for this insurer) or ones that we have marked to skip
@@ -371,6 +388,7 @@ module.exports = class AcuityBOP extends Integration {
                 else {
                     QuestionAnswer.ele('Explanation', answer);
                 }
+
             }
         }
 
@@ -472,16 +490,18 @@ module.exports = class AcuityBOP extends Integration {
         Limit.ele('FormatInteger', limits[2]);
         // </Limit>
         // </CommlCoverage>
+
         // Exposures
 
-
+        // </GeneralLiabilityClassifciation LocationRef="L1">
         const GeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification');
+        GeneralLiabilityClassification.att('LocationRef', `L1`);
         if (this.insurerIndustryCode?.attributes?.cgl) {
             GeneralLiabilityClassification.ele('ClassCd', this.insurerIndustryCode.attributes.cgl);
         }
-        else (
+        else {
             log.error(`${logPrefix}: Insurer Industry Code "${this.insurerIndustryCode.code}" did not have Class in attributes.cgl`)
-        )
+        }
 
         if (appDoc.grossSalesAmt) {
             GeneralLiabilityClassification.ele('Exposure', appDoc.grossSalesAmt);
@@ -491,59 +511,75 @@ module.exports = class AcuityBOP extends Integration {
         }
 
         GeneralLiabilityClassification.ele('PremiumBasisCd', 'GrSales');
+        // </GeneralLiabilityClassification>
 
-        // Old GL Integration stuff
-        // for (let i = 0; i < appDoc.locations.length; i++) {
-        //     const location = appDoc.locations[i];
+        const PropertyInfo = BOPLineBusiness.ele('PropertyInfo');
+        appDoc.locations.forEach((location, index) => {
+            const CommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo');
+            CommlPropertyInfo.att('LocationRef', `L${index+1}`);
 
-        //     const cobPayrollList = [];
-        //     // eslint-disable-next-line prefer-const
-        //     for (let activityCode of location.activityPayrollList){
-        //         //check for new application doc
-        //         if(!activityCode.activityCodeId){
-        //             activityCode.activityCodeId = activityCode.ncciCode;
-        //         }
-        //         const acuityActivityCode = await this.get_insurer_code_for_activity_code(insurer.id, location.state, activityCode.activityCodeId);
-        //         if (acuityActivityCode && acuityActivityCode.attributes && acuityActivityCode.attributes.hasOwnProperty("assocGLClass")) {
-        //             const cglCode = acuityActivityCode.attributes.assocGLClass;
-        //             let cobPayroll = cobPayrollList.find((cp) => cp.cglCode === cglCode);
-        //             if (!cobPayroll) {
-        //                 cobPayroll = {
-        //                     cglCode: cglCode,
-        //                     payroll: 0
-        //                 };
-        //                 cobPayrollList.push(cobPayroll);
-        //             }
-        //             //loop through EmployeeType payroll
-        //             if(activityCode.employeeTypeList && activityCode.employeeTypeList.length > 0){
-        //                 activityCode.employeeTypeList.forEach((employeTypePayroll) => {
-        //                     cobPayroll.payroll += employeTypePayroll.employeeTypePayroll;
-        //                 });
-        //             }
-        //             else {
-        //                 cobPayroll.payroll += activityCode.payroll;
-        //             }
-        //         }
-        //         else {
-        //             log.error(`Acuity GL (application ${this.app.id}): ActivityCode ${activityCode.activityCodeId}  had no assocGLClass. Application may fail at Acuit, acuityActivityCode ${JSON.stringify(acuityActivityCode)}` + __location);
-        //         }
-        //     }
-        //     // Fill in the exposure. The Acuity CGL spreadsheet does not specify exposures per class code so we send PAYROLL for now until we get clarity.
-        //     if(cobPayrollList.length > 0){
-        //         for (const cobPayroll of cobPayrollList) {
-        //             const GeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification');
-        //             GeneralLiabilityClassification.att('LocationRef', `L${i + 1}`);
-        //             GeneralLiabilityClassification.ele('ClassCd', cobPayroll.cglCode);
-        //             // GeneralLiabilityClassification.ele('ClassCdDesc', this.industry_code.description);
-        //             GeneralLiabilityClassification.ele('PremiumBasisCd', 'PAYRL');
-        //             GeneralLiabilityClassification.ele('Exposure', cobPayroll.payroll);
-        //         }
-        //     }
-        //     else {
-        //         log.error(`Acuity GL (application ${this.app.id}): application issue no payroll. Application will fail at Acuity` + __location);
-        //     }
-        // }
+            // <CommlCoverage>
+            CommlCoverage = CommlPropertyInfo.ele('CommlCoverage');
+            // <Limit>
+            if (location.businessPersonalPropertyLimit) {
+                CommlCoverage.ele('CoverageCd', 'BPP');
+                CommlCoverage.ele('CoverageDesc', 'Business Personal Property');
+                Limit = CommlCoverage.ele('Limit'); 
+                Limit.ele('FormatInteger', location.businessPersonalPropertyLimit);
+                Limit.ele('LimitAppliesToCd', 'BPP');
+                // Limit.ele('ValuationCd', 'RC'); // zy Should I include this and should it be 'ACV' or 'RC'?
+                // </Limit>
+                let Deductible = CommlCoverage.ele('Deductible');
+                Deductible.ele('FormatInteger', 0);
+                Deductible.ele('DeductibleAppliesToCd', 'BPP');
+            }
+            else {
+                log.error(`${logPrefix}: No Business Personal Property Limit present on application`);
+            }
 
+            if (location.buildingLimit) {
+                CommlCoverage.ele('CoverageCd', 'BLDG');
+                CommlCoverage.ele('CoverageDesc', 'Business Personal Property');
+                Limit = CommlCoverage.ele('Limit'); 
+                Limit.ele('FormatInteger', location.businessPersonalPropertyLimit);
+                Limit.ele('LimitAppliesToCd', 'BLDG');
+                // Limit.ele('ValuationCd', 'RC'); // zy Should I include this and should it be 'ACV' or 'RC'?
+                // </Limit>
+                let Deductible = CommlCoverage.ele('Deductible');
+                Deductible.ele('FormatInteger', 0);
+                Deductible.ele('DeductibleAppliesToCd', 'BLDG');
+            }
+            else {
+                log.error(`${logPrefix}: No Building Limit present on application`)
+            }
+
+            // For assigning question elements in question loop
+            const CommlCoverageSupplement = CommlCoverage.ele('CommlCoverageSupplement');
+            for (const question of location.questions) {
+                // This question was not answered
+                if (!question.answerValue) {
+                    continue;
+                }
+
+                const QuestionCd = question.insurerQuestionIdentifier;
+
+                // Build out the question structure
+                QuestionAnswer = CommlCoverageSupplement.ele('QuestionAnswer');
+                QuestionAnswer.ele('QuestionCd', QuestionCd);
+
+                // Determine how to send the answer
+                if (question.type === 'Yes/No') {
+                    QuestionAnswer.ele('YesNoCd', question.answerValue.toUpperCase());
+                }
+                else if (/^\d+$/.test(question.answerValue)) {
+                    QuestionAnswer.ele('Num', question.answerValue);
+                }
+                else {
+                    QuestionAnswer.ele('Explanation', question.answerValue);
+                }
+            }
+            // </CommlCoverage>
+        })
         // </BOPLineBusiness>
         // </BOPPolicyQuoteInqRq>
         // </InsuranceSvcRq>
