@@ -495,7 +495,7 @@ module.exports = class USLIBOP extends Integration {
         ContractTerm.ele('EffectiveDt', moment(BOPPolicy.effectiveDate).format("YYYY-MM-DD"));
         ContractTerm.ele('ExpirationDt', moment(BOPPolicy.expirationDate).format("YYYY-MM-DD"));
         const DurationPeriod = ContractTerm.ele('DurationPeriod');
-        DurationPeriod.ele('NumUnits', moment(applicationDocData.expirationDate).diff(applicationDocData.effectiveDate, "months"));
+        DurationPeriod.ele('NumUnits', moment(BOPPolicy.expirationDate).diff(BOPPolicy.effectiveDate, "months"));
         DurationPeriod.ele('UnitMeasurementCd', "month");
         CommlPolicy.ele('PrintedDocumentsRequestedInd', false);
         const TotalPaidLossAmt = CommlPolicy.ele('TotalPaidLossAmt');
@@ -1000,11 +1000,20 @@ module.exports = class USLIBOP extends Integration {
             }
         }
 
+        // clean up reasonings to remove occasional description or submit prefix
+        errorReasons = errorReasons.map(reason => {
+            if (reason.indexOf("Description: ") === 0) {
+                return reason.substring(13, reason.length);
+            }
+            else if (reason.indexOf("Submit: ") === 0) {
+                return reason.substring(8, reason.length);
+            }
+
+            return reason;
+        });
+
         // main reason is just the first reason for an error reported
         let mainReason = errorReasons.shift();
-        if (mainReason.indexOf("Description: ") !== -1) {
-            mainReason = mainReason.substring(mainReason.indexOf("Description: ") + 13);
-        }
 
         // declined
         if (declineCodes.includes(errorCd)) {
@@ -1043,6 +1052,10 @@ module.exports = class USLIBOP extends Integration {
         const commlCoverage = get(response, "CommlPkgPolicyQuoteInqRs[0].GeneralLiabilityLineBusiness[0].LiabilityInfo[0].CommlCoverage");
         premium = get(response, "CommlPkgPolicyQuoteInqRs[0].PolicySummaryInfo[0].FullTermAmt[0].Amt[0]");
         const remarkText = get(response, "CommlPkgPolicyQuoteInqRs[0].RemarkText");
+
+        if (premium === "0") {
+            premium = null;
+        }
         
         if (Array.isArray(remarkText) && remarkText.length > 0) {
             const admittedRemark = remarkText.find(remark => remark?.$?.id === "Admitted Status");
@@ -1056,7 +1069,7 @@ module.exports = class USLIBOP extends Integration {
         }
 
         // remove taxes from premium if quote is not admitted and taxes exist
-        if (!admitted) {
+        if (!admitted && premium) {
             const taxesAdditionalInfo = [];
             premium = parseFloat(premium);
             const taxCoverages = get(response, "CommlPkgPolicyQuoteInqRs[0].CommlPolicy[0].CommlCoverage");
@@ -1140,7 +1153,7 @@ module.exports = class USLIBOP extends Integration {
         if (statusCd === "0" && msgStatusCd === "Success" && industryCode.attributes?.GLElig !== "PP" && msgStatusDesc !== "Submit") {
             return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType, quoteCoverages);
         }
-        else if (statusCd === "0" && referralCodes.includes(errorCd) || premium || msgStatusDesc === "Submit") {
+        else if (statusCd === "0" && referralCodes.includes(errorCd) || premium || msgStatusDesc === "Submit" || msgStatusDesc === "SuccessWithInfo") {
             errorReasons.unshift(mainReason);
             if (errorReasons[0].includes("successfully processed the request.") && industryCode.attributes.GLElig === "PP") {
                 this.reasons = ["The chosen classification has GL Eligibility PP (Premises Preferred)."];
