@@ -560,6 +560,7 @@ module.exports = class Application {
                         // Question Svc Enhancment
                         const talageQuestion = JSON.parse(JSON.stringify(questionDef))
                         talageQuestion.questionId = talageQuestion.talageQuestionId;
+                        talageQuestion.questionType = talageQuestion.typeDesc;
                         if(talageQuestion.answers && talageQuestion.hidden){
                             for(const answer of talageQuestion.answers){
                                 if(answer.default){

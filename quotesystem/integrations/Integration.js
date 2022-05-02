@@ -1627,6 +1627,7 @@ module.exports = class Integration {
                 //get insurer question see if default should be used.
                 const insurerQuestion = this.insurerQuestionList.find((iq) => iq.talageQuestionId === applicationQuestion.questionId)
                 if(insurerQuestion?.useDefaultValue && insurerQuestion?.defaultValue){
+                    log.debug(`AUTO ANSWERING Integrations - Auto answered for insurer ${this.insurer.id} talage question ${applicationQuestion.questionId} - ${applicationQuestion.questionText}` + __location)
                     if(insurerQuestion.answerMap && insurerQuestion.answerMap[insurerQuestion.defaultValue]){
                         applicationQuestion.answerValue = insurerQuestion.answerMap[insurerQuestion.defaultValue]
                     }
@@ -1642,7 +1643,7 @@ module.exports = class Integration {
                             if(talageQuestionDef){
                                 for(const answer of talageQuestionDef.answers){
                                     if(answer.answer === applicationQuestion.answerValue){
-                                        log.debug(`Integrations - Auto answered for insurer ${this.insurer.id} talage question ${applicationQuestion.questionId} - ${applicationQuestion.questionText}` + __location)
+                                        log.debug(`AUTO ANSWERING Integrations - Auto answered - answserId for insurer ${this.insurer.id} talage question ${applicationQuestion.questionId} - ${applicationQuestion.questionText}` + __location)
                                         applicationQuestion.answerId = answer.answerId
                                         if(applicationQuestion.questionType === "Checkboxes"){
                                             applicationQuestion.answerList = [answer.answer]
@@ -1749,11 +1750,11 @@ module.exports = class Integration {
 
         // Retrieve the Talage questions for the application questions so we can determine both the parent hierarchy and the parent_answer for a child question
         const questionBO = new QuestionBO();
-        const talageQuestionList = [];
+        const talageQuestionDefList = [];
         for (const applicationQuestion of applicationQuestionList) {
-            let talageQuestion = null;
+            let talageQuestionDef = null;
             try {
-                talageQuestion = await questionBO.getById(applicationQuestion.questionId);
+                talageQuestionDef = await questionBO.getById(applicationQuestion.questionId);
             }
             catch (error) {
                 const error_message = `Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} is unable to get Talage question ${applicationQuestion.questionId}. ${error}}`;
@@ -1761,8 +1762,8 @@ module.exports = class Integration {
                 this.reasons.push(error_message);
                 //return null;
             }
-            if (talageQuestion) {
-                talageQuestionList.push(talageQuestion);
+            if (talageQuestionDef) {
+                talageQuestionDefList.push(talageQuestionDef);
             }
             else {
                 // Could not find the talage question by ID
@@ -1787,7 +1788,7 @@ module.exports = class Integration {
             }
             let questionWasAnswered = true;
             let childApplicationQuestion = applicationQuestion;
-            let childTalageQuestion = talageQuestionList.find((tq) => tq.talageQuestionId === childApplicationQuestion.questionId);
+            let childTalageQuestion = talageQuestionDefList.find((tq) => tq.talageQuestionId === childApplicationQuestion.questionId);
 
             // While the question has a parent (not top-level)
             while (childTalageQuestion?.parent) {
@@ -1805,7 +1806,7 @@ module.exports = class Integration {
                 }
                 // Move up a question level (parent becomes child)
                 // eslint-disable-next-line no-loop-func
-                childTalageQuestion = talageQuestionList.find((tq) => tq.id === parentApplicationQuestion.questionId);
+                childTalageQuestion = talageQuestionDefList.find((tq) => tq.id === parentApplicationQuestion.questionId);
                 childApplicationQuestion = parentApplicationQuestion;
             }
            

@@ -801,7 +801,6 @@ async function getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, in
         // eslint-disable-next-line prefer-const
         let talageQuestionPolicyTypeList = [];
         // eslint-disable-next-line prefer-const
-        let insurerQuestionRefList = [];
         talageQuestions.forEach(function(talageQuestion){
             const iqForTalageQList = insurerQuestionList.filter(function(iq) {
                 return iq.talageQuestionId === talageQuestion.id;
@@ -812,10 +811,8 @@ async function getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, in
                 iqForTalageQ.policyTypeList.forEach((policyType) => {
                     talageQuestionPolicyTypeList.push(iqForTalageQ.insurerId + "-" + policyType)
                 });
-                insurerQuestionRefList.push(iqForTalageQ.insurerId + "-" + iqForTalageQ.insurerQuestionId)
             });
             talageQuestion.insurers = talageQuestionPolicyTypeList.join(',');
-            talageQuestion.insurerQuestionRefList = insurerQuestionRefList;
         });
         return talageQuestions;
     }
