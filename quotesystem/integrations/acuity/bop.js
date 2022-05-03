@@ -112,7 +112,8 @@ module.exports = class AcuityBOP extends Integration {
         const ClientApp = SignonRq.ele('ClientApp');
         ClientApp.ele('Org', 'Talage Insurance');
         ClientApp.ele('Name', 'Talage');
-        ClientApp.ele('Version', '2.0');
+        // ClientApp.ele('Version', '2.0');
+        ClientApp.ele('Version', '6.0');
         // </ClientApp>
 
         // </SignonRq>
@@ -272,6 +273,7 @@ module.exports = class AcuityBOP extends Integration {
         // </InsuredOrPrincipalInfo>
         // </InsuredOrPrincipal>
 
+        //<BOPPolicyQuoteInqRq>
         // <CommlPolicy>
         const CommlPolicy = BOPPolicyQuoteInqRq.ele('CommlPolicy');
         CommlPolicy.ele('LOBCd', 'BOP');
@@ -467,6 +469,7 @@ module.exports = class AcuityBOP extends Integration {
         CommlCoverage.ele('CoverageDesc', 'Liability - Each Occurrence');
         // <Limit>
         let Limit = CommlCoverage.ele('Limit');
+        Limit.ele('LimitAppliesToCd', 'EAOCC');
         Limit.ele('FormatInteger', limits[0]);
         // </Limit>
         // </CommlCoverage>
@@ -477,6 +480,7 @@ module.exports = class AcuityBOP extends Integration {
         CommlCoverage.ele('CoverageDesc', 'Liability - General Aggregate');
         // <Limit>
         Limit = CommlCoverage.ele('Limit');
+        Limit.ele('LimitAppliesToCd', 'GENAG');
         Limit.ele('FormatInteger', limits[1]);
         // </Limit>
         // </CommlCoverage>
@@ -487,6 +491,7 @@ module.exports = class AcuityBOP extends Integration {
         CommlCoverage.ele('CoverageDesc', 'Products&Completed Operations');
         // <Limit>
         Limit = CommlCoverage.ele('Limit');
+        Limit.ele('LimitAppliesToCd', 'PRDCO');
         Limit.ele('FormatInteger', limits[2]);
         // </Limit>
         // </CommlCoverage>
@@ -514,6 +519,13 @@ module.exports = class AcuityBOP extends Integration {
         // </GeneralLiabilityClassification>
 
         const PropertyInfo = BOPLineBusiness.ele('PropertyInfo');
+
+        const locationQuestionsToIgnore = [
+            'AcuityRoofConstruction',
+            'AcuityBOPRoofGeometry',
+            'AcuityBOPOccupiedByOthersSqft',
+            'AcuityBOPUnoccupiedSqft'
+        ]
         appDoc.locations.forEach((location, index) => {
             const CommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo');
             CommlPropertyInfo.att('LocationRef', `L${index+1}`);
@@ -539,7 +551,7 @@ module.exports = class AcuityBOP extends Integration {
 
             if (location.buildingLimit) {
                 CommlCoverage.ele('CoverageCd', 'BLDG');
-                CommlCoverage.ele('CoverageDesc', 'Business Personal Property');
+                CommlCoverage.ele('CoverageDesc', 'Building');
                 Limit = CommlCoverage.ele('Limit'); 
                 Limit.ele('FormatInteger', location.businessPersonalPropertyLimit);
                 Limit.ele('LimitAppliesToCd', 'BLDG');
@@ -556,6 +568,9 @@ module.exports = class AcuityBOP extends Integration {
             // For assigning question elements in question loop
             const CommlCoverageSupplement = CommlCoverage.ele('CommlCoverageSupplement');
             for (const question of location.questions) {
+                if (locationQuestionsToIgnore.includes(question.insurerQuestionIdentifier)) {
+                    continue;
+                }
                 // This question was not answered
                 if (!question.answerValue) {
                     continue;
@@ -581,9 +596,107 @@ module.exports = class AcuityBOP extends Integration {
             // </CommlCoverage>
         })
         // </BOPLineBusiness>
+
+        // <CommlSubLocation>
+        const constructionTypeMatrix =  {
+            'Frame': 'F',
+            'Joisted Masonry': 'JM',
+            'Fire Resistive': 'MFR',
+            'Non Combustible': 'NC',
+            'Rail': 'R',
+            'Masonry Non Combustible': 'SMNC',
+            'Masonry Veneer': 'V'
+        };
+
+
+        appDoc.locations.forEach((location, index) => { 
+            // <CommlSubLocation>
+            const CommlSubLocation = BOPPolicyQuoteInqRq.ele('CommlSubLocation');
+            CommlSubLocation.att('LocationRef', `L${index+1}`);
+
+            CommlSubLocation.ele('InterestCd', location.own ? 'OWNER' : 'TENANT');
+            // <Construction>
+            const Construction = CommlSubLocation.ele('Construction');
+            Construction.ele('YearBuilt', location.yearBuilt);
+            
+            if (location.constructionType && Object.keys(constructionTypeMatrix).includes(location.constructionType)) {
+                Construction.ele('ConstructionCd', constructionTypeMatrix[location.constructionType]);
+            }
+            else {
+                log.error(`${logPrefix}: Unrecognized construction type for location ${index}: ${location.constructionType}`);
+            }
+
+            if (location.numStories) {
+                Construction.ele('NumStories', location.numStories);
+            }
+            else {
+                log.error(`${logPrefix}: Missing Number of Stories for location ${index}`);
+            }
+
+            Construction.ele('BldgArea').ele('NumUnits', location.square_footage);
+            // </Construction>
+
+            // <BldgOccupancy>
+            const BldgOccupancy = CommlSubLocation.ele('BldgOccupancy');
+
+            const AreaOccupied = BldgOccupancy.ele('AreaOccupied');
+            const AreaOccupiedByOthers = BldgOccupancy.ele('AreaOccupiedByOthers');
+            const AreaUnoccupied = BldgOccupancy.ele('AreaUnoccupied');
+            let areaOccupiedByOthers = 0;
+            let areaUnoccupied = 0;
+
+            if (location.bop.hasOwnProperty('sprinklerEquipped')) {
+                CommlSubLocation.ele('BldgProtection').ele('SprinkleredPct', location.bop.sprinklerEquipped ? 100 : 0);
+            }
+            else {
+                log.error(`${logPrefix}: Missing sprinkler information for location ${index}`);
+            }
+
+            for (const question of location.questions) {
+                if (!question.answerValue && question.answer !== 0) {
+                    continue;
+                }
+
+                switch (question.insurerQuestionIdentifier) {
+                    case 'AcuityRoofConstruction':
+                        let materialCode = 'OT';
+                        if (question.insurerQuestionAttributes.hasOwnProperty(question.answerValue)) {
+                            materialCode = question.insurerQuestionAttributes[question.answerValue];
+                        }
+                        Construction.ele('RoofingMaterial').ele('RoofMaterialCd', materialCode);
+                        break;
+                    case 'AcuityBOPRoofGeometry':
+                        Construction.ele('RoofGeometryTypeCd', question.answerValue.toUpperCase());
+                        break;
+                    case 'AcuityBOPOccupiedByOthersSqft':
+                        areaOccupiedByOthers = question.answerValue;
+                        AreaOccupiedByOthers.ele(`NumUnits`, areaOccupiedByOthers);
+                        AreaOccupiedByOthers.ele(`UnitMeasurementCd`, 'SQFT');
+                        break;
+                    case 'AcuityBOPUnoccupiedSqft':
+                        areaUnoccupied = question.answerValue
+                        AreaUnoccupied.ele(`NumUnits`, areaUnoccupied);
+                        AreaUnoccupied.ele(`UnitMeasurementCd`, 'SQFT');
+                        break;
+                    default:
+                        continue;
+                }
+            }
+
+            const totalArea = location.square_footage;
+            const areaOccupied = totalArea - areaUnoccupied - areaOccupiedByOthers;
+            AreaOccupied.ele(`NumUnits`, areaOccupied);
+            AreaOccupied.ele(`UnitMeasurementCd`, 'SQFT');
+
+            // </BldgOccupancy>
+            // <CommlSubLocation>
+        })
+        // </CommlSubLocation>
+
         // </BOPPolicyQuoteInqRq>
         // </InsuranceSvcRq>
         // </ACORD>
+
 
         // Get the XML structure as a string
         const xml = ACORD.end({pretty: true});
