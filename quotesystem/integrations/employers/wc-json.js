@@ -40,7 +40,7 @@ module.exports = class EmployersWC extends Integration {
         if (!phone || typeof phone !== 'string') {
             log.error(`Employers WC App ID: ${this.app.id}: Bad phone number format: "${phone}" ` + __location);
             strPhone = phone.toString();
-            // return '';
+            // convert to string and allow regex to sort out the numbers.
         }
         const phoneDigits = strPhone.trim().replace(/\D/g, '');
         if (phoneDigits.length !== 10) {
@@ -249,6 +249,7 @@ module.exports = class EmployersWC extends Integration {
             catch (err) {
                 log.error(`${logPrefix}Problem creating contact information on quote request: ${err} ` + __location);
                 // immediately autodecline and report the error
+                // currently this causes a strange behaviour of looping submission to api -
                 this.reasons.push(`${logPrefix} ${err.message}  - Stopped before submission to insurer`);
                 return this.return_result('autodeclined');
             }
