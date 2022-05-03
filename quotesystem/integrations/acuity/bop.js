@@ -531,9 +531,9 @@ module.exports = class AcuityBOP extends Integration {
             CommlPropertyInfo.att('LocationRef', `L${index+1}`);
 
             // <CommlCoverage>
-            CommlCoverage = CommlPropertyInfo.ele('CommlCoverage');
             // <Limit>
             if (location.businessPersonalPropertyLimit) {
+                CommlCoverage = CommlPropertyInfo.ele('CommlCoverage');
                 CommlCoverage.ele('CoverageCd', 'BPP');
                 CommlCoverage.ele('CoverageDesc', 'Business Personal Property');
                 Limit = CommlCoverage.ele('Limit'); 
@@ -550,6 +550,7 @@ module.exports = class AcuityBOP extends Integration {
             }
 
             if (location.buildingLimit) {
+                CommlCoverage = CommlPropertyInfo.ele('CommlCoverage');
                 CommlCoverage.ele('CoverageCd', 'BLDG');
                 CommlCoverage.ele('CoverageDesc', 'Building');
                 Limit = CommlCoverage.ele('Limit'); 
