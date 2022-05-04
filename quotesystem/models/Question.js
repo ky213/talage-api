@@ -13,7 +13,6 @@ module.exports = class Question{
         this.id = 0;
         this.insurer_identifiers = {};
         this.insurers = [];
-        this.insurerQuestionRefList = [];
         this.type = '';
         this.parent = 0;
         this.parent_answer = 0;

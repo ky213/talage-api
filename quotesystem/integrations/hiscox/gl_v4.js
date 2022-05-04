@@ -439,24 +439,11 @@ module.exports = class HiscoxGL extends Integration {
         this.last_name = this.app.agencyLocation.last_name;
         // If talageWholeSale
         if(this.app.agencyLocation.insurers[this.insurer.id].talageWholesale){
-            //Use Talage Agency.
-            const talageAgencyId = 1;
-            this.agencyId = talageAgencyId
-
-            const AgencyBO = global.requireShared('./models/Agency-BO.js');
-            const agencyBO = new AgencyBO();
-            const agencyInfo = await agencyBO.getById(this.agencyId);
-            this.agency = agencyInfo.name;
-            const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
-            const agencyLocationBO = new AgencyLocationBO();
-            const talageAgencyLocationId = 1;
-
-            const agencyLocationInfo = await agencyLocationBO.getById(talageAgencyLocationId);
-
-            this.agencyEmail = agencyLocationInfo.email;
-            this.agencyPhone = agencyLocationInfo.phone;
-            this.first_name = agencyLocationInfo.firstName
-            this.last_name = agencyLocationInfo.lastName
+            // Use wholesale agency
+            this.agencyEmail = this.quotingAgencyLocationDB.email;
+            this.agencyPhone = this.quotingAgencyLocationDB.phone;
+            this.first_name = this.quotingAgencyLocationDB.firstName
+            this.last_name = this.quotingAgencyLocationDB.lastName
         }
 
         reqJSON.InsuranceSvcRq.QuoteRq.ProducerInfo = {};

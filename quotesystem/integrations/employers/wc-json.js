@@ -16,6 +16,7 @@ const Integration = require('../Integration.js');
 const tracker = global.requireShared('./helpers/tracker.js');
 //const PaymentPlanSvc = global.requireShared('./services/paymentplansvc.js');
 const moment = require('moment');
+const employersClient = require('./employers-client.js');
 
 module.exports = class EmployersWC extends Integration {
 
@@ -143,7 +144,7 @@ module.exports = class EmployersWC extends Integration {
             };
 
             // Define a list of required questions
-            const required_questions = [979];
+            //const required_questions = [979];
 
 
             // Log a warning message if there is no location state that matches the business primary state, as Employers will decline
@@ -266,87 +267,111 @@ module.exports = class EmployersWC extends Integration {
             const primaryLocationIndex = appDoc.locations.findIndex(({primary}) => primary);
 
             for (const index in appDoc.locations) {
-              if(index) {// eslint fix
-                const location = appDoc.locations[index]
-                const locationJSON = {};
+                if(index) {// eslint fix
+                    const location = appDoc.locations[index]
+                    const locationJSON = {};
 
-                //make sure only one location is set to "primary"
-                if (primaryLocationIndex > -1) {
-                  locationJSON.primary = Number(index) === primaryLocationIndex
-                 }
-                else if (Number(index) === 0) {
-                    locationJSON.primary = true
-                  }
+                    //make sure only one location is set to "primary"
+                    if (primaryLocationIndex > -1) {
+                    locationJSON.primary = Number(index) === primaryLocationIndex
+                    }
+                    else if (Number(index) === 0) {
+                        locationJSON.primary = true
+                    }
 
-                if (businessName) {
-                    locationJSON.businessName = businessName;
-                }
+                    if (businessName) {
+                        locationJSON.businessName = businessName;
+                    }
 
-                if (location.state === "NJ" && !appDoc.ein) {
-                    log.error(`${logPrefix}EIN Required for ${location.state}: ` + __location);
-                }
-                else if (appDoc.ein) {
-                    locationJSON.taxPayerId = appDoc.ein;
-                }
+                    if (location.state === "NJ" && !appDoc.ein) {
+                        log.error(`${logPrefix}EIN Required for ${location.state}: ` + __location);
+                    }
+                    else if (appDoc.ein) {
+                        locationJSON.taxPayerId = appDoc.ein;
+                    }
 
-                const unemploymentIdRequiredStates = [
-                    'HI',
-                    'ME',
-                    'NJ',
-                    'RI',
-                    'MN',
-                    'IA'
-                ];
-                if (unemploymentIdRequiredStates.includes(location.state) && !location.unemployment_num) {
-                    log.error(`${logPrefix}Unemployment ID required for ${location.state}` + __location);
-                }
-                else if (location.unemployment_num) {
-                    locationJSON.unemploymentId = location.unemployment_num
-                }
-                const locationTotalEmployees = this.get_total_location_employees(location)
-                locationJSON.numberOfEmployees = locationTotalEmployees;
-                locationJSON.shift1EmployeesCount = locationTotalEmployees;
-                locationJSON.shift2EmployeesCount = 0;
-                locationJSON.shift3EmployeesCount = 0;
+                    const unemploymentIdRequiredStates = [
+                        'HI',
+                        'ME',
+                        'NJ',
+                        'RI',
+                        'MN',
+                        'IA'
+                    ];
+                    if (unemploymentIdRequiredStates.includes(location.state) && !location.unemployment_num) {
+                        log.error(`${logPrefix}Unemployment ID required for ${location.state}` + __location);
+                    }
+                    else if (location.unemployment_num) {
+                        locationJSON.unemploymentId = location.unemployment_num
+                    }
+                    const locationTotalEmployees = this.get_total_location_employees(location)
+                    locationJSON.numberOfEmployees = locationTotalEmployees;
+                    locationJSON.shift1EmployeesCount = locationTotalEmployees;
+                    locationJSON.shift2EmployeesCount = 0;
+                    locationJSON.shift3EmployeesCount = 0;
 
-                const address = {};
-                if (location.address) {
-                    address.streetAddress1 = location.address.length > 300 ? location.address.substring(0,299) : location.address;
-                }
-                else {
-                    log.error(`${logPrefix}Could not get location address` + __location);
-                }
+                    const address = {};
+                    if (location.address) {
+                        address.streetAddress1 = location.address.length > 300 ? location.address.substring(0,299) : location.address;
+                    }
+                    else {
+                        log.error(`${logPrefix}Could not get location address` + __location);
+                    }
 
-                address.streetAddress2 = location.address2 ? location.address2 : "";
-                if (location.city) {
-                    address.city = location.city;
-                }
-                else {
-                    log.error(`${logPrefix}Could not get location city` + __location);
-                }
+                    address.streetAddress2 = location.address2 ? location.address2 : "";
+                    if (location.city) {
+                        address.city = location.city;
+                    }
+                    else {
+                        log.error(`${logPrefix}Could not get location city` + __location);
+                    }
 
-                if (location.state) {
-                    address.state = location.state;
-                }
-                else {
-                    log.error(`${logPrefix}Could not get location state` + __location);
-                }
+                    if (location.state) {
+                        address.state = location.state;
+                    }
+                    else {
+                        log.error(`${logPrefix}Could not get location state` + __location);
+                    }
 
-                if (location.zipcode) {
-                    address.zipCode = this.formatZipCodeForEmployers(location.zipcode);
-                }
-                else {
-                    log.error(`${logPrefix}Could not get location zipcode` + __location);
-                }
+                    if (location.zipcode) {
+                        address.zipCode = this.formatZipCodeForEmployers(location.zipcode);
+                    }
+                    else {
+                        log.error(`${logPrefix}Could not get location zipcode` + __location);
+                    }
 
-                locationJSON.address = address;
+                    locationJSON.address = address;
 
-                locationJSON.owners = appDoc.owners.map(owner => {
+                    locationJSON.rateClasses = [];
+                    for (const activityCode of location.activityPayrollList) {
+                        let insurerActivityCode = null;
+                        if (location.state) {
+                            insurerActivityCode = await this.get_insurer_code_for_activity_code(this.insurer.id, location.state, activityCode.activityCodeId);
+                        }
+                        else {
+                            log.error(`${logPrefix}Unable to find Insurer Activity Code due to missing state information ` + __location);
+                            continue;
+                        }
+                        let classCode = "";
+                        if (!insurerActivityCode) {
+                            log.warn(`Appid: ${this.app.id}: ${this.insurer.name} Could not find insurerActivityCode for ${location.state} ` + __location);
+                        }
+                        else {
+                            classCode = insurerActivityCode.code + insurerActivityCode.sub;
+                        }
+                        const rateClass = {
+                            "classCode": classCode,
+                            "payrollAmount": activityCode.payroll
+                        }
+                        locationJSON.rateClasses.push(rateClass);
+                    }
+                    locationJSON.owners = [];
+                    for(const owner of appDoc.owners){
                         const ownerObj = {
-                        "firstName": owner.fname,
-                        "lastName": owner.lname,
-                        "isIncluded": Boolean(owner.include),
-                        "ownershipPercent": owner.ownership
+                            "firstName": owner.fname,
+                            "lastName": owner.lname,
+                            "isIncluded": Boolean(owner.include),
+                            "ownershipPercent": owner.ownership
                         };
                         if (owner.payroll) {
                             ownerObj.ownershipSalary = owner.payroll;
@@ -358,35 +383,51 @@ module.exports = class EmployersWC extends Integration {
                         if (ownerTitle) {
                             ownerObj.ownerTitle = {"code": ownerTitle}
                         }
-                        return ownerObj;
-                        });
+                        locationJSON.owners.push(ownerObj)
 
-                locationJSON.rateClasses = [];
-                for (const activityCode of location.activityPayrollList) {
-                    let insurerActivityCode = null;
-                    if (location.state) {
-                        insurerActivityCode = await this.get_insurer_code_for_activity_code(this.insurer.id, location.state, activityCode.activityCodeId);
-                    }
-                    else {
-                        log.error(`${logPrefix}Unable to find Insurer Activity Code due to missing state information ` + __location);
-                        continue;
-                    }
-                    let classCode = "";
-                    if (!insurerActivityCode) {
-                        log.warn(`Appid: ${this.app.id}: ${this.insurer.name} Could not find insurerActivityCode for ${location.state} ` + __location);
-                    }
-                    else {
-                        classCode = insurerActivityCode.code + insurerActivityCode.sub;
-                    }
-                    const rateClass = {
-                        "classCode": classCode,
-                        "payrollAmount": activityCode.payroll
-                    }
-                    locationJSON.rateClasses.push(rateClass);
-                }
+                        //class and payroll for rating.
+                        if(owner.activityCodeId > 0){
+                            let insurerActivityCode = null;
 
+                            if (location.state) {
+                                insurerActivityCode = await this.get_insurer_code_for_activity_code(this.insurer.id, location.state, owner.activityCodeId);
+                            }
+                            else {
+                                log.error(`${logPrefix}Unable to find Insurer Activity Code due to missing state information ` + __location);
+                                continue;
+                            }
+                            let classCode = "";
+                            if (!insurerActivityCode) {
+                                log.warn(`Appid: ${this.app.id}: ${this.insurer.name} Could not find insurerActivityCode for ${location.state} ` + __location);
+                            }
+                            else {
+                                classCode = insurerActivityCode.code + insurerActivityCode.sub;
+                            }
+                            let newClassCode = true;
+                            if(locationJSON.rateClasses.length > 0){
+                                const existingRateClass = locationJSON.rateClasses.find((rc) => rc.classCode === classCode)
+                                if(existingRateClass){
+                                    newClassCode = false;
+                                    if(owner.include && owner.payroll){
+                                        existingRateClass.payrollAmount += owner.payroll
+                                    }
+                                }
+                            }
+                            if(newClassCode){
+                                const rateClass = {
+                                    "classCode": classCode,
+                                    "payrollAmount": 0
+                                }
+                                if(owner.include && owner.payroll){
+                                    rateClass.payrollAmount += owner.payroll
+                                }
+
+                                locationJSON.rateClasses.push(rateClass);
+                            }
+                        }
+                    }
                     locations.push(locationJSON);
-              }
+                }
             }
 
             // California Req: If there is atleast one CA location, and it is a Partnerhsip entity, all owners must be listed
@@ -489,6 +530,11 @@ module.exports = class EmployersWC extends Integration {
             requestJSON.questions = [];
             for (const insurerQuestion of this.insurerQuestionList) {
                     const question = this.questions[insurerQuestion.talageQuestionId];
+                    if(!question){
+                        log.error(`${logPrefix} could not find insurerQuestion for Talage Question ${insurerQuestion.talageQuestionId}` + __location)
+                        log.error(`${JSON.stringify(this.questions)}` + __location)
+                        continue;
+                    }
 
                     // Don't process questions without a code (not for this insurer)
                     const questionCode = this.question_identifiers[question.id];
@@ -496,10 +542,10 @@ module.exports = class EmployersWC extends Integration {
                         continue;
                     }
 
-                    // For Yes/No questions, if they are not required and the user answered 'No', simply don't send them
-                    if (!required_questions.includes(question.id) && question.type !== 'Yes/No' && !question.hidden && !question.required && !question.get_answer_as_boolean()) {
-                        continue;
-                    }
+                    // For Yes/No questions, if they are not required and the user answered 'No', simply don't send them  - logic does not match comment
+                    // if (!required_questions.includes(question.id) && question.type !== 'Yes/No' && !question.hidden && !question.required && !question.get_answer_as_boolean()) {
+                    //     continue;
+                    // }
 
                     if (questionCode === 'OOEA') {
                         requestJSON.disclaimers.push({
@@ -513,7 +559,7 @@ module.exports = class EmployersWC extends Integration {
                     // Get the answer
                     let answer = '';
                     try {
-                        answer = this.determine_question_answer(question, required_questions.includes(question.id));
+                        answer = this.determine_question_answer(question, question.required);
                     }
                     catch (error) {
                         log.error(`${logPrefix}Unable to determine question answer for Talage Question ${JSON.stringify(question)} linked to Insurer Question Id: ${insurerQuestion.insurerQuestionId}. Error: ${error} ` + __location);
@@ -557,11 +603,25 @@ module.exports = class EmployersWC extends Integration {
                 host = 'api.employers.com';
             }
             const path = '/DigitalAgencyServices/quote';
-
-            const additionalHeaders = {
-                    appKey: this.username,
-                    appToken: this.password
-                };
+            let newAuthSystem = false;
+            const additionalHeaders = {};
+            if(this.insurer.insurerDoc?.additionalInfo?.newAuthSystem === true){
+                newAuthSystem = true;
+            }
+            if(newAuthSystem){
+                const authToken = await employersClient.auth(this);
+                if(!authToken){
+                    log.error(`${logPrefix}Failed to get auth token ` + __location);
+                    this.reasons.push(`Failed to get Auth Token`)
+                    fulfill(this.return_result('error'));
+                    return;
+                }
+                additionalHeaders.authorization = `Bearer ${authToken.trim()}`
+            }
+            else {
+                additionalHeaders.appKey = this.username
+                additionalHeaders.appToken = this.password
+            }
 
             let quoteResponse = null;
             log.debug(`Appid: ${this.app.id} Sending application to ${host}${path}. Remember to connect to the VPN. This can take up to 30 seconds.`);

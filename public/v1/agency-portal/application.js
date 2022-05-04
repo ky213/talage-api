@@ -401,6 +401,7 @@ async function setupReturnedApplicationJSON(applicationJSON){
     }
     // // owners birthday formatting
     try{
+        const activityCodeBO = new ActivityCodeBO()
         if(applicationJSON.owners && applicationJSON.owners.length > 0){
             for(let i = 0; i < applicationJSON.owners.length; i++){
                 // eslint-disable-next-line prefer-const
@@ -413,6 +414,12 @@ async function setupReturnedApplicationJSON(applicationJSON){
                 }
                 if(owner.birthdate){
                     owner.birthdate = moment(owner.birthdate).format("MM/DD/YYYY");
+                }
+                if(owner.activityCodeId > 0){
+                    const activityCode = await activityCodeBO.getById(owner.activityCodeId, true)
+                    if(activityCode){
+                        owner.activityDescription = !activityCode.description ? '' : activityCode.description;
+                    }
                 }
             }
         }
@@ -546,7 +553,6 @@ async function setupReturnedApplicationJSON(applicationJSON){
                 }   
             }
             else {
-                log.debug(`NO BOP Policy` + __location)
                 applicationJSON.bopCodeIndustryCodeName = "";
             }
         }

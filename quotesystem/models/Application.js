@@ -515,6 +515,10 @@ module.exports = class Application {
                     stateList.push(this.applicationDocData.locations[i].state)
                 }
             }
+
+            //TODO change to pull from AppBO so logic is maintained in one place
+            // const applicationBO = new ApplicationBO();
+            // getQuestionsResult = await applicationBO.GetQuestions(appId, agencies, questionSubjectArea, locationId, stateList, skipAgencyCheck, activityCodeList, policyType);
             log.info(`Quoting Application Model loading questions for ${this.id} ` + __location)
             talageQuestionDefList = await questionsSvc.GetQuestionsForBackend(wc_codes, industryCodeStringArray, zipCodeArray, policyList, insurer_ids, "general", true, stateList);
             log.info(`Got questions Quoting Application Model loading questions for  ` + __location)
@@ -549,6 +553,33 @@ module.exports = class Application {
                             //throw e;
                             log.error(`AppId: ${this.id} set answer for ${q.id} problem ${e} ` + __location);
                         }
+                    }
+                    else {
+                        // add question to Application Talage Question List - might be a hidden question client did not send in.
+                        // use default answer if hidden
+                        // Question Svc Enhancment
+                        const talageQuestion = JSON.parse(JSON.stringify(questionDef))
+                        talageQuestion.questionId = talageQuestion.talageQuestionId;
+                        talageQuestion.questionType = talageQuestion.typeDesc;
+                        if(talageQuestion.answers && talageQuestion.hidden){
+                            for(const answer of talageQuestion.answers){
+                                if(answer.default){
+                                    talageQuestion.answerId = answer.answerId
+                                    talageQuestion.answerValue = answer.answer
+                                }
+                            }
+                        }
+                        try {
+                            q.set_answer(talageQuestion);
+                        }
+                        catch (e) {
+                            //do not stop porcess with throwing an error.  Caused Production problem.
+                            //log the issue
+                            //throw e;
+                            log.error(`AppId: ${this.id} set answer for ${q.id} problem ${e} ` + __location);
+                        }
+                        this.applicationDocData.questions.push(talageQuestion)
+
                     }
                 }
 
@@ -751,6 +782,14 @@ module.exports = class Application {
                 ids.push(activity_code.id);
             });
         });
+        //Ghost policy support get included owners.
+        for(const owner of this.applicationDocData.owners){
+            if((owner.include || ids.length === 0) && owner.activityCodeId){
+                if(ids.indexOf(owner.activityCodeId) === -1){
+                    ids.push(owner.activityCodeId);
+                }
+            }
+        }
         return ids;
     }
 

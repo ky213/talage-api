@@ -784,6 +784,12 @@ module.exports = class PieWC extends Integration {
             data.partnerAgentLastName = 'Kiefer';
             data.partnerAgentEmail = 'customersuccess@talageins.com';
         }
+        else if(this.app.agencyLocation.insurers[this.insurer.id].useAgencyPrime){
+            data.partnerAgentEmail = this.quotingAgencyLocationDB.email;
+            data.partnerAgentFirstName = this.quotingAgencyLocationDB.firstName
+            data.partnerAgentLastName = this.quotingAgencyLocationDB.lastName
+
+        }
         else {
             data.partnerAgentFirstName = this.app.agencyLocation.last_name;
             data.partnerAgentLastName = this.app.agencyLocation.first_name;

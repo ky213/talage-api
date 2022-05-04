@@ -479,6 +479,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeStringArray, zi
     start = moment();
     let missing_questions = find_missing_questions(questions);
     while (missing_questions) {
+        log.debug(`Adding missing Parent questions ${missing_questions}` + __location)
         const added_questions = await getTalageQuestionFromInsureQuestionList(missing_questions, null,return_hidden);
         // If Added questions is empty then the break out of loop, will return empty if parent questions are inactive
         if(added_questions.length === 0){
@@ -800,7 +801,6 @@ async function getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, in
         // eslint-disable-next-line prefer-const
         let talageQuestionPolicyTypeList = [];
         // eslint-disable-next-line prefer-const
-        let insurerQuestionRefList = [];
         talageQuestions.forEach(function(talageQuestion){
             const iqForTalageQList = insurerQuestionList.filter(function(iq) {
                 return iq.talageQuestionId === talageQuestion.id;
@@ -811,10 +811,8 @@ async function getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, in
                 iqForTalageQ.policyTypeList.forEach((policyType) => {
                     talageQuestionPolicyTypeList.push(iqForTalageQ.insurerId + "-" + policyType)
                 });
-                insurerQuestionRefList.push(iqForTalageQ.insurerId + "-" + iqForTalageQ.insurerQuestionId)
             });
             talageQuestion.insurers = talageQuestionPolicyTypeList.join(',');
-            talageQuestion.insurerQuestionRefList = insurerQuestionRefList;
         });
         return talageQuestions;
     }

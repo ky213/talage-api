@@ -30,15 +30,20 @@ const ApplicationUploadStatus = new Schema({
         default: ""
     },
     markAsPending: {
-        type: String,
-        default: ""
+        type: Boolean,
+        default: true
+    },
+    advanceDate: {
+        type: Boolean,
+        default: false
     },
     status: {
         type: String,
         enum: ["QUEUED",
+            "PROCESSING",
             "SUCCESS",
             "ERROR"],
-        default: ""
+        default: "QUEUED"
     },
     fileName: {
         type: String,
