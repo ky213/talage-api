@@ -206,7 +206,7 @@ module.exports = class SoleProWC extends Integration {
         }
 
         // entity type check
-        if(appDoc.entityType !== "Sole Proprietorship" && appDoc.entityType !== "Corporation (S-Corp)"){
+        if(appDoc.entityType !== "Sole Proprietorship" && appDoc.entityType !== "Corporation (S-Corp)" && appDoc.corporationType !== "S"){
             this.reasons.push(`Wheelhouse only supports SolePro Sole Proprietorship or S-Corps submissions at this time.`);
             return this.return_result('autodeclined');
         }

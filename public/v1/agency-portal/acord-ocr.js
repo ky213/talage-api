@@ -31,7 +31,7 @@ async function getAcordStatus(req, res, next) {
         try {
             const response = await axios.request({
                 method: "GET",
-                url: `https://ufg7wet2m3.execute-api.us-east-1.amazonaws.com/production/ocr/status/${file.requestId}`
+                url: `https://${global.settings.ENV}ocrapi.internal.talageins.com/ocr/status/${file.requestId}`
             });
 
             file.data = response?.data;
@@ -71,6 +71,7 @@ async function performOcrOnAcodPdfFile(req, res, next) {
         insurerId: parseInt(req.body.insurerId, 10),
         tag: req.body.tag,
         markAsPending: req.body?.markAsPending === 'true',
+        advanceDate: req.body?.advanceDate === 'true',
         agencyPortalUserId: req.authentication.userID
     };
 

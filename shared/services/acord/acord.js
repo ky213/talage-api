@@ -557,14 +557,18 @@ module.exports = class ACORD{
             page1Obj.WorkersCompensation_Individual_FullName_A = "OWNERS INCLUDED";
         }
         else{
+            // There are only 4 lines allowed in the acord forms, so iterating to 65+4 or less than 69
+            // will prevent an error during generation
             pdfKey = 65;
             this.applicationDoc.owners.forEach(owner => {
                 const currentLetter = String.fromCharCode(pdfKey);
-                page1Obj["WorkersCompensation_Individual_LocationProducerIdentifier_" + currentLetter] = '1';
-                page1Obj["WorkersCompensation_Individual_FullName_" + currentLetter] = owner.fname + ' ' + owner.lname;
-                page1Obj["WorkersCompensation_Individual_BirthDate_" + currentLetter] = owner.birthdate ? moment(owner.birthdate).format('L') : '';
-                page1Obj["WorkersCompensation_Individual_OwnershipPercent_" + currentLetter] = owner.ownership;
-                page1Obj["WorkersCompensation_Individual_IncludedExcludedCode_" + currentLetter] = owner.include ? 'INC' : 'EXC';
+                if(pdfKey < 69){
+                    page1Obj["WorkersCompensation_Individual_LocationProducerIdentifier_" + currentLetter] = '1';
+                    page1Obj["WorkersCompensation_Individual_FullName_" + currentLetter] = owner.fname + ' ' + owner.lname;
+                    page1Obj["WorkersCompensation_Individual_BirthDate_" + currentLetter] = owner.birthdate ? moment(owner.birthdate).format('L') : '';
+                    page1Obj["WorkersCompensation_Individual_OwnershipPercent_" + currentLetter] = owner.ownership;
+                    page1Obj["WorkersCompensation_Individual_IncludedExcludedCode_" + currentLetter] = owner.include ? 'INC' : 'EXC';
+                }
                 pdfKey += 1;
             });
         }

@@ -2187,7 +2187,15 @@ module.exports = class ApplicationModel {
                 });
             });
         }
-        else if(requireActivityCodes) {
+        //check for included owners
+        for(const owner of applicationDocDB.owners){
+            if((owner.include || activityCodeList.length === 0) && owner.activityCodeId){
+                if(activityCodeList.indexOf(owner.activityCodeId) === -1){
+                    activityCodeList.push(owner.activityCodeId);
+                }
+            }
+        }
+        if(requireActivityCodes && activityCodeList.length === 0) {
             if(questionSubjectArea === 'general'){
                 log.warn(`AppBO GetQuestions - Data problem prevented getting App Activity Codes for ${applicationDocDB.uuid} locationId ${locationId}. throwing error` + __location)
                 return {};
@@ -2314,6 +2322,7 @@ module.exports = class ApplicationModel {
         const newInsurerIdList = [];
         let ghostPolicy = this.isGhostPolicy(applicationDocDB, checkLocation)
         if(ghostPolicy){
+            log.debug(`${applicationDocDB.applicationId} is a Ghost Policy` + __location);
             //Agency Network have ghost policy check enabled.
             const agencyNetworkBO = new AgencyNetworkBO();
             const agencyNetworkJson = await agencyNetworkBO.getById(applicationDocDB.agencyNetworkId);
@@ -2341,6 +2350,13 @@ module.exports = class ApplicationModel {
                     }
 
                 }
+                if(agencyNetworkJson.featureJson?.enableEmployersAutoAddForGhostPolicy){
+                    //Employers Insurerid  = 1
+                    if(newInsurerIdList.indexOf(1) === -1){
+                        newInsurerIdList.push(1)
+                    }
+
+                }
             }
         }
         return newInsurerIdList;
@@ -2350,9 +2366,11 @@ module.exports = class ApplicationModel {
         let ghostPolicy = false;
         if(applicationDocDB.policies?.length === 1 && applicationDocDB.policies[0].policyType === "WC"){
             if(applicationDocDB.policies[0].isGhostPolicy === true){
+                log.debug(`${applicationDocDB.applicationId} has been marked as Ghost Policy by user` + __location);
                 ghostPolicy = true
+                return ghostPolicy;
             }
-            if(checkLocation && ghostPolicy === false && applicationDocDB.locations?.length === 1){
+            if(checkLocation === true && ghostPolicy === false && applicationDocDB.locations?.length === 1){
                 ghostPolicy = true
                 //check for employee
 

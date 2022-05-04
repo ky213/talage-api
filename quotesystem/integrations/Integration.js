@@ -25,6 +25,7 @@ const {quoteStatus, getQuoteStatus} = global.requireShared('./models/status/quot
 
 const QuestionBO = global.requireShared('./models/Question-BO.js');
 const QuoteBO = global.requireShared('./models/Quote-BO.js');
+//const QuestionModel = global.mongoose.Question;
 
 
 module.exports = class Integration {
@@ -136,11 +137,14 @@ module.exports = class Integration {
             }
         }
         //Determine what is the quotingAgencyLocation
-        if(app?.agencyLocation?.insurers[this.insurer.id].talageWholesale 
-            || app?.agencyLocation?.insurers[this.insurer.id].useAgencyPrime){
+        if(app?.agencyLocation?.insurers[this.insurer.id].talageWholesale){
+            this.quotingAgencyLocationDB = app.agencyLocation.talageWholesaleAgencyLocationDB;
+        }
+        else if(app?.agencyLocation?.insurers[this.insurer.id].useAgencyPrime){
             this.quotingAgencyLocationDB = app.agencyLocation.agencyPrimeAgencyLocationDB;
         }
         else {
+            //Normal Direct Appointment and Use All of Primary Agency (not per insurer)
             this.quotingAgencyLocationDB = app.agencyLocation.quotingAgencyLocationDB;
         }
         
@@ -493,35 +497,37 @@ module.exports = class Integration {
         if(!question){
             return answer;
         }
+        //if question has answer skip parent check
+        if(!question.answer){
+            // Default required
+            required = required ? required : false;
 
-        // Default required
-        required = required ? required : false;
-
-        // Determine if the question is visible (its ancestors are all visible)
-        let questionWasAnswered = true;
-        let childQuestionId = question.id;
-        while (this.questions.hasOwnProperty(childQuestionId) && this.questions[childQuestionId].parent !== 0) {
-            // Get the parent ID. Ensure it is a string since the questions keys are strings.
-            const parentQuestionId = this.questions[childQuestionId].parent;
-            // Determine if the child question is visible
-            if (!this.questions.hasOwnProperty(parentQuestionId) || this.questions[childQuestionId].parent_answer !== this.questions[parentQuestionId].answer_id) {
-                questionWasAnswered = false;
-                break;
+            // Determine if the question is visible (its ancestors are all visible)
+            let questionWasAnswered = true;
+            let childQuestionId = question.id;
+            while (this.questions.hasOwnProperty(childQuestionId) && this.questions[childQuestionId].parent !== 0) {
+                // Get the parent ID. Ensure it is a string since the questions keys are strings.
+                const parentQuestionId = this.questions[childQuestionId].parent;
+                // Determine if the child question is visible
+                if (!this.questions.hasOwnProperty(parentQuestionId) || this.questions[childQuestionId].parent_answer !== this.questions[parentQuestionId].answer_id) {
+                    questionWasAnswered = false;
+                    break;
+                }
+                childQuestionId = parentQuestionId;
             }
-            childQuestionId = parentQuestionId;
-        }
-        // If not required and not answered, we return no answer
-        if (!required && !questionWasAnswered) {
-            // if (question.type !== 'Yes/No'){
-            //     answer = '';
-            // }
-            return answer
-        }
+            // If not required and not answered, we return no answer
+            if (!required && !questionWasAnswered) {
+                // if (question.type !== 'Yes/No'){
+                //     answer = '';
+                // }
+                return answer
+            }
 
-        // If this question has a parent that belongs to a different insurer it should have a default
-        if (question.parent && !Object.prototype.hasOwnProperty.call(this.questions, question.parent) && question.answer_id === 0 && question.answer === null) {
-            log.error(`Appid: ${this.app.id} Insurer: ${this.insurer.name} Question ${question.id} is missing a default answer. Defaulted to 'No' for this application. May cause quoting inaccuracies!` + __location);
-            return 'No';
+            // If this question has a parent that belongs to a different insurer it should have a default
+            if (question.parent && !Object.prototype.hasOwnProperty.call(this.questions, question.parent) && question.answer_id === 0 && question.answer === null) {
+                log.error(`Appid: ${this.app.id} Insurer: ${this.insurer.name} Question ${question.id} is missing a default answer. Defaulted to 'No' for this application. May cause quoting inaccuracies!` + __location);
+                return 'No';
+            }
         }
 
         // If this is a checkbox, process each possible answer
@@ -698,14 +704,18 @@ module.exports = class Integration {
      * @returns {Promise.<object, Error>} A promise that returns an object containing objects indexed on the Talage Question ID with question information specific to this insurer if resolved, or an Error if rejected
      */
     async get_question_details() {
-        const results = await this.getInsurerQuestionsByTalageQuestionId("general", Object.keys(this.questions));
-        //To Allow for multiple iq => Talage question mappings.
-        //use app.questions insurerQuestionRefList to make sure there guestions that generated the Talage question.
-        //  for (const question_id in this.app.questions) {
-        //const question = this.app.questions[question_id];
-        // if(question.insurerQuestionRefList){
-        //  }
+        const questionIdKeyList = Object.keys(this.questions);
+        const questionIdList = [];
+        questionIdKeyList.forEach(function(questionIdKey){
+            const qId = Number(questionIdKey);
+            if(qId){
+                questionIdList.push(qId)
+            }
+            
+        });
 
+        const results = await this.getInsurerQuestionsByTalageQuestionId("general", questionIdList);
+       
         // Convert this into an object for easy reference
         const question_details = {};
         try {
@@ -745,12 +755,20 @@ module.exports = class Integration {
     async getInsurerQuestionsByTalageQuestionId(questionSubjectArea, talageQuestionIdList, policyTypes = []) {
         if (talageQuestionIdList.length > 0) {
             
-            talageQuestionIdList = talageQuestionIdList.map(Number)
+            const questionIdList = [];
+            talageQuestionIdList.forEach(function(questionIdKey){
+                const qId = Number(questionIdKey);
+                if(qId){
+                    questionIdList.push(qId)
+                }
+            });
+
+            //talageQuestionIdList = talageQuestionIdList.map(Number) - no am
             const policyEffectiveDate = moment(this.policy.effective_date).format('YYYY-MM-DD HH:mm:ss');
             const query = {
                 "insurerId": this.insurer.id,
                 "questionSubjectArea": questionSubjectArea,
-                "talageQuestionId": {$in: talageQuestionIdList},
+                "talageQuestionId": {$in: questionIdList},
                 effectiveDate: {$lte: policyEffectiveDate},
                 expirationDate: {$gte: policyEffectiveDate},
                 active: true
@@ -766,6 +784,7 @@ module.exports = class Integration {
                 insurerQuestionListSA = await InsurerQuestionModel.find(query);
             }
             catch(err){
+                log.error(`getInsurerQuestionsByTalageQuestionId query ${JSON.stringify(query)}` + __location)
                 throw err
             }
             insurerQuestionListSA.forEach((insurerQuestion) => {
@@ -1414,7 +1433,7 @@ module.exports = class Integration {
      * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
      */
     quote() {
-        log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Quote Started (mode: ${this.insurer.useSandbox ? 'sandbox' : 'production'})`);
+        log.info(`QUOTING Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Quote Started (mode: ${this.insurer.useSandbox ? 'sandbox' : 'production'})`);
         return new Promise(async(fulfill) => {
 
             if (!this.quoteId) {
@@ -1455,177 +1474,9 @@ module.exports = class Integration {
             }
 
 
-            //get territory list
-            const territoryList = [];
-            for (const location of this.applicationDocData.locations) {
-                if(location.state){
-                    territoryList.push(location.state)
-                }
-            }
+            await this.questionSetup();
 
-
-            // Localize the questions and restrict them to only ones that are applicable to this insurer and policy type
-            let insurerPolicyTypeQuestionList = null;
-
-            const policyEffectiveDate = moment(this.policy.effective_date).format('YYYY-MM-DD HH:mm:ss');
-            //TODO add territory to query
-            const query = {
-                "insurerId": this.insurer.id,
-                "policyTypeList": this.policy.type,
-                effectiveDate: {$lte: policyEffectiveDate},
-                expirationDate: {$gte: policyEffectiveDate},
-                questionSubjectArea: "general",
-                active: true
-            }
-            log.debug(`InsurerQuestion query ${JSON.stringify(query)}` + __location)
-            const InsurerQuestionModel = global.mongoose.InsurerQuestion;
-            try{
-                insurerPolicyTypeQuestionList = await InsurerQuestionModel.find(query);
-            }
-            catch(err){
-                log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}: error getting insurerQuestionList ${err}` + __location)
-            }
-            if(!insurerPolicyTypeQuestionList){
-                log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}: No Insurer Questions ${JSON.stringify(query)}` + __location)
-            }
-            //log.debug(`InsurerQuestion insurerPolicyTypeQuestionList ${JSON.stringify(insurerPolicyTypeQuestionList)}` + __location)
-            if(insurerPolicyTypeQuestionList){
-                //for (const question_id in this.app.questions) {
-                //loop on Insurer Questions so we can get double mappings to talageQuestionId to build this.insurerQuestionList
-                for (const insurerQuestion of insurerPolicyTypeQuestionList){
-                    if (insurerQuestion.talageQuestionId) {
-                        try{
-                            //handle nodejs may have flipped the type of questionId to string in this.app.questions JSON Object
-                            const qId_String = insurerQuestion.talageQuestionId?.toString();
-                            //first look if the TalageQuestion is in the App data directly, before using old strustures.  
-                            //    old structures and logic around them is complex and overkill. requiring similar logic to QuestionSvc to be repeated here.
-                            //    This question is there or not....
-                            const appQuestion = this.applicationDocData.questions.find((aq) => aq.questionId === insurerQuestion.talageQuestionId)
-                            if(appQuestion){
-                                this.insurerQuestionList.push(insurerQuestion)
-                                if(!this.questions[insurerQuestion.talageQuestionId]){
-                                    const question = this.app.questions[insurerQuestion.talageQuestionId] ? this.app.questions[insurerQuestion.talageQuestionId] : this.app.questions[qId_String]
-                                    if(question){
-                                        this.questions[insurerQuestion.talageQuestionId] = question;
-                                    }
-                                    else {
-                                        //this.app.questions did not load properly  BTIS can cause this.
-                                        // fix it here creating a question Object and adding it.
-                                    }
-                                }
-                            }
-                            else if((this.app.questions[insurerQuestion.talageQuestionId] || this.app.questions[qId_String]) 
-                                && (insurerQuestion.allTerritories || insurerQuestion.territoryList.some(r => territoryList.includes(r)))){
-                                this.insurerQuestionList.push(insurerQuestion)
-                                if(!this.questions[insurerQuestion.talageQuestionId]){
-                                    const question = this.app.questions[insurerQuestion.talageQuestionId] ? this.app.questions[insurerQuestion.talageQuestionId] : this.app.questions[qId_String]
-                                    this.questions[insurerQuestion.talageQuestionId] = question;
-                                }
-                            }
-                            else if(insurerQuestion.universal && insurerQuestion.allTerritories){
-                                log.warn(`Appid ${this.applicationDocData.applicationId} insurer ${this.insurer.id}: No app question for universal insurer q:  ${insurerQuestion.insurerQuestionId}-${insurerQuestion.identifier} talageQuestionId ${insurerQuestion.talageQuestionId}` + __location);
-                            }
-                            else if(insurerQuestion.universal && insurerQuestion){
-                                const qForTerritory = insurerQuestion.territoryList.some(r => territoryList.includes(r))
-                                if(qForTerritory){
-                                    log.warn(`Appid ${this.applicationDocData.applicationId} insurer ${this.insurer.id}: No app question for universal insurer q:  ${insurerQuestion.insurerQuestionId}-${insurerQuestion.identifier} talageQuestionId ${insurerQuestion.talageQuestionId}` + __location);
-                                }
-                            }
-                            
-
-                        }
-                        catch(err){
-                            log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}: error getting Talage question ${insurerQuestion.talageQuestionId} for ${this.insurer.id}-${this.policy.type} ` + __location)
-                        }
-                    }
-                }
-            }
-
-            // Get the insurer question identifiers
-            let stop = false;
-            this.question_details = await this.get_question_details().catch((error) => {
-                const error_message = `Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} is unable to get question details. ${error}`;
-                log.error(error_message + __location);
-                this.reasons.push(error_message);
-                //Do not want to stop the rest of the quoting for application.
-                // and end of quoting processing.
-                //reject(this.return_error('error', "We have no idea what went wrong, but we're on it"));
-                fulfill(this.return_error('error', "We have no idea what went wrong, but we're on it"));
-                stop = true;
-            });
-            this.question_identifiers = await this.get_question_identifiers().catch((error) => {
-                const error_message = `Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} is unable to get question identifiers. ${error}`;
-                log.error(error_message + __location);
-                this.reasons.push(error_message);
-                //Do not want to stop the rest of the quoting for application.
-                // and end of quoting processing.
-                //reject(this.return_error('error', "We have no idea what went wrong, but we're on it"));
-                fulfill(this.return_error('error', "We have no idea what went wrong, but we're on it"));
-                stop = true;
-            });
-            if (stop) {
-                return;
-            }
-
-            // ========================================================================================================================
-            // Filter the application questions to remove hidden qustions, unanswered questions, and question for other carriers
-            // NOTE: filterApplicationQuestionListForInsurer will log its own errors
-
-
-            //TODO - 2021/08/21 research if this is necessary
-            // General questions
-            if(this.applicationDocData.questions.length > 0){
-                const filteredGeneralQuestionList = await this.filterApplicationQuestionListForInsurer("general", this.applicationDocData.questions);
-                if (!filteredGeneralQuestionList) {
-                    fulfill(this.return_error('error', "We have no idea what went wrong, but we're on it"));
-                    return;
-                }
-                this.applicationDocData.questions = filteredGeneralQuestionList;
-            }
-
-            // Location questions
-            for (const location of this.applicationDocData.locations) {
-                if (location.questions) {
-                    const filteredLocationQuestionList = await this.filterApplicationQuestionListForInsurer("location", location.questions);
-                    if (!filteredLocationQuestionList) {
-                        fulfill(this.return_error('error', "We have no idea what went wrong, but we're on it"));
-                        return;
-                    }
-                    location.questions = filteredLocationQuestionList;
-                    // Building questions?
-                    // Vehicle questions?
-                }
-            }
-
-            // claim questions
-
-            for (const claim of this.applicationDocData.claims) {
-                if (claim.questions) {
-                    for(const question of claim.questions){
-                        let insurerQuestionList = null;
-                        try {
-                            // Get the insurer question identifiers for the question subject area
-                            insurerQuestionList = await this.getInsurerQuestionsByTalageQuestionId("claim", [question.questionId]);
-                        }
-                        catch (err) {
-                            const error_message = `Unable to get claims question identifiers.`;
-                            log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} ${error_message}: ${err}` + __location);
-                            //this.reasons.push(error_message);
-                            //return null;
-                        }
-                        if(insurerQuestionList.length > 0){
-                            const insurerQuestion = insurerQuestionList[0];
-                            //this only allow one insuer Q to Talage Q
-                            question.insurerQuestionIdentifier = insurerQuestion.identifier;
-                            question.insurerQuestionAttributes = insurerQuestion.attributes;
-                            question.insurerText = insurerQuestion.text;
-
-                        }
-                    }
-                }
-            }
-
-
+        
             // Run the quote
             const appId = this.app.id;
             const insurerName = this.insurer.name;
@@ -1648,6 +1499,230 @@ module.exports = class Integration {
         });
     }
 
+    async questionSetup(){
+        log.debug(`Quoting Question Setup - Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Question Setup`);
+        //get territory list
+        const territoryList = [];
+        for (const location of this.applicationDocData.locations) {
+            if(location.state){
+                territoryList.push(location.state)
+            }
+        }
+
+
+        // Localize the questions and restrict them to only ones that are applicable to this insurer and policy type
+        let insurerPolicyTypeQuestionList = null;
+
+        const policyEffectiveDate = moment(this.policy.effective_date).format('YYYY-MM-DD HH:mm:ss');
+        //TODO add territory to query
+        const query = {
+            "insurerId": this.insurer.id,
+            "policyTypeList": this.policy.type,
+            effectiveDate: {$lte: policyEffectiveDate},
+            expirationDate: {$gte: policyEffectiveDate},
+            questionSubjectArea: "general",
+            active: true
+        }
+        log.debug(`InsurerQuestion query ${JSON.stringify(query)}` + __location)
+        const InsurerQuestionModel = global.mongoose.InsurerQuestion;
+        try{
+            insurerPolicyTypeQuestionList = await InsurerQuestionModel.find(query);
+        }
+        catch(err){
+            log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}: error getting insurerQuestionList ${err}` + __location)
+        }
+        if(!insurerPolicyTypeQuestionList){
+            log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}: No Insurer Questions ${JSON.stringify(query)}` + __location)
+        }
+        //log.debug(`InsurerQuestion insurerPolicyTypeQuestionList ${JSON.stringify(insurerPolicyTypeQuestionList)}` + __location)
+        if(insurerPolicyTypeQuestionList){
+            //for (const question_id in this.app.questions) {
+            //loop on Insurer Questions so we can get double mappings to talageQuestionId to build this.insurerQuestionList
+            for (const insurerQuestion of insurerPolicyTypeQuestionList){
+                if (insurerQuestion.talageQuestionId) {
+                    try{
+                        //handle nodejs may have flipped the type of questionId to string in this.app.questions JSON Object
+                        const qId_String = insurerQuestion.talageQuestionId?.toString();
+                        //first look if the TalageQuestion is in the App data directly, before using old strustures.  
+                        //    old structures and logic around them is complex and overkill. requiring similar logic to QuestionSvc to be repeated here.
+                        //    This question is there or not....
+                        const appQuestion = this.applicationDocData.questions.find((aq) => aq.questionId === insurerQuestion.talageQuestionId)
+                        if(appQuestion){
+                            this.insurerQuestionList.push(insurerQuestion)
+                            if(!this.questions[insurerQuestion.talageQuestionId]){
+                                const question = this.app.questions[insurerQuestion.talageQuestionId] ? this.app.questions[insurerQuestion.talageQuestionId] : this.app.questions[qId_String]
+                                if(question){
+                                    this.questions[insurerQuestion.talageQuestionId] = question;
+                                }
+                                else {
+                                    //this.app.questions did not load properly  BTIS can cause this.
+                                    // fix it here creating a question Object and adding it.
+                                }
+                            }
+                        }
+                        else if((this.app.questions[insurerQuestion.talageQuestionId] || this.app.questions[qId_String]) 
+                            && (insurerQuestion.allTerritories || insurerQuestion.territoryList.some(r => territoryList.includes(r)))){
+                            this.insurerQuestionList.push(insurerQuestion)
+                            if(!this.questions[insurerQuestion.talageQuestionId]){
+                                const question = this.app.questions[insurerQuestion.talageQuestionId] ? this.app.questions[insurerQuestion.talageQuestionId] : this.app.questions[qId_String]
+                                this.questions[insurerQuestion.talageQuestionId] = question;
+                            }
+                        }
+                        else if(insurerQuestion.universal && insurerQuestion.allTerritories){
+                            log.warn(`Appid ${this.applicationDocData.applicationId} insurer ${this.insurer.id}: No app question for universal insurer q:  ${insurerQuestion.insurerQuestionId}: ${insurerQuestion.identifier} talageQuestionId ${insurerQuestion.talageQuestionId}` + __location);
+                        }
+                        else if(insurerQuestion.universal && insurerQuestion){
+                            const qForTerritory = insurerQuestion.territoryList.some(r => territoryList.includes(r))
+                            if(qForTerritory){
+                                log.warn(`Appid ${this.applicationDocData.applicationId} insurer ${this.insurer.id}: No app question for universal insurer q:  ${insurerQuestion.insurerQuestionId}: ${insurerQuestion.identifier} talageQuestionId ${insurerQuestion.talageQuestionId}` + __location);
+                            }
+                        } 
+                        // else {
+                        //     log.warn(`Appid ${this.applicationDocData.applicationId} insurer ${this.insurer.id}: No app question for insurer q:  ${insurerQuestion.insurerQuestionId}: ${insurerQuestion.identifier} talageQuestionId ${insurerQuestion.talageQuestionId}` + __location);
+                        // }
+                    }
+                    catch(err){
+                        log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}: error getting Talage question ${insurerQuestion.talageQuestionId} for ${this.insurer.id}-${this.policy.type} ` + __location)
+                    }
+                }
+            }
+        }
+        // log.debug(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} this.insurerQuestionList ${JSON.stringify(this.insurerQuestionList)}` + __location)
+        // log.debug(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} this.applicationDocData.questions ${JSON.stringify(this.applicationDocData.questions)}` + __location)
+
+
+        // log.debug(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} POST this.applicationDocData.questions` + __location)
+
+    
+        // Get the insurer question identifiers
+        //let stop = false;
+        this.question_details = await this.get_question_details().catch((error) => {
+            const error_message = `Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} is unable to get question details. ${error}`;
+            log.error(error_message + __location);
+            this.reasons.push(error_message);
+            //This is Legacy structure Do not stop quoting over it.
+            //Do not want to stop the rest of the quoting for application.
+            // and end of quoting processing.
+        });
+        this.question_identifiers = await this.get_question_identifiers().catch((error) => {
+            const error_message = `Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} is unable to get question identifiers. ${error}`;
+            log.error(error_message + __location);
+            this.reasons.push(error_message);
+            //This is Legacy structure Do not stop quoting over it.
+            //Do not want to stop the rest of the quoting for application.
+            // and end of quoting processing.
+        });
+       
+
+        // ======================================================================================================================
+        // General questions  - Fill in insurer defaultValues
+        //   setup support for legacy integration with filterApplicationQuestionListForInsurer - default Values needs to mapp first.
+        if(this.applicationDocData.questions.length > 0){
+            //default Values
+            const questionBO = new QuestionBO();
+            for (const applicationQuestion of this.applicationDocData.questions){
+                if(applicationQuestion.answerId || applicationQuestion.answerValue || applicationQuestion.answerList?.length > 0){
+                    continue;
+                }
+                //get insurer question see if default should be used.
+                const insurerQuestion = this.insurerQuestionList.find((iq) => iq.talageQuestionId === applicationQuestion.questionId)
+                if(insurerQuestion?.useDefaultValue && insurerQuestion?.defaultValue){
+                    log.debug(`AUTO ANSWERING Integrations - Auto answered for insurer ${this.insurer.id} talage question ${applicationQuestion.questionId} - ${applicationQuestion.questionText}` + __location)
+                    if(insurerQuestion.answerMap && insurerQuestion.answerMap[insurerQuestion.defaultValue]){
+                        applicationQuestion.answerValue = insurerQuestion.answerMap[insurerQuestion.defaultValue]
+                    }
+                    else {
+                        applicationQuestion.answerValue = insurerQuestion.defaultValue;
+                    }
+                    if(applicationQuestion.questionType === "Yes/No" 
+                        || applicationQuestion.questionType === "Select List" 
+                        || applicationQuestion.questionType === "Checkboxes"){
+                        //lookup question define. 
+                        try {
+                            const talageQuestionDef = await questionBO.getById(applicationQuestion.questionId);
+                            if(talageQuestionDef){
+                                for(const answer of talageQuestionDef.answers){
+                                    if(answer.answer === applicationQuestion.answerValue){
+                                        log.debug(`AUTO ANSWERING Integrations - Auto answered - answserId for insurer ${this.insurer.id} talage question ${applicationQuestion.questionId} - ${applicationQuestion.questionText}` + __location)
+                                        applicationQuestion.answerId = answer.answerId
+                                        if(applicationQuestion.questionType === "Checkboxes"){
+                                            applicationQuestion.answerList = [answer.answer]
+                                            applicationQuestion.answerValue = `[${answer.answerId.toString()}]`
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        catch (error) {
+                            const error_message = `Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} is unable to get Talage question ${applicationQuestion.questionId}. ${error}}`;
+                            log.error(error_message + __location);
+                    
+                            //return null;
+                        }
+                    }
+                    //lookup old this.questions.
+                    const question = this.questions[insurerQuestion.talageQuestionId];
+                    question.set_answer(applicationQuestion);
+
+                }
+            }
+
+
+            //only call for to support 
+            const filteredGeneralQuestionList = await this.filterApplicationQuestionListForInsurer("general", this.applicationDocData.questions);
+            if (!filteredGeneralQuestionList) {
+                //fulfill(this.return_error('error', "We have no idea what went wrong, but we're on it"));
+                //return;
+            }
+            this.applicationDocData.questions = filteredGeneralQuestionList;
+        }
+
+        // Location questions
+        for (const location of this.applicationDocData.locations) {
+            if (location.questions) {
+                const filteredLocationQuestionList = await this.filterApplicationQuestionListForInsurer("location", location.questions);
+                if (!filteredLocationQuestionList) {
+                    // fulfill(this.return_error('error', "We have no idea what went wrong, but we're on it"));
+                    // return;
+                }
+                location.questions = filteredLocationQuestionList;
+                // Building questions?
+                // Vehicle questions?
+            }
+        }
+
+        // claim questions
+
+        for (const claim of this.applicationDocData.claims) {
+            if (claim.questions) {
+                for(const question of claim.questions){
+                    let insurerQuestionList = null;
+                    try {
+                        // Get the insurer question identifiers for the question subject area
+                        insurerQuestionList = await this.getInsurerQuestionsByTalageQuestionId("claim", [question.questionId]);
+                    }
+                    catch (err) {
+                        const error_message = `Unable to get claims question identifiers.`;
+                        log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} ${error_message}: ${err}` + __location);
+                        //this.reasons.push(error_message);
+                        //return null;
+                    }
+                    if(insurerQuestionList.length > 0){
+                        const insurerQuestion = insurerQuestionList[0];
+                        //this only allow one insuer Q to Talage Q
+                        question.insurerQuestionIdentifier = insurerQuestion.identifier;
+                        question.insurerQuestionAttributes = insurerQuestion.attributes;
+                        question.insurerText = insurerQuestion.text;
+                        question.insurerDefaultValue = insurerQuestion.defaultValue;
+                        question.insurerUseDefaultValue = insurerQuestion.useDefaultValue;
+
+                    }
+                }
+            }
+        }
+
+    }
+
     /**
      * Legacy - New intregration should not use this - Filter the question list to remove hidden questions, unanswered questions, and question for other carriers
      * This function logs its own errors.
@@ -1667,19 +1742,19 @@ module.exports = class Integration {
             insurerQuestionList = await this.getInsurerQuestionsByTalageQuestionId(questionSubjectArea, talageQuestionIdList);
         }
         catch (error) {
-            const error_message = `Unable to get "${questionSubjectArea}" question identifiers.`;
+            const error_message = `Unable to get "${questionSubjectArea}" insurer questions.`;
             log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} ${error_message}: ${error}` + __location);
             this.reasons.push(error_message);
-            return null;
+            return [];
         }
 
         // Retrieve the Talage questions for the application questions so we can determine both the parent hierarchy and the parent_answer for a child question
         const questionBO = new QuestionBO();
-        const talageQuestionList = [];
+        const talageQuestionDefList = [];
         for (const applicationQuestion of applicationQuestionList) {
-            let talageQuestion = null;
+            let talageQuestionDef = null;
             try {
-                talageQuestion = await questionBO.getById(applicationQuestion.questionId);
+                talageQuestionDef = await questionBO.getById(applicationQuestion.questionId);
             }
             catch (error) {
                 const error_message = `Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} is unable to get Talage question ${applicationQuestion.questionId}. ${error}}`;
@@ -1687,8 +1762,8 @@ module.exports = class Integration {
                 this.reasons.push(error_message);
                 //return null;
             }
-            if (talageQuestion) {
-                talageQuestionList.push(talageQuestion);
+            if (talageQuestionDef) {
+                talageQuestionDefList.push(talageQuestionDef);
             }
             else {
                 // Could not find the talage question by ID
@@ -1698,18 +1773,23 @@ module.exports = class Integration {
                 //return null;
             }
         }
-
+        //TODO - limits our ability to default answers 
         const answeredApplicationQuestionList = [];
 
-        // Remove non-answered questions.
+        // Remove non-answered questions. -limits our ability to default answers  at insurer level
         // This will walk all parents of a given application question up to the top-level question. If any of those parents
         // were answered in a way where it would not show the child (parent's answer != child's parent_answer), then the original
         // child was never asked and can be filtered out.
         for (const applicationQuestion of applicationQuestionList) {
+            //If question is answered - it is it using a default - skip parent check.
+            if(applicationQuestion.answerId || applicationQuestion.answerValue || applicationQuestion.answerList?.length > 0){
+                answeredApplicationQuestionList.push(applicationQuestion);
+                continue;
+            }
             let questionWasAnswered = true;
             let childApplicationQuestion = applicationQuestion;
-            let childTalageQuestion = talageQuestionList.find((tq) => tq.talageQuestionId === childApplicationQuestion.questionId);
-           
+            let childTalageQuestion = talageQuestionDefList.find((tq) => tq.talageQuestionId === childApplicationQuestion.questionId);
+
             // While the question has a parent (not top-level)
             while (childTalageQuestion?.parent) {
                 // Find the parent application question for this child
@@ -1726,7 +1806,7 @@ module.exports = class Integration {
                 }
                 // Move up a question level (parent becomes child)
                 // eslint-disable-next-line no-loop-func
-                childTalageQuestion = talageQuestionList.find((tq) => tq.id === parentApplicationQuestion.questionId);
+                childTalageQuestion = talageQuestionDefList.find((tq) => tq.id === parentApplicationQuestion.questionId);
                 childApplicationQuestion = parentApplicationQuestion;
             }
            
@@ -1749,7 +1829,9 @@ module.exports = class Integration {
             // Check if the application question is relevant to this insurer and isn't hidden. We do this by looking for the
             // Talage question ID in the insurer question list we retrieved above. If we find it, then this insurer asked it.
             const insurerQuestion = insurerQuestionList.find((iq) => iq.talageQuestionId === applicationQuestion.questionId);
-            if (insurerQuestion && !applicationQuestion.hidden) {
+            //Why removed hidden - the point of hidden is to have default questions answered. but never show them.
+            //if (insurerQuestion && !applicationQuestion.hidden) {
+            if (insurerQuestion) {
                 let insurerQuestionAttributes = null;
                 if (insurerQuestion.attributes) {
                     try {
@@ -1936,6 +2018,7 @@ module.exports = class Integration {
 
         try{
             //shouldNotifyTalage is based on talageWholesale Setting
+            //TODO change to look this.app.agencyLocation.insurer to handle PrimaryAgency using talageWholesale.
             const notifiyTalageTest = this.app.agencyLocation.shouldNotifyTalage(quoteJSON.insurerId);
             //We only need one AL insurer to be set to notifyTalage to send it to Slack.
             if(notifiyTalageTest === true){
