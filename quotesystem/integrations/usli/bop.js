@@ -725,7 +725,8 @@ module.exports = class USLIBOP extends Integration {
             //                         </TotalPayrollAmt>
             //                     </CommlPropertyInfo>
 
-            if (location.buildingLimit && location.buildingLimit !== "") {
+            // home business classifications do not support building coverage
+            if (location.buildingLimit && location.buildingLimit !== "" && industryCode.attributes?.product?.toLowerCase() !== "home business") {
                 const CommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo').att('LocationRef', index + 1);
                 const ItemValueAmt1 = CommlPropertyInfo.ele('ItemValueAmt');
                 ItemValueAmt1.ele('Amt', 0);
@@ -757,6 +758,7 @@ module.exports = class USLIBOP extends Integration {
                 TotalPayrollAmt.ele('Amt', this.get_location_payroll(location));
             }
 
+            // home business classifications have a maximum BPP limit of 100k, although the maximum is actually even lower
             if (location.businessPersonalPropertyLimit && location.businessPersonalPropertyLimit !== "") {
                 const CommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo').att('LocationRef', index + 1);
                 const ItemValueAmt1 = CommlPropertyInfo.ele('ItemValueAmt');
