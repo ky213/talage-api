@@ -54,7 +54,7 @@ const dailyIncompleteApplicationTask = async function(){
     const yesterdayEnd = moment().tz("America/Los_Angeles").subtract(1,'d').endOf('day');
     const query = {
         "active": true,
-        "dailyApplicationEmail": true
+        "featureJson": {"enableDailyApplicationEmail": true}
     };
 
     let agencyList = null;
