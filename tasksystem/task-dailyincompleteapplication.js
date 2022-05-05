@@ -1,5 +1,3 @@
-'use strict';
-
 const moment = require('moment-timezone');
 const util = require("util");
 const csvStringify = util.promisify(require("csv-stringify"));
@@ -27,21 +25,12 @@ exports.processtask = async function(queueMessage){
         dailyIncompleteApplicationTask().catch(function(err){
             log.error("Error Daily Incomplete Applications Task " + err + __location);
         });
-        //error = null;
-        await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(function(err){
-            error = err;
-        });
-        if(error){
-            log.error("Error daily incomplete applications deleteTaskQueueItem " + error + __location);
-        }
-        await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle);
     }
-    else {
-        log.debug('Removing old daily incomplete application Message from queue');
-        await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(err => error = err)
-        if(error){
-            log.error("Error Daily Incomplete Applications - deleteTaskQueueItem old " + error + __location);
-        }
+
+    log.debug('Removing old daily incomplete application Message from queue');
+    await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(err => error = err)
+    if(error){
+        log.error("Error Daily Incomplete Applications - deleteTaskQueueItem old " + error + __location);
     }
     return;
 }
@@ -61,7 +50,6 @@ exports.taskProcessorExternal = async function(){
 }
 
 const dailyIncompleteApplicationTask = async function(){
-
     const yesterdayBegin = moment().tz("America/Los_Angeles").subtract(1,'d').startOf('day');
     const yesterdayEnd = moment().tz("America/Los_Angeles").subtract(1,'d').endOf('day');
     const query = {
