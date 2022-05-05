@@ -292,11 +292,11 @@ module.exports = class AMTrustBOP extends Integration {
             "classCode": {
                 "classCodeId": parseInt(this.insurerIndustryCode.code, 10),
                 "personalPropertyCoverage": {
-                    "coverageLimit": primaryLocation.businessPersonalPropertyLimit,
+                    "coverageLimit": primaryLocation.businessPersonalPropertyLimit ? primaryLocation.businessPersonalPropertyLimit : 0,
                     "valuation": "Replacement Cost"
                 },
                 "buildingCoverage": {
-                    "coverageLimit": primaryLocation.buildingLimit,
+                    "coverageLimit": primaryLocation.buildingLimit ? primaryLocation.buildingLimit : 0,
                     "valuation": "Actual Cash Value"
                 }
             },
