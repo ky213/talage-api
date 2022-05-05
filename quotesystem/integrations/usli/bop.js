@@ -182,8 +182,6 @@ const childClassificationMap = {
 
 let terrorismCoverageIncluded = false;
 
-// TODO: Add claims information to request
-
 module.exports = class USLIBOP extends Integration {
 
     /**
@@ -497,12 +495,13 @@ module.exports = class USLIBOP extends Integration {
         ContractTerm.ele('EffectiveDt', moment(BOPPolicy.effectiveDate).format("YYYY-MM-DD"));
         ContractTerm.ele('ExpirationDt', moment(BOPPolicy.expirationDate).format("YYYY-MM-DD"));
         const DurationPeriod = ContractTerm.ele('DurationPeriod');
-        DurationPeriod.ele('NumUnits', moment(applicationDocData.expirationDate).diff(applicationDocData.effectiveDate, "months"));
+        DurationPeriod.ele('NumUnits', moment(BOPPolicy.expirationDate).diff(BOPPolicy.effectiveDate, "months"));
         DurationPeriod.ele('UnitMeasurementCd', "month");
         CommlPolicy.ele('PrintedDocumentsRequestedInd', false);
         const TotalPaidLossAmt = CommlPolicy.ele('TotalPaidLossAmt');
-        TotalPaidLossAmt.ele('Amt', this.get_total_amount_paid_on_claims());
-        CommlPolicy.ele('NumLosses', applicationDocData.claims.length);
+        const lossTotals = this.get_total_amount_paid_on_claims_by_policy();
+        TotalPaidLossAmt.ele('Amt', lossTotals.BOP ? lossTotals.BOP : 0);
+        CommlPolicy.ele('NumLosses', applicationDocData.claims.filter(claim => claim.policyType === "BOP").length);
         CommlPolicy.ele('NumLossesYrs', 0);
         CommlPolicy.ele('FutureEffDateInd', false);
         CommlPolicy.ele('FutureEffDateNumDays', 0);
@@ -953,6 +952,14 @@ module.exports = class USLIBOP extends Integration {
         const msgStatusDesc = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgStatusDesc[0]");
         // const msgErrorCode = get(response, "CommlPkgPolicyQuoteInqRs[0].MsgStatus[0].MsgErrorCd[0]");
 
+        const referralCodes = [
+            "434",
+            "436",
+            "627"
+        ];
+
+        const declineCodes = ["433"];
+
         let missingRespObj = false;
         const requiredResponseObjects = {
             "ACORD.InsuranceSvcRs[0]": response,
@@ -993,14 +1000,23 @@ module.exports = class USLIBOP extends Integration {
             }
         }
 
+        // clean up reasonings to remove occasional description or submit prefix
+        errorReasons = errorReasons.map(reason => {
+            if (reason.indexOf("Description: ") === 0) {
+                return reason.substring(13, reason.length);
+            }
+            else if (reason.indexOf("Submit: ") === 0) {
+                return reason.substring(8, reason.length);
+            }
+
+            return reason;
+        });
+
         // main reason is just the first reason for an error reported
         let mainReason = errorReasons.shift();
-        if (mainReason.indexOf("Description: ") !== -1) {
-            mainReason = mainReason.substring(mainReason.indexOf("Description: ") + 13);
-        }
 
-        // declined error code(s)
-        if (errorCd === "433") {
+        // declined
+        if (declineCodes.includes(errorCd)) {
             const declineMessage = `USLI declined the quote: ${mainReason} `;
             const additionalReasons = errorReasons.length > 0 ? `Other reasons: ${errorReasons.join(" | ")}. ` : "";
             log.info(logPrefix + declineMessage + additionalReasons + __location);
@@ -1008,7 +1024,7 @@ module.exports = class USLIBOP extends Integration {
         }
 
         // if not a referred error code, it's an error
-        if (!["434", "436"].includes(errorCd) && !["Success", "SuccessWithInfo"].includes(msgStatusCd)) {
+        if (!referralCodes.includes(errorCd) && !["Success", "SuccessWithInfo"].includes(msgStatusCd)) {
             if (mainReason.includes("class code with Commercial Property")) {
                 mainReason = 'A property classification was not provided with the Commercial Property submission. This could be due to a missing fire code in the submission.';
             }
@@ -1036,6 +1052,10 @@ module.exports = class USLIBOP extends Integration {
         const commlCoverage = get(response, "CommlPkgPolicyQuoteInqRs[0].GeneralLiabilityLineBusiness[0].LiabilityInfo[0].CommlCoverage");
         premium = get(response, "CommlPkgPolicyQuoteInqRs[0].PolicySummaryInfo[0].FullTermAmt[0].Amt[0]");
         const remarkText = get(response, "CommlPkgPolicyQuoteInqRs[0].RemarkText");
+
+        if (premium === "0") {
+            premium = null;
+        }
         
         if (Array.isArray(remarkText) && remarkText.length > 0) {
             const admittedRemark = remarkText.find(remark => remark?.$?.id === "Admitted Status");
@@ -1049,7 +1069,7 @@ module.exports = class USLIBOP extends Integration {
         }
 
         // remove taxes from premium if quote is not admitted and taxes exist
-        if (!admitted) {
+        if (!admitted && premium) {
             const taxesAdditionalInfo = [];
             premium = parseFloat(premium);
             const taxCoverages = get(response, "CommlPkgPolicyQuoteInqRs[0].CommlPolicy[0].CommlCoverage");
@@ -1133,7 +1153,7 @@ module.exports = class USLIBOP extends Integration {
         if (statusCd === "0" && msgStatusCd === "Success" && industryCode.attributes?.GLElig !== "PP" && msgStatusDesc !== "Submit") {
             return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType, quoteCoverages);
         }
-        else if (statusCd === "0" && ["434", "436", "627"].includes(errorCd) || premium || msgStatusDesc === "Submit") {
+        else if (statusCd === "0" && referralCodes.includes(errorCd) || premium || msgStatusDesc === "Submit" || msgStatusDesc === "SuccessWithInfo") {
             errorReasons.unshift(mainReason);
             if (errorReasons[0].includes("successfully processed the request.") && industryCode.attributes.GLElig === "PP") {
                 this.reasons = ["The chosen classification has GL Eligibility PP (Premises Preferred)."];
@@ -1334,21 +1354,17 @@ module.exports = class USLIBOP extends Integration {
         let firstName = this.app.agencyLocation.first_name;
         let lastName = this.app.agencyLocation.last_name;
 
-        // If talageWholeSale
-        if (this.app.agencyLocation.insurers[this.insurer.id].talageWholesale) {
-            //Use Talage Agency.
-            id = 1;
-            const AgencyBO = global.requireShared('./models/Agency-BO.js');
-            const agencyBO = new AgencyBO();
-            const agencyInfo = await agencyBO.getById(this.agencyId);
-            name = agencyInfo.name;
-            const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
-            const agencyLocationBO = new AgencyLocationBO();
-            const agencyLocationInfo = await agencyLocationBO.getById(1);
-            email = agencyLocationInfo.email;
-            phone = agencyLocationInfo.phone;
-            firstName = agencyLocationInfo.firstName
-            lastName = agencyLocationInfo.lastName
+        // If WholeSale
+        if (this.app.agencyLocation.insurers[this.insurer.id].talageWholesale
+            || this.app.agencyLocation.insurers[this.insurer.id].useAgencyPrime) {
+            //Use Wholesale Agency.
+
+            id = this.quotingAgencyLocationDB.agencyId
+            name = this.quotingAgencyLocationDB.name
+            email = this.quotingAgencyLocationDB.email;
+            phone = this.quotingAgencyLocationDB.phone;
+            firstName = this.quotingAgencyLocationDB.firstName
+            lastName = this.quotingAgencyLocationDB.lastName
         }
 
         return {

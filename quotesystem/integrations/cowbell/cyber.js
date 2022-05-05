@@ -429,8 +429,64 @@ module.exports = class cowbellCyber extends Integration {
                 "RansomPaymentsSublimit": 1000000,
                 "WebsiteMedia": 1000000
             }
-        ]
+        ];
 
+        //////////////////////////////////////////////////////////////////////////////////////////////
+        // COWBELL COVERAGE ELIGIBILITY RULE CHANGES
+        //////////////////////////////////////////////////////////////////////////////////////////////
+
+        // these apply for municipalities, education, and tech NAICS codes ($1,000,000 maximum)
+        // NOTE: For now, only cutting the limit off if it exceeds $1,000,000
+        // const specialCaseEligibleAggregateLimits = [
+        //     "50000",
+        //     "100000",
+        //     "250000",
+        //     "500000",
+        //     "750000",
+        //     "1000000"
+        // ];
+        const specialCaseEligibleAggregateMaximum = 1000000;
+
+        // municipalities
+        const municNAICSPrefix = "92";
+        // education
+        const eduNAICSPrefix = "91";
+        // tech
+        const techNAICSCodes = [
+            "332510",
+            "511210",
+            "517311",
+            "517312",
+            "517410",
+            "517911",
+            "517919",
+            "518210",
+            "519130",
+            "541511",
+            "541512",
+            "541513",
+            "541519",
+            "541690",
+            "811211"
+        ];
+
+        // $0 - $25,000,000 in revenue
+        const lowRevenueDeductibleMinimum = 2500;
+        // $25,000,000 - $50,000,000 in revenue
+        const midRevenueDeductibleMinimum = 5000;
+        // $50,000,000 - $100,000,000 in revenue
+        const highRevenueDeductibleMinimum = 10000;
+
+        // Any manufacturing NAICS reduces the waitingPeriod minimum from 6 to 12
+        const manuNAICSPrefixes = [
+            "31",
+            "32",
+            "33"
+        ];
+
+        //////////////////////////////////////////////////////////////////////////////////////////////
+        // END COWBELL COVERAGE ELIGIBILITY RULE CHANGES
+        //////////////////////////////////////////////////////////////////////////////////////////////
 
         // const businessIncomeCoverageLimits = [100000,
         //     150000,
@@ -474,13 +530,22 @@ module.exports = class cowbellCyber extends Integration {
                 }
             }
         }
+
+        // Coverage Eligibilty Rule change - $1,000,000 maximum for these NAICS codes
+        const naics = this.industry_code.naics;
+        if (naics.indexOf(municNAICSPrefix) === 0 || naics.indexOf(eduNAICSPrefix) === 0 || techNAICSCodes.includes(naics)) {
+            if (parseInt(policyaggregateLimit, 10) > specialCaseEligibleAggregateMaximum) {
+                policyaggregateLimit = `${specialCaseEligibleAggregateMaximum}`;
+            }
+        }
+
         //Get subLimitsMatrix for policyaggregateLimit
         const limitSet = subLimitsMatrix.find((ls) => ls.AggregateLimit === policyaggregateLimit)
         if(!limitSet){
             log.error(`Cowbell AppId ${appDoc.applicationId} unable to find limit set for aggregateLimit of ${policyaggregateLimit}`, __location);
         }
         //set the cyberPolicy limits to the limitSet and default limits
-        const deductible = limitSet?.DeductibleAmount
+        let deductible = limitSet?.DeductibleAmount
         const businessIncomeCoverage = limitSet?.BusinessIncome;
         const socialEngLimit = limitSet?.SocialEngineeringSublimit;
         const socialEngDeductible = limitSet?.SocialEngineeringDeductible;
@@ -490,6 +555,38 @@ module.exports = class cowbellCyber extends Integration {
         const hardwareReplCostLimit = 50000;
         const telecomsFraudEndorsementLimit = 50000;
 
+        // reset deductible to acceptable minimum if chosen deductible is too low for business revenue
+        // const grossSales = parseInt(appDoc.grossSales, 10);
+        const revenueQuestion = appDoc.questions.find(question => question.insurerQuestionIdentifier === "revenue");
+        if (revenueQuestion) {
+            const revenue = parseInt(revenueQuestion.answerValue, 10);
+            if (!isNaN(revenue)) {
+                // if grossSales (revenue) is between 50m and 100m
+                if (revenue >= 50000000 && revenue <= 100000000) {
+                    if (deductible < highRevenueDeductibleMinimum) {
+                        deductible = highRevenueDeductibleMinimum;
+                    }
+                }
+                // if grossSales (revenue) is between 25m and 50m
+                else if (revenue >= 25000000 && revenue <= 49999999) {
+                    if (deductible < midRevenueDeductibleMinimum) {
+                        deductible = midRevenueDeductibleMinimum;
+                    }
+                }
+                // if grossSales (revenue) is between 0 and 25m
+                else if (revenue >= 0 && revenue <= 24999999) {
+                    if (deductible < lowRevenueDeductibleMinimum) {
+                        deductible = lowRevenueDeductibleMinimum;
+                    }
+                }
+            }
+            else {
+                log.warn(`Cowbell AppId ${appDoc.applicationId} Revenue is required, but was not provided. ` + __location);
+            }
+        }
+        else {
+            log.warn(`Cowbell AppId ${appDoc.applicationId} Revenue is required, but was not provided. ` + __location);
+        }
 
         //  let socialEngLimit = 1000000;
         // if(policyaggregateLimit < 1000000){
@@ -498,9 +595,17 @@ module.exports = class cowbellCyber extends Integration {
 
         //waiting period check
         // eslint-disable-next-line array-element-newline
-        const waitingPeriodList = [6,8,12,24]
+        const waitingPeriodList = [6,8,12,24];
         if(waitingPeriodList.indexOf(cyberPolicy.waitingPeriod) === -1){
             cyberPolicy.waitingPeriod = 6;
+        }
+
+        // If naics is in manufacturing group, the minimum waiting period is 12
+        for (const prefix of manuNAICSPrefixes) {
+            if (naics.indexOf(prefix) === 0 && cyberPolicy.waitingPeriod < 12) {
+                cyberPolicy.waitingPeriod = 12;
+                break;
+            }
         }
 
         // =========================================================================================================
@@ -633,7 +738,7 @@ module.exports = class cowbellCyber extends Integration {
             "retroactivePeriod": cyberPolicy.yearsOfPriorActs ? cyberPolicy.yearsOfPriorActs : 1,
             //"retroactiveYear": cyberPolicy.yearsOfPriorActs ? cyberPolicy.yearsOfPriorActs : 1,
             "waitingPeriod": cyberPolicy.waitingPeriod ? cyberPolicy.waitingPeriod : 6,
-            //"revenue": appDoc.grossSalesAmt,
+            //"revenue": appDoc.grossSalesAmt, // TODO: This shouldn't be gross sales, but insurer question w/ ID: "revenue". That, or we remove that question
             //"socialEngEndorsement": cyberPolicy.socialEngEndorsement ? true : false,
             "socialEngEndorsement": true,
             "socialEngLimit": socialEngLimit,

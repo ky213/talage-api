@@ -1,9 +1,11 @@
+/* eslint-disable no-confusing-arrow */
+/* eslint-disable no-undefined */
 const axios = require("axios");
 const Application = global.mongoose.Application;
 const ApplicationUpload = global.mongoose.ApplicationUpload;
 const ApplicationUploadStatus = global.mongoose.ApplicationUploadStatus;
-const InsurerIndustryCode = global.mongoose.InsurerIndustryCode;
 const InsurerActivityCode = global.mongoose.InsurerActivityCode;
+const IndustryCode = global.mongoose.IndustryCode;
 const fs = require('fs');
 const moment = require('moment');
 const _ = require('lodash');
@@ -12,6 +14,7 @@ const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
 const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js');
 const zipcodeHelper = global.requireShared('./helpers/formatZipcode.js');
+const crypt = global.requireShared('./services/crypt.js');
 
 const getFirstName = (name) => {
     const nameSplit = name.split(' ');
@@ -106,33 +109,39 @@ const getZip = (addr) => {
     return;
 }
 
-const convertInsurerIndustryCodeToTalageIndustryCode = async(insurerId, insurerIndustryCode, territory) => {
-    const insurerIndustryCodeObj = await InsurerIndustryCode.findOne({
-        insurerId: insurerId,
-        territoryList: territory,
-        code: insurerIndustryCode.toString()
-    });
-    if (!insurerIndustryCodeObj) {
-        log.error(`Cannot find insurer industry code: ${insurerIndustryCode} @ ${insurerId} for territory: ${territory}`)
+/**
+ * Returns whether or not the checkbox has an appropriate parsed value from the OCR.
+ * @param {*} value value
+ * @returns {boolean} value
+ */
+const isCheckboxChecked = (value) => !_.isEmpty(value);
+
+const convertNaicsToTalageIndustryCode = async(insurerIndustryCode) => {
+    const industryCodeObj = await IndustryCode.findOne({naics: insurerIndustryCode.toString()});
+    if (!industryCodeObj || !industryCodeObj?.activityCodeIdList?.[0]) {
+        log.warn(`Cannot find insurer industry code: ${insurerIndustryCode}`)
         return;
     }
 
-    return insurerIndustryCodeObj.talageIndustryCodeIdList[0];
+    return industryCodeObj?.activityCodeIdList?.[0];
 }
 
 const convertInsurerActivityCodeToTalageActivityCode = async(insurerId, insurerActivityCode, territory) => {
-    const insurerIndustryCodeObj = await InsurerActivityCode.findOne({
-        insurerId: insurerId,
+    const code = insurerActivityCode.split('-');
+    const insurerIndustryCodeObj = await InsurerActivityCode.findOne(_.omitBy({
+        insurerId: parseInt(insurerId, 10),
         territoryList: territory,
-        code: insurerActivityCode.toString()
-    });
+        code: code[0],
+        sub: code?.[1],
+        active: true
+    }, _.isNil));
     if (!insurerIndustryCodeObj) {
-        log.error(`Cannot find insurer activity code: ${insurerActivityCode} @ ${insurerId} for territory: ${territory}`)
+        log.warn(`Cannot find insurer activity code: ${insurerActivityCode} @ ${insurerId} for territory: ${territory}`)
         return '';
     }
 
     // Just pick the first Talage Activity Code mapping.
-    return _.get(insurerIndustryCodeObj, 'talageActivityCodeIdList[0]');
+    return insurerIndustryCodeObj?.talageActivityCodeIdList?.[0];
 }
 
 /**
@@ -141,9 +150,10 @@ const convertInsurerActivityCodeToTalageActivityCode = async(insurerId, insurerA
  * will return undefined and log the issue.
  * @param {*} fieldValue fieldValue
  * @param {*} formatterFunc formatterFunc
+ * @param {*} defaultValue Optional default value to return. Feel free to leave undefined
  * @returns {*} formatted attempt
  */
-const tryToFormat = async(fieldValue, formatterFunc) => {
+const tryToFormat = async(fieldValue, formatterFunc, defaultValue) => {
     try {
         return await formatterFunc(fieldValue);
     }
@@ -153,13 +163,13 @@ const tryToFormat = async(fieldValue, formatterFunc) => {
         const stack = err.stack.split('\n');
         const prevMethod = stack[3].trim().replace('at ', '');
 
-        // additionalInfo.push(`Bad validaion for field: ${prevMethod} ${fieldValue}`);
-        log.warn(`Bad validaion for field: ${prevMethod} ${fieldValue}`);
-        return;
+        // additionalInfo.push(`Bad validation for field: ${prevMethod} ${fieldValue}`);
+        log.warn(`Bad validation for field: ${prevMethod} ${fieldValue}`);
+        return defaultValue;
     }
 }
 
-const cleanLimit = (limit) => limit.replace(/,/g, '').replace(/\./g, '');
+const cleanLimit = (limit) => limit.replace(/,/g, '').replace(/\./g, '').replace(/\s/g, '');
 
 module.exports = class ApplicationUploadBO {
     async submitFile(metadata, fileType, acordFile) {
@@ -191,7 +201,7 @@ module.exports = class ApplicationUploadBO {
         try {
             const response = await axios.request({
                 method: "POST",
-                url: `${global.settings.OCR_SERVER_URL}/queue/${fileType}`,
+                url: `https://${global.settings.ENV}ocrapi.internal.talageins.com/ocr/queue/${fileType}`,
                 data: fileData,
                 headers: {"Content-Type": "application/pdf"}
             });
@@ -214,7 +224,8 @@ module.exports = class ApplicationUploadBO {
                 status: 'QUEUED',
                 fileName: acordFile.name,
                 type: fileType,
-                agencyPortalUserId: metadata?.agencyPortalUserId
+                agencyPortalUserId: metadata?.agencyPortalUserId,
+                advanceDate: metadata?.advanceDate
             });
         }
         catch (error) {
@@ -245,7 +256,7 @@ module.exports = class ApplicationUploadBO {
                 try {
                     status = await axios.request({
                         method: 'GET',
-                        url: `${global.settings.OCR_SERVER_URL}/status/${requestId}`
+                        url: `https://${global.settings.ENV}ocrapi.internal.talageins.com/ocr/status/${requestId}`
                     });
                 }
                 catch (ex) {
@@ -277,12 +288,12 @@ module.exports = class ApplicationUploadBO {
      * @returns {void}
      */
     async saveOcrResult(requestId, ocrResult, agencyMetadata, doCreateInApplicationUpload = true) {
-        await ApplicationUploadStatus.updateOne({requestId: requestId}, {status: 'SUCCESS'});
-
         const data = {};
         for (const k of ocrResult.ocrResponse) {
             _.set(data, k.question, k.answer);
         }
+
+        await ApplicationUploadStatus.updateOne({requestId: requestId}, {status: 'SUCCESS'});
 
         // filter out blank entries that OCR might've given us.
         data.Individual = data.Individual.filter(t => t.Name !== '');
@@ -294,6 +305,17 @@ module.exports = class ApplicationUploadBO {
 
         const additionalInfo = [];
 
+        const checkIfRealOwner = (ownerInfo) => {
+            const fname = ownerInfo.fname.replace(/[^a-z0-9]/gi, '').trim();
+            const lname = ownerInfo.lname.replace(/[^a-z0-9]/gi, '').trim();
+            if (fname !== '' && lname !== '') {
+                return ownerInfo;
+            }
+            else {
+                return undefined;
+            }
+        }
+
         // -> Compwest Ins
         let applicationUploadObj = {
             additionalInfo: {
@@ -301,6 +323,7 @@ module.exports = class ApplicationUploadBO {
                 ocrRequestId: requestId
             },
             active: true,
+            agencyPortalCreated: true,
             appStatusId: 0, // Mark awspplication as incomplete by default
             agencyId: agencyMetadata.agencyId,
             agencyLocationId: agencyMetadata.agencyLocationId,
@@ -316,7 +339,7 @@ module.exports = class ApplicationUploadBO {
             mailingZipcode: await tryToFormat(data.Applicant_Mailing_Address, async(v) => getZip(v)),
             website: data.Website,
             ein: data.FEIN,
-            founded: await tryToFormat(data.Years_In_Business, async(v) => moment().subtract(parseInt(v, 10), 'years')),
+            founded: await tryToFormat(data.Years_In_Business, async(v) => v ? moment().subtract(parseInt(v, 10), 'years').month(11).date(31) : undefined),
             businessName: data.Applicant_Name,
 
             locations: await Promise.all(data.Location.map(async(l) => ({
@@ -326,35 +349,41 @@ module.exports = class ApplicationUploadBO {
                 state: await tryToFormat(l.Address, async(v) => getState(v)),
                 zipcode: await tryToFormat(l.Address, async(v) => getZip(v)),
                 activityPayrollList: await Promise.all(data.Rating.map(async(r) => ({
-                    ncciCode: await tryToFormat(r.Class_Code, async(v) => parseInt(v, 10)), // Convert to talage NCCI
-                    payroll: await tryToFormat(r.Annual_Remuneration, async(v) => parseInt(v.replace(',', ''), 10)),
-                    activityCodeId: await tryToFormat([r.Class_Code, l.Address], () => convertInsurerActivityCodeToTalageActivityCode(insurerId, parseInt(r.Class_Code, 10), getState(l.Address))) // Convert to talage NCCI
+                    // ncciCode: await tryToFormat(r.Class_Code, async(v) => parseInt(v, 10)), // Convert to talage NCCI
+                    payroll: await tryToFormat(r.Annual_Remuneration, async(v) => {
+                        const out = parseInt(v.replace(',', ''), 10);
+                        if (isNaN(out)) {
+                            return 0;
+                        }
+                        return out;
+                    }, 0),
+                    activityCodeId: await tryToFormat([r.Class_Code, l.Address], () => convertInsurerActivityCodeToTalageActivityCode(insurerId, r.Class_Code, getState(l.Address) || getState(data.Applicant_Mailing_Address))) // Convert to talage NCCI
                 })))
             }))),
 
             contacts: [{
+                firstName: await tryToFormat(data.Contact_Inspection_Name, async(v) => getFirstName(v)),
+                lastName: await tryToFormat(data.Contact_Inspection_Name, async(v) => getLastName(v)),
+                email: data.Contact_Inspection_Email,
+                phone: data.Contact_Inspection_Office_Phone,
+                primary: false
+            },
+            {
                 firstName: await tryToFormat(data.Contact_Accounting_Name, async(v) => getFirstName(v)),
                 lastName: await tryToFormat(data.Contact_Accounting_Name, async(v) => getLastName(v)),
                 email: data.Contact_Accounting_Email,
                 phone: data.Contact_Accounting_Office_Phone,
-                primary: true // XXX: change me
+                primary: false
             },
             {
                 firstName: await tryToFormat(data.Contact_Claims_Name, async(v) => getFirstName(v)),
                 lastName: await tryToFormat(data.Contact_Claims_Name, async(v) => getLastName(v)),
                 email: data.Contact_Claims_Email,
                 phone: data.Contact_Claims_Office_Phone,
-                primary: false // XXX: change me
-            },
-            {
-                firstName: await tryToFormat(data.Contact_Inspection_Name, async(v) => getFirstName(v)),
-                lastName: await tryToFormat(data.Contact_Inspection_Name, async(v) => getLastName(v)),
-                email: data.Contact_Inspection_Email,
-                phone: data.Contact_Inspection_Office_Phone,
-                primary: false // XXX: change me
+                primary: false
             }],
 
-            owners: await Promise.all(data.Individual.map(async(i) => ({
+            owners: await Promise.all(data.Individual.map(async(i) => checkIfRealOwner({
                 fname: getFirstName(i.Name),
                 lname: getLastName(i.Name),
                 ownership: await tryToFormat(i.Ownership, async(v) => parseInt(v, 10)),
@@ -362,13 +391,13 @@ module.exports = class ApplicationUploadBO {
                 // eslint-disable-next-line
                 birthdate: await tryToFormat(i.DOB, async(v) => v ? moment(v) : ''),
                 include: i.Inc_Exc === 'INC',
-                activityCodeId: i.Class_Code
+                activityCodeId: await tryToFormat(i.Class_Code, () => convertInsurerActivityCodeToTalageActivityCode(insurerId, parseInt(i.Class_Code, 10), getState(data.Applicant_Mailing_Address))) // Convert to talage NCCI
             }))),
 
             policies: [{
                 policyType: 'WC',
-                effectiveDate: moment().format('MM/DD/YYYY'),
-                expirationDate: await tryToFormat(data.Proposed_Exp_Date, async(v) => moment(v, 'MM/DD/YYYY')),
+                effectiveDate: await tryToFormat(data.Policy_Proposed_Eff_Date, async(v) => v ? moment(v, 'MM/DD/YYYY') : undefined),
+                expirationDate: await tryToFormat(data.Proposed_Exp_Date, async(v) => v ? moment(v, 'MM/DD/YYYY') : undefined),
                 limits: await tryToFormat(data.Liability_Disease_Employee, async(v) => cleanLimit(v)) +
                     await tryToFormat(data.Liability_Disease_Limit, async(v) => cleanLimit(v)) +
                     await tryToFormat(data.Liability_Each_Accident, async(v) => cleanLimit(v))
@@ -379,12 +408,34 @@ module.exports = class ApplicationUploadBO {
             // // buildingLimit: ,
         };
 
-        if (data.NAICS) {
-            applicationUploadObj.industryCode = await convertInsurerIndustryCodeToTalageIndustryCode(insurerId,
-                parseInt(data.NAICS, 10),
-                applicationUploadObj.mailingState);
+        // remove blank contacts from the list.
+        applicationUploadObj.contacts = applicationUploadObj.contacts.filter(t => !_.isEmpty(t.firstName) || !_.isEmpty(t.lastName));
+        applicationUploadObj.owners = applicationUploadObj.owners.filter(t => !_.isNil(t));
+
+        // If the user checked the advanceDate checkbox.
+        if (agencyMetadata?.advanceDate) {
+            applicationUploadObj.policies[0].effectiveDate = await tryToFormat(data.Policy_Proposed_Eff_Date, async(v) => v ? moment(v, 'MM/DD/YYYY').add(1, 'year') : undefined);
+            applicationUploadObj.policies[0].expirationDate = await tryToFormat(data.Proposed_Exp_Date, async(v) => v ? moment(v, 'MM/DD/YYYY').add(1, 'year') : undefined);
         }
-        if (data.Corporation === 'X') {
+
+        if (applicationUploadObj?.contacts?.[0]) {
+            applicationUploadObj.contacts[0].primary = true;
+        }
+        if (applicationUploadObj?.locations?.[0]) {
+            applicationUploadObj.locations[0].primary = true;
+        }
+
+        if (applicationUploadObj.ein) {
+            applicationUploadObj.hasEin = true;
+            applicationUploadObj.einEncrypted = await crypt.encrypt(applicationUploadObj.ein);
+            applicationUploadObj.einEncryptedT2 = await crypt.encrypt(applicationUploadObj.ein);
+            applicationUploadObj.einHash = await crypt.hash(applicationUploadObj.ein);
+        }
+
+        if (data.NAICS) {
+            applicationUploadObj.industryCode = await convertNaicsToTalageIndustryCode(parseInt(data.NAICS, 10));
+        }
+        if (isCheckboxChecked(data.Corporation)) {
             applicationUploadObj.entityType = 'Corporation';
         }
         try {
@@ -398,7 +449,7 @@ module.exports = class ApplicationUploadBO {
             }
         }
         catch (ex) {
-            log.error("Error  Amtrust Import deleteTaskQueueItem " + ex.message + __location);
+            log.error("Error  saveOcrResult " + ex.message + __location);
         }
     }
 
@@ -582,7 +633,6 @@ module.exports = class ApplicationUploadBO {
                                 application.agencyState = agencyLoc.state;
                             }
                         }
-
 
                         //industry desc
                         const industryCodeBO = new IndustryCodeBO();

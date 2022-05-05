@@ -435,7 +435,7 @@ exports.requiredFields = async(appId) => {
     }
 
     // Get insurer required fields by policytype.
-
+    let isGhostPolicy = false;
     let requiredFields = null;
     if(applicationDB && applicationDB.hasOwnProperty('policies')){
         for(const policyData of applicationDB.policies){
@@ -454,15 +454,15 @@ exports.requiredFields = async(appId) => {
                 // Ghost Policy check
                 if(ptInsurerList.length > 0 && ptCode === "WC"){
                     log.debug(`requiredFields - CHECKING FOR GHOST POLCIES  ` + __location)
-                    const insurerIdArray = insurerList.map(insurerDoc => insurerDoc.insurerId);
-                    log.debug(`requiredFields - Ghost check original insurer list ${ptInsurerList} ` + __location)
+                    const insurerIdArray = ptInsurerList.map(insurerDoc => insurerDoc.insurerId);
+                    log.debug(`requiredFields - Ghost check original insurer list ${insurerIdArray} ` + __location)
                     const applicationBO2 = new ApplicationBO();
                     const ghostInsurers = await applicationBO2.GhostPolicyCheckAndInsurerUpdate(applicationDB, insurerIdArray)
                     log.debug(`requiredFields - Ghost check returned insurer list ${ghostInsurers} ` + __location)
                     if(ghostInsurers?.length > 0){
+                        isGhostPolicy = true;
                         const insurerQuery = {insurerId: {$in: ghostInsurers}}
                         ptInsurerList = await insurerBO.getList(insurerQuery);
-                        log.debug(`requiredFields - Ghost check update insurer list count ${insurerList.length} ` + __location)
                     }
                 }
                 if(ptInsurerList.length > 0){
@@ -506,7 +506,10 @@ exports.requiredFields = async(appId) => {
             overrideRequiredObject(agencyNetworkDB.appRequirementOverrides, requiredFields, newRequirements);
             requiredFields = newRequirements;
         }
-
+        if(isGhostPolicy && requiredFields.location?.activityPayrollList?.requirement > 0){
+            log.debug(`requiredFields - Ghost Policy Setup removing payroll requirement or optional ` + __location)
+            requiredFields.location.activityPayrollList.requirement = 0
+        }
 
         //Software Hook to override optional fields per Agency Network.
         const dataPackageJSON = {
@@ -548,7 +551,6 @@ function getAgencyLocationsInsurerByPolicyType(agencyLocationDB, policyType, ins
             if(insurerDoc){
                 policyTypeInsurerList.push(insurerDoc)
             }
-
         }
     }
     return policyTypeInsurerList;

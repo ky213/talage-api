@@ -413,7 +413,7 @@ module.exports = class AMTrustBOP extends Integration {
 
         if(quoteResponse?.data){
             quoteId = quoteResponse.data.accountInformation?.quoteId;
-            if (quoteResponse.data.eligibility === "Decline") {
+            if (quoteResponse.data.eligibility === "Declined") {
                 //eligibilityReasons
                 //declined
                 let declineMessage = "The insurer has declined to offer you coverage at this time";
