@@ -1,6 +1,7 @@
 const axios = require("axios");
 const _ = require('lodash');
 const InsurerBO = require("../../../shared/models/Insurer-BO");
+const AgencyBO = require("../../../shared/models/Agency-BO");
 
 const serverHelper = global.requireRootPath("server.js");
 const ApplicationUploadBO = global.requireShared('./models/ApplicationUpload-BO.js');
@@ -64,9 +65,11 @@ async function performOcrOnAcodPdfFile(req, res, next) {
 
     // Check for data
     const applicationUploadBO = new ApplicationUploadBO();
+    const agencyBO = new AgencyBO();
+    const agency = await agencyBO.getAgencyByMysqlId(req.body.agencyId);
     const agencyMetadata = {
         agencyLocationId: parseInt(req.body.agencyLocationId, 10),
-        agencyNetworkId: parseInt(req.authentication.agencyNetwork, 10),
+        agencyNetworkId: agency.agencyNetworkId,
         agencyId: parseInt(req.body.agencyId, 10),
         insurerId: parseInt(req.body.insurerId, 10),
         tag: req.body.tag,
