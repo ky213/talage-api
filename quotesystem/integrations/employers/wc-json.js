@@ -249,9 +249,9 @@ module.exports = class EmployersWC extends Integration {
             catch (err) {
                 log.error(`${logPrefix}Problem creating contact information on quote request: ${err} ` + __location);
                 // immediately autodecline and report the error
-                // currently this causes a strange behaviour of looping submission to api -
                 this.reasons.push(`${logPrefix} ${err.message}  - Stopped before submission to insurer`);
-                return this.return_result('autodeclined');
+                fulfill(this.return_result('autodeclined'));
+                return;
             }
 
             //We use the Agency Code (Entered in AP) only send the agencyCode so not to trigger secondary employer search
