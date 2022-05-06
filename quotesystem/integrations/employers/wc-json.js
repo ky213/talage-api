@@ -36,11 +36,13 @@ module.exports = class EmployersWC extends Integration {
      * @returns {string} - Phone number in the form: "###-###-####"
      */
     formatPhoneForEmployers(phone) {
+        let strPhone = phone;
         if (!phone || typeof phone !== 'string') {
             log.error(`Employers WC App ID: ${this.app.id}: Bad phone number format: "${phone}" ` + __location);
-            return '';
+            strPhone = phone.toString();
+            // convert to string and allow regex to sort out the numbers.
         }
-        const phoneDigits = phone.trim().replace(/\D/g, '');
+        const phoneDigits = strPhone.trim().replace(/\D/g, '');
         if (phoneDigits.length !== 10) {
             log.error(`Employers WC App ID: ${this.app.id}, Incorrect number of digits in phone number: ${phone} ` + __location);
             return '';
@@ -189,7 +191,16 @@ module.exports = class EmployersWC extends Integration {
                 if (formattedPhone) {
                     applicantContact.phoneNumber = formattedPhone;
                     billingContact.phoneNumber = formattedPhone;
+                }
+                else {
+                    throw new Error('Primary Contact Phone Number is blank or not valid');
+                }
+
+                if (formattedAgencyPhone) {
                     proposalContact.phoneNumber = formattedAgencyPhone;
+                }
+                else {
+                    throw new Error('Proposal Contact Phone Number is blank or not valid');
                 }
 
                 const applicantName = `${primaryContact.firstName} ${primaryContact.lastName}`;
@@ -237,6 +248,10 @@ module.exports = class EmployersWC extends Integration {
             }
             catch (err) {
                 log.error(`${logPrefix}Problem creating contact information on quote request: ${err} ` + __location);
+                // immediately autodecline and report the error
+                this.reasons.push(`${logPrefix} ${err.message}  - Stopped before submission to insurer`);
+                fulfill(this.return_result('autodeclined'));
+                return;
             }
 
             //We use the Agency Code (Entered in AP) only send the agencyCode so not to trigger secondary employer search
