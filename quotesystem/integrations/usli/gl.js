@@ -512,7 +512,7 @@ module.exports = class USLIGL extends Integration {
         }
 
         const errorCd = statusDesc.split(" ")[1];
-        let errorReasons = null;
+        let errorReasons = [];
         if (statusDesc.indexOf("Script Errors:") !== -1) {
         // if script errors are reported, parse them a particular way
             const errorsString = statusDesc.
@@ -533,6 +533,9 @@ module.exports = class USLIGL extends Integration {
                 errorReasons = statusDesc.split("\n");
             }
         }
+
+        // clean up reasonings to remove occasional description or submit prefix
+        errorReasons = errorReasons.map(reason => reason.replace(/^Description:\s*|^Submit:\s*/ig, ''))
 
         // main reason is just the first reason for an error reported
         let mainReason = errorReasons.shift();
@@ -575,6 +578,10 @@ module.exports = class USLIGL extends Integration {
         premium = get(response, "CommlPkgPolicyQuoteInqRs[0].PolicySummaryInfo[0].FullTermAmt[0].Amt[0]");
         const remarkText = get(response, "CommlPkgPolicyQuoteInqRs[0].RemarkText");
 
+        if (premium === "0") {
+            premium = null;
+        }
+
         if (Array.isArray(remarkText) && remarkText.length > 0) {
             const admittedRemark = remarkText.find(remark => remark?.$?.id === "Admitted Status");
             admitted = admittedRemark && admittedRemark?._ === "This quote is admitted";
@@ -587,7 +594,7 @@ module.exports = class USLIGL extends Integration {
         }
 
         // remove taxes from premium if quote is not admitted and taxes exist
-        if (!admitted) {
+        if (!admitted && premium) {
             const taxesAdditionalInfo = [];
             premium = parseFloat(premium);
             const taxCoverages = get(response, "CommlPkgPolicyQuoteInqRs[0].CommlPolicy[0].CommlCoverage");
@@ -671,7 +678,7 @@ module.exports = class USLIGL extends Integration {
         if (statusCd === "0" && msgStatusCd === "Success" && this.insurerIndustryCode.attributes?.GLElig !== "PP" && msgStatusDesc !== "Submit") {
             return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType, quoteCoverages);
         }
-        else if (statusCd === "0" && referralCodes.includes(errorCd) || premium || msgStatusDesc === "Submit") {
+        else if (statusCd === "0" && referralCodes.includes(errorCd) || premium || msgStatusDesc === "Submit" || msgStatusDesc === "SuccessWithInfo") {
             errorReasons.unshift(mainReason);
             if (errorReasons[0].includes("successfully processed the request.") && this.insurerIndustryCode.attributes.GLElig === "PP") {
                 this.reasons = ["The chosen classification has GL Eligibility PP (Premises Preferred)."];
@@ -698,22 +705,17 @@ module.exports = class USLIGL extends Integration {
         let email = this.app.agencyLocation.agencyEmail;
         let firstName = this.app.agencyLocation.first_name;
         let lastName = this.app.agencyLocation.last_name;
+        const insurer = this.app.agencyLocation.insurers[this.insurer.id]
 
-        // If talageWholeSale
-        if (this.app.agencyLocation.insurers[this.insurer.id].talageWholesale) {
-        //Use Talage Agency.
-            id = 1;
-            const AgencyBO = global.requireShared('./models/Agency-BO.js');
-            const agencyBO = new AgencyBO();
-            const agencyInfo = await agencyBO.getById(this.agencyId);
-            name = agencyInfo.name;
-            const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
-            const agencyLocationBO = new AgencyLocationBO();
-            const agencyLocationInfo = await agencyLocationBO.getById(1);
-            email = agencyLocationInfo.email;
-            phone = agencyLocationInfo.phone;
-            firstName = agencyLocationInfo.firstName
-            lastName = agencyLocationInfo.lastName
+        // If WholeSale
+        if (insurer?.talageWholesale || insurer?.useAgencyPrime) {
+        //Use Wholesale Agency.
+            id = this.quotingAgencyLocationDB.agencyId
+            name = this.quotingAgencyLocationDB.name
+            email = this.quotingAgencyLocationDB.email;
+            phone = this.quotingAgencyLocationDB.phone;
+            firstName = this.quotingAgencyLocationDB.firstName
+            lastName = this.quotingAgencyLocationDB.lastName
         }
 
         return {
