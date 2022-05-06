@@ -33,7 +33,8 @@ const agencySiteContentSchema = new Schema({
 
 
 const featureSchema = new Schema({
-    enableAgencyCodeField: {type: Boolean, required: true, default: false}
+    enableAgencyCodeField: {type: Boolean, required: true, default: false},
+    enableDailyApplicationEmail: {type: Boolean, required: true, default: false}
 }, optsNoId);
 
 const AgencySchema = new Schema({
@@ -73,7 +74,7 @@ const AgencySchema = new Schema({
     tierId: {type: Number},
     tierName: {type: String},
     appCount: {type: Number, default: 0},
-    featureJson: {type: featureSchema, required: true, default: {enableAgencyCodeField: false}}
+    featureJson: {type: featureSchema, required: true, default: {enableAgencyCodeField: false, enableDailyApplicationEmail: false}}
 }, opts);
 
 
