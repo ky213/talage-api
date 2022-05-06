@@ -345,8 +345,16 @@ module.exports = class AcuityBOP extends Integration {
         }
         const questionCodes = Object.values(question_identifiers);
 
+        const generalQuestionsToIgnore = [
+            'AcuityBOPContractorLicenseNumber'
+        ];
+
         // Insurer Question Loop
         for (const insurerQuestion of this.insurerQuestionList) {
+            if (generalQuestionsToIgnore.includes(insurerQuestion.identifier)) {
+                continue;
+            }
+
             if (Object.prototype.hasOwnProperty.call(this.questions, insurerQuestion.talageQuestionId)) {
                 const question = this.questions[insurerQuestion.talageQuestionId];
                 if(!question){
@@ -391,6 +399,18 @@ module.exports = class AcuityBOP extends Integration {
                     QuestionAnswer.ele('Explanation', answer);
                 }
 
+                switch (insurerQuestion.identifier) {
+                    case 'com.acuity_999990064':
+                        let licenseNumber = this.getAnswerForQuestionIdentifier('AcuityBOPContractorLicenseNumber');
+                        if (licenseNumber) {
+                            QuestionAnswer.ele('Explanation', licenseNumber);
+                        }
+                        else {
+                            QuestionAnswer.ele('Explanation', '');
+                        }
+                        break;
+                    default:
+                }
             }
         }
 
@@ -646,8 +666,10 @@ module.exports = class AcuityBOP extends Integration {
             let areaOccupiedByOthers = 0;
             let areaUnoccupied = 0;
 
+            const BldgProtection = CommlSubLocation.ele('BldgProtection');
+            
             if (location.bop.hasOwnProperty('sprinklerEquipped')) {
-                CommlSubLocation.ele('BldgProtection').ele('SprinkleredPct', location.bop.sprinklerEquipped ? 100 : 0);
+                BldgProtection.ele('SprinkleredPct', location.bop.sprinklerEquipped ? 100 : 0);
             }
             else {
                 log.error(`${logPrefix}: Missing sprinkler information for location ${index}`);
@@ -679,6 +701,15 @@ module.exports = class AcuityBOP extends Integration {
                         AreaUnoccupied.ele(`NumUnits`, areaUnoccupied);
                         AreaUnoccupied.ele(`UnitMeasurementCd`, 'SQFT');
                         break;
+                    case 'AcuityBOPDistanceFireStation':
+                        const DistanceToFireStation = BldgProtection.ele('DistanceToFireStation');
+                        DistanceToFireStation.ele('NumUnits', question.answerValue);
+                        DistanceToFireStation.ele('UnitMeasurementCd', 'SMI');
+                        break;
+                    case 'AcuityBOPDistanceHydrant':
+                        const DistanceToHydrant = BldgProtection.ele('DistanceToHydrant');
+                        DistanceToHydrant.ele('UnitMeasurementCd', 'FT');
+                        DistanceToHydrant.ele('NumUnits', question.answerValue);
                     default:
                         continue;
                 }
@@ -930,5 +961,29 @@ module.exports = class AcuityBOP extends Integration {
                 log.error(`Acuity (application ${this.app.id}): Returned unknown policy code '${policyStatusCode}' ${__location}`);
                 return this.return_error('error', 'Acuity returned an unexpected result for a bindable quote.');
         }
+    }
+
+    getAnswerForQuestionIdentifier(identifier) {
+        const talageQuestion = this.insurerQuestionList.find(question => question.identifier === identifier);
+        if (talageQuestion) {
+            const question = this.questions[talageQuestion.talageQuestionId];
+            if(question) {
+                let answer = null;
+                try {
+                    answer = this.determine_question_answer(question);
+                    return answer;
+                }        
+                catch (err) {
+                    log.error(`Acuity application ${this.app.id}): Could not determine question ${licenseNumberQuestion.talageQuestionId} answer: ${error} ${__location}`);
+                }
+            }
+            else {
+                log.debug(`Acuity question processing ${insurerQuestion?.attributes?.elementName} no TalageQuestion`)
+            }
+        }
+        else {
+            return null;
+        }
+
     }
 };
