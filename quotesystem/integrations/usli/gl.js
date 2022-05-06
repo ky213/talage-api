@@ -224,8 +224,8 @@ module.exports = class USLIGL extends Integration {
                         NAICCd: this.insurerIndustryCode?.naic || "26522",
                         ControllingStateProvCd: this.policy?.primary_territory,
                         ContractTerm: {
-                            EffectiveDt: this.policy?.effective_date?.format("YYYY-DD-MM"),
-                            ExpirationDt: this.policy?.expiration_date?.format("YYYY-DD-MM"),
+                            EffectiveDt: this.policy?.effective_date?.format("YYYY-MM-DD"),
+                            ExpirationDt: this.policy?.expiration_date?.format("YYYY-MM-DD"),
                             DurationPeriod: {
                                 NumUnits: this.policy?.expiration_date?.diff(this.policy?.effective_date, "months"),
                                 UnitMeasurementCd: "month"
