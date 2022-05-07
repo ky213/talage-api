@@ -174,7 +174,7 @@ module.exports = class Question{
             // Loop through each answer and make sure they are what we are expecting
             for (const answer_id of answerArray) {
                 // If the answer wasn't numeric, it is wrong
-                if (typeof answer_id !== 'number') {
+                if (!this.parent && typeof answer_id !== 'number') {
                     const errorMessage = `Invalid answer provided - non number -  for Question ${this.id}. (${htmlentities.decode(this.text)}) answer_id ${answer_id} typeof answer_id ${typeof answer_id}`
                     log.error(errorMessage + __location);
                     //logging in calling method.
@@ -192,7 +192,7 @@ module.exports = class Question{
             answer = appQuestionJSON.answerId
             //issues are logged in calling methods.  It has the applicationId
             // If the answer wasn't numeric, it is wrong
-            if (typeof answer !== 'number') {
+            if (!this.parent && typeof answer !== 'number') {
                 const errorMessage = `Invalid answer provided - non number -  for Question ${this.id}. (${htmlentities.decode(this.text)}) answerId ${answer} typeof answerId ${typeof answer}`
                 log.error(errorMessage + __location);
                 //throw new Error(`Invalid answer provided - non number - for Question ${this.id}. (${htmlentities.decode(this.text)})`);
@@ -213,7 +213,7 @@ module.exports = class Question{
                         }
                     }
                 }
-                if(found === false){
+                if(!this.parent && found === false){
                     const errorMessage = `Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)}) anwser ${answer} not in ${JSON.stringify(this.possible_answers)}`
                     log.error(errorMessage + __location);
                     //throw new Error(`Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)}) anwser ${answer} not in ${JSON.stringify(this.possible_answers)}`);
