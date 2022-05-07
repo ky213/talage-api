@@ -36,13 +36,11 @@ module.exports = class EmployersWC extends Integration {
      * @returns {string} - Phone number in the form: "###-###-####"
      */
     formatPhoneForEmployers(phone) {
-        let strPhone = phone;
         if (!phone || typeof phone !== 'string') {
             log.error(`Employers WC App ID: ${this.app.id}: Bad phone number format: "${phone}" ` + __location);
-            strPhone = phone.toString();
-            // convert to string and allow regex to sort out the numbers.
+            return '';
         }
-        const phoneDigits = strPhone.trim().replace(/\D/g, '');
+        const phoneDigits = phone.trim().replace(/\D/g, '');
         if (phoneDigits.length !== 10) {
             log.error(`Employers WC App ID: ${this.app.id}, Incorrect number of digits in phone number: ${phone} ` + __location);
             return '';
