@@ -184,7 +184,7 @@ module.exports = class EmployersWC extends Integration {
                 const proposalContact = {"email": this.quotingAgencyLocationDB.email ? this.quotingAgencyLocationDB.email : agency.agencyEmail};
 
                 const formattedPhone = this.formatPhoneForEmployers(primaryContact.phone);
-                const formattedAgencyPhone = this.formatPhoneForEmployers(this.quotingAgencyLocationDB.phone ? this.quotingAgencyLocationDB.phone : agency.agencyPhone);
+                let formattedAgencyPhone = this.formatPhoneForEmployers(this.quotingAgencyLocationDB.phone ? this.quotingAgencyLocationDB.phone : agency.agencyPhone);
 
                 if (formattedPhone) {
                     applicantContact.phoneNumber = formattedPhone;
@@ -198,7 +198,7 @@ module.exports = class EmployersWC extends Integration {
                     proposalContact.phoneNumber = formattedAgencyPhone;
                 }
                 else {
-                    throw new Error('Proposal Contact Phone Number is blank or not valid');
+                    formattedAgencyPhone = "";
                 }
 
                 const applicantName = `${primaryContact.firstName} ${primaryContact.lastName}`;
