@@ -28,7 +28,7 @@ module.exports = class AcuityGL extends Integration {
 	 */
     async _insurer_quote() {
         const appDoc = this.applicationDocData
-
+        const logPrefix = `Acuity GL (Appid: ${this.applicationDocData.applicationId}): `;
         const insurerBO = new InsurerBO();
         const insurerSlug = 'acuity';
         const insurer = await insurerBO.getBySlug(insurerSlug);
@@ -586,7 +586,15 @@ module.exports = class AcuityGL extends Integration {
         }
 
         // Check SignonRs.Status.StatuCd to ensure that we authenticated properly
-        const status_code = parseInt(res.ACORD.SignonRs[0].Status[0].StatusCd[0], 10);
+        let status_code = null;
+        try{
+            status_code = parseInt(res.ACORD.SignonRs[0].Status[0].StatusCd[0], 10);
+        }
+        catch(err){
+            log.error(`${logPrefix} unable to get StatusCd  error ${err}` + __location)
+        }
+
+
         if (status_code !== 0) {
             this.log += '--------======= Unexpected API Error =======--------<br><br>';
             log.error(`Acuity (application ${this.app.id}): Status code of ${status_code} from API ${__location}`);
@@ -701,53 +709,56 @@ module.exports = class AcuityGL extends Integration {
                         }
                     }
                 }
+                try{
+                    // Set payment plans
+                    const insurerPaymentPlans = this.get_xml_child(res.ACORD, "InsuranceSvcRs.GeneralLiabilityPolicyQuoteInqRs.CommlPolicy.PaymentOption", true);
 
-                // Set payment plans
-                const insurerPaymentPlans = this.get_xml_child(res.ACORD, "InsuranceSvcRs.GeneralLiabilityPolicyQuoteInqRs.CommlPolicy.PaymentOption", true);
+                    this.insurerPaymentPlans = insurerPaymentPlans.map(({
+                        $, ...rest
+                    }) => (
+                        {
+                            id: $.id,
+                            ...rest
+                        }))
 
-                this.insurerPaymentPlans = insurerPaymentPlans.map(({
-                    $, ...rest
-                }) => (
-                    {
-                        id: $.id,
-                        ...rest
-                    }))
-
-                const paymentPlansIDsMap = {
-                    'FL': 1,
-                    'SA': 2,
-                    'QT': 3,
-                    '5P': 1,
-                    '11': 1
-                }
-
-                this.talageInsurerPaymentPlans = insurerPaymentPlans.map((insurerPaymentPlan) => {
-                    const insurerPaymentPlanId = insurerPaymentPlan.$.id
-                    const code = insurerPaymentPlan.PaymentPlanCd[0]
-                    const description = insurerPaymentPlan.Description[0]
-                    const numberPayments = Number(insurerPaymentPlan.NumPayments[0])
-                    const total = policyAmount
-                    const depositAmount = Number(insurerPaymentPlan.DepositAmt[0].Amt[0])
-                    const installmentFees = Number(insurerPaymentPlan.InstallmentFeeAmt[0].Amt[0])
-                    const paymentMethod = insurerPaymentPlan.MethodPaymentCd[0]
-                    const installmentPayment = Number(insurerPaymentPlan.InstallmentInfo[0].InstallmentAmt[0].Amt[0])
-
-                    return {
-                        paymentPlanId: paymentPlansIDsMap[code],
-                        insurerPaymentPlanId: insurerPaymentPlanId,
-                        insurerPaymentPlanDescription: `${description} (${paymentMethod})`,
-                        NumberPayments: numberPayments,
-                        TotalCost: total,
-                        TotalPremium: total,
-                        DownPayment: code === 'FL' ? 0 : depositAmount,
-                        TotalStateTaxes: 0,
-                        TotalBillingFees: numberPayments * installmentFees,
-                        DepositPercent: Number((100 * depositAmount / total).toFixed(2)),
-                        IsDirectDebit: paymentMethod === 'CHECK',
-                        installmentPayment: installmentPayment
+                    const paymentPlansIDsMap = {
+                        'FL': 1,
+                        'SA': 2,
+                        'QT': 3,
+                        '5P': 1,
+                        '11': 1
                     }
-                })
 
+                    this.talageInsurerPaymentPlans = insurerPaymentPlans.map((insurerPaymentPlan) => {
+                        const insurerPaymentPlanId = insurerPaymentPlan.$.id
+                        const code = insurerPaymentPlan.PaymentPlanCd[0]
+                        const description = insurerPaymentPlan.Description[0]
+                        const numberPayments = Number(insurerPaymentPlan.NumPayments[0])
+                        const total = policyAmount
+                        const depositAmount = Number(insurerPaymentPlan.DepositAmt[0].Amt[0])
+                        const installmentFees = Number(insurerPaymentPlan.InstallmentFeeAmt[0].Amt[0])
+                        const paymentMethod = insurerPaymentPlan.MethodPaymentCd[0]
+                        const installmentPayment = Number(insurerPaymentPlan.InstallmentInfo[0].InstallmentAmt[0].Amt[0])
+
+                        return {
+                            paymentPlanId: paymentPlansIDsMap[code],
+                            insurerPaymentPlanId: insurerPaymentPlanId,
+                            insurerPaymentPlanDescription: `${description} (${paymentMethod})`,
+                            NumberPayments: numberPayments,
+                            TotalCost: total,
+                            TotalPremium: total,
+                            DownPayment: code === 'FL' ? 0 : depositAmount,
+                            TotalStateTaxes: 0,
+                            TotalBillingFees: numberPayments * installmentFees,
+                            DepositPercent: Number((100 * depositAmount / total).toFixed(2)),
+                            IsDirectDebit: paymentMethod === 'CHECK',
+                            installmentPayment: installmentPayment
+                        }
+                    })
+                }
+                catch(err){
+                    log.error(`${logPrefix} paymentplan error ${err}` + __location)
+                }
 
                 const status = policyStatusCode === "com.acuity_BindableQuote" ? "quoted" : "referred";
                 log.info(`Acuity: Returning ${status} ${policyAmount ? "with price" : ""}`);
