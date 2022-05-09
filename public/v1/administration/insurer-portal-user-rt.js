@@ -103,7 +103,7 @@ async function add(req, res, next) {
         'timezone',
         'insurerId'
     ];
-    let insertJSON = {state: 1}
+    const insertJSON = {state: 1}
     let needToUpdate = false;
     for(let i = 0; i < allowedPropsInsert.length; i++) {
         if(req.body[allowedPropsInsert[i]]){
@@ -162,10 +162,10 @@ async function update(req, res, next) {
         'canSign',
         'timezone'
     ];
-    let updateJSON = {id: id}
+    const updateJSON = {id: id}
     let needToUpdate = false;
     for(let i = 0; i < allowedPropsUpdate.length; i++) {
-        let value = req.body[allowedPropsUpdate[i]]
+        const value = req.body[allowedPropsUpdate[i]]
         if(value || value === '' || value === 0){
             updateJSON[allowedPropsUpdate[i]] = req.body[allowedPropsUpdate[i]];
             needToUpdate = true;
