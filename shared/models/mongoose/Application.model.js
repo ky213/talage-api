@@ -265,6 +265,13 @@ const PricingInfoSchema = new Schema({
     pricingError: {type: Boolean, default: false}
 },opts);
 
+
+const amsInfoSchema = new Schema({
+    amsType: {type: String, required: false},
+    clientId: {type: String, required: false},
+    additionalInfo: {type: Object}
+},opts)
+
 // note: ein - not saved to db
 const ApplicationSchema = new Schema({
     applicationId: {type: String, required: [true, 'applicationId required'], unique: true},
@@ -348,6 +355,7 @@ const ApplicationSchema = new Schema({
     agencyCode: {type: String, required: false},
     tagString: {type: String, required: false},
     lastPage: {type: String, required: false},
+    amsInfo:{type: amsInfoSchema, required: false},
     active: {type: Boolean, default: true}
 }, opts);
 // NOTE:  EIN is not ever saved to database.

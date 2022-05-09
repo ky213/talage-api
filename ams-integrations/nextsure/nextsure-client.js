@@ -1,5 +1,7 @@
 
 const axios = require('axios');
+var parser = require('xml2json');
+const _ = require('lodash');
 
 const ApplicationBO = global.requireShared('./models/Application-BO.js');
 const AgencyBO = global.requireShared('./models/Agency-BO.js');
@@ -134,7 +136,7 @@ async function clientSearch(agencyId, companyName, territory){
         const requestOptions = {headers: {'Content-Type': 'application/x-www-form-urlencoded'}};
 
         const body = {
-            "clientName":companyName,
+            "clientName": _.escape(companyName),
             "returnContentType": "application/json"
         }
 
@@ -401,8 +403,282 @@ async function createApplicationFromClientId(agencyId, clientId, agencyPortalUse
     }
 }
 
+/**
+ * Create application from Nextsure clientIdh
+ * @param  {integer} agencyId - agencyId
+ * @param  {string} clientId - Nextsure ClientId
+ * @param  {integer} appDoc - applicationDoc new client source Doc
+ * @param  {integer} processBound - if true quote and app will be get marked bound, if necessary manual quote will be added
+ * @returns {object} Array of policy records converted to use Talage InsurerId and quoteId
+ */
+async function getPoliciesByClientId(agencyId, clientId, appDoc, processBound = false){
+
+    let policies = [];
+    const authToken = await auth(agencyId).catch(function(err){
+        log.error(`error getting Nextsure Auth Token ${err}` + __location)
+    });
+    if(authToken){
+        const requestJson = {
+            "SearchType": 1,
+            "ClientID": clientId
+        }
+        //match to Talage insurers
+        const path = "/policy/policysearchwithdetails?page=1&resultsPerPage=20&returnContentType=application/json";
+
+        const requestOptions = {headers: {'Content-Type': 'application/json'}};
+        const response = await httpRequest("POST",path, authToken, null, requestJson, requestOptions);
+        if (response.error) {
+            log.error(`Nextsure getPoliciesByClientId error ${response.error}` + __location)
+            return null;
+        }
+        if (response.data.error) {
+            log.error(`Nextsure getPoliciesByClientId error ${response.data.error}` + __location)
+            return null;
+        }
+        if (!response.data.Policies?.Policy) {
+            log.error(`Nextsure getPoliciesByClientId no response.data.Policies.Policy in response ` + __location)
+            log.error(`ClientSearch NextSure no Client response ${JSON.stringify(response.data)}` + __location)
+            return null;
+        }
+        const returnedJSON = response.data;
+        if(returnedJSON.Policies?.Policy){
+            if(Array.isArray(returnedJSON.Policies.Policy)){
+                policies = returnedJSON.Policies.Policy
+            }
+            else {
+                policies = [returnedJSON.Policies.Policy]
+            }
+
+            //load ams
+            const query = {"amsType" : "Nextsure"}
+            const AmsModel = global.mongoose.Ams;
+            const amsJson = await AmsModel.findOne(query, '-__v').lean();
+            if(amsJson){
+                let insurerId = 0;
+                for(const amsPolicy of policies){
+
+                    if(amsPolicy.BillingCarrier?.CarrierName){
+                        // eslint-disable-next-line guard-for-in
+                        for(const insurerName in amsJson.insurerMap){
+                            if(insurerId === 0 && amsPolicy.BillingCarrier.CarrierName.indexOf(insurerName) > -1){
+                                insurerId = amsJson.insurerMap[insurerName];
+                            }
+                        }
+                    }
+                    if(insurerId > 0){
+                        amsPolicy.insurerId = insurerId;
+                        // add insurerId
+                        if(processBound){
+                            //mark quote if necessary
+                        }
+                    }
+                    else {
+                        log.error(`Nextsure getPoliciesByClientId unknown carrier ${amsPolicy.BillingCarrier.CarrierName} ` + __location)
+                    }
+                }
+            }
+        }
+        else {
+            log.error(`Nextsure getPoliciesByClientId no response.data.Policies.Policy in response ` + __location)
+        }
+    }
+    return policies;
+}
+
+
+/**
+ * Create application from Nextsure clientIdh
+ * @param  {integer} agencyId - agencyId
+ * @param  {integer} appDoc - applicationDoc new client source Doc
+ * @param  {integer} quoteDoc - (optional) quoteDoc to create a policy from from.
+ * @returns {string} clientId of new Nextsure policy records
+ */
+async function createClientFromAppDoc(agencyId, appDoc, quoteDoc){
+    if(!appDoc){
+        return null;
+    }
+    if(appDoc.amsInfo?.clientId){
+        return appDoc.amsInfo.clientId
+    }
+
+    let newClientId = null
+    const authToken = await auth(agencyId).catch(function(err){
+        log.error(`error getting Nextsure Auth Token ${err}` + __location)
+    });
+    if(authToken){
+        let primaryContact = appDoc.contacts.find((c) => c.priamry === true)
+        if(!primaryContact){
+            if(appDoc.contacts.length === 1){
+                primaryContact = appDoc.contacts[0];
+            }
+            else {
+                primaryContact = {};
+            }
+        }
+
+        let primarylocation = appDoc.locations.find((l) => l.priamry === true)
+        if(!primarylocation){
+            if(appDoc.locations.length === 1){
+                primarylocation = appDoc.locations[0];
+            }
+            else {
+                primarylocation = {};
+            }
+        }
+
+        const jsonClient = {"Client": {
+            "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
+            "xmlns:xsd": "http://www.w3.org/2001/XMLSchema",
+            "ClientType": {"$t": "Commercial"},
+            "ClientStage": {"$t": "Client"},
+            "ClientNames": [
+                {
+                    "Name": {"$t": `${_.escape(appDoc.businessName)}`},
+                    "IsPrimaryName": {"$t": "true"},
+                    "IsDBAName": {"$t": "false"},
+                    "GrossReceipts": {"$t": `${appDoc.grossSalesAmt ? appDoc.grossSalesAmt.toString() : "0"}`},
+                    "FEIN": {"$t": `${appDoc.ein ? appDoc.ein.toString() : ""}`}
+                }
+            ],
+            "Contacts": {
+                "FirstName": {"$t": `${primaryContact.firstName ? primaryContact.firstName : " unkn"}`},
+                "LastName": {"$t": `${primaryContact.lastName ? primaryContact.lastName : " unkn"}`},
+                "Phone": [
+                    {
+                        "PhoneNumber": {"$t": `${primaryContact.phone ? primaryContact.phone : " unkn"}`},
+                        "Description": {"$t": "Cell Phone"},
+                        "IsPrimaryPhone": {"$t": "true"},
+                        "PhoneType": {"$t": "Cell"}
+                    }
+                ],
+                "Email": {"$t": `${primaryContact.email ? primaryContact.email : "unkn"}`},
+                "IsPrimary": {"$t": "true"}
+            },
+            "Locations": {
+                "Address": [
+                    {
+                        "AddressType": {"$t": "Physical"},
+                        "StreetAddress1": {"$t": `${primarylocation.address ? primarylocation.address : ""}`},
+                        "StreetAddress2": {"$t": `${primarylocation.address2 ? primarylocation.address2 : ""}`},
+                        "City": {"$t": `${primarylocation.city ? primarylocation.city : ""}`},
+                        "State": {"$t": `${primarylocation.state ? primarylocation.state : ""}`},
+                        "ZipCode": {"$t": `${primarylocation.zipcode ? primarylocation.zipcode : ""}`}
+                    }, {
+                        "AddressType": {"$t": "Mailing"},
+                        "StreetAddress1": {"$t": `${appDoc.mailingAddress ? appDoc.mailingAddress : ""}`},
+                        "StreetAddress2": {"$t": `${appDoc.mailingAddress2 ? appDoc.mailingAddress2 : ""}`},
+                        "City": {"$t": `${appDoc.mailingCity ? appDoc.mailingCity : ""}`},
+                        "State": {"$t": `${appDoc.mailingState ? appDoc.mailingState : ""}`},
+                        "ZipCode": {"$t": `${appDoc.mailingZipcode ? appDoc.mailingZipcode : ""}`}
+                    }
+                ],
+                "IsPrimaryLocation": {"$t": "true"}
+            },
+            "Assignments": {
+                "IsPrimary": {"$t": "true"},
+                "Branch": {
+                    "BranchID": {"$t": "1"},
+                    "BranchName": {"$t": "Talage, Inc."}
+                },
+                "Department": {
+                    "DepartmentID": {"$t": "1"},
+                    "DepartmentName": {"$t": "Commercial Lines"}
+                }
+            }
+        }};
+        const clientXML = parser.toXml(jsonClient);
+        log.debug(clientXML);
+        //Send to Nextsure
+        const path = "/clients/addnewclient";
+
+        const requestOptions = {headers: {'Content-Type': 'application/x-www-form-urlencoded'}};
+
+        const body = {
+            "inputXml": clientXML,
+            "returnContentType": "application/json"
+        }
+
+        const url = require('url');
+        const params = new url.URLSearchParams(body);
+        const response = await httpRequest("POST",path, authToken, null, params.toString(), requestOptions);
+        if (response.error) {
+            log.error(`Nextsure createClientFromAppDoc error ${response.error}` + __location)
+            return null;
+        }
+        if (response.data.error) {
+            log.error(`Nextsure createClientFromAppDoc error ${response.data.error}` + __location)
+            return null;
+        }
+        if (!response.data.Client) {
+            log.error(`Nextsure createClientFromAppDoc no response.data.Client in response ` + __location)
+            log.error(`ClientSearch NextSure no Client response ${JSON.stringify(response.data)}` + __location)
+            return null;
+        }
+        const returnedJSON = response.data;
+        if(returnedJSON.Client.ClientID){
+            newClientId = returnedJSON.Client.ClientID
+            try{
+                const applicationBO = new ApplicationBO();
+                const amsJSON = {amsInfo : {
+                    "amsType" : "Nextsure",
+                    clientId: newClientId
+                }};
+                await applicationBO.updateMongo(appDoc.applicationId, amsJSON);
+            }
+            catch(err){
+                log.error(`Nextsure createClientFromAppDoc updating App Doc error ${err}` + __location)
+            }
+            //update
+            if(quoteDoc){
+                //create policy
+                try{
+                    //  ads
+                }
+                catch(err){
+                    log.error(`Nextsure createClientFromAppDoc error ${err}` + __location)
+                }
+            }
+
+
+        }
+
+    }
+    return newClientId;
+}
+
+/**
+ * Create application from Nextsure clientIdh
+ * @param  {integer} agencyId - agencyId
+ * @param  {string} clientId - Nextsure ClientId
+ * @param  {integer} quoteDoc - (optional) quoteDoc to create a policy from from.
+ * @returns {string} clientId of new Nextsure policy records
+ */
+async function createPolicyFromQuoteDoc(agencyId, clientId, quoteDoc){
+    if(!quoteDoc){
+        return null;
+    }
+
+    const authToken = await auth(agencyId).catch(function(err){
+        log.error(`error getting Nextsure Auth Token ${err}` + __location)
+    });
+    if(authToken){
+
+
+        if(quoteDoc){
+            //create policy
+
+        }
+
+    }
+    return null;
+}
+
+
 module.exports = {
     auth: auth,
     clientSearch: clientSearch,
-    createApplicationFromClientId: createApplicationFromClientId
+    createApplicationFromClientId: createApplicationFromClientId,
+    getPoliciesByClientId: getPoliciesByClientId,
+    createClientFromAppDoc: createClientFromAppDoc,
+    createPolicyFromQuoteDoc: createPolicyFromQuoteDoc
 };

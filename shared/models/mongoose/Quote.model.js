@@ -69,6 +69,12 @@ const TalageInsurerPaymentPlanSchema = new Schema({
     invoices: [TalageInsurerInvoiceSchema]
 }, {_id: false});
 
+const amsInfoSchema = new Schema({
+    amsType: {type: String, required: false},
+    clientId: {type: String, required: false},
+    policyId: {type: String, required: false},
+    additionalInfo: {type: Object}
+},{_id: false})
 
 const QuoteSchema = new Schema({
     quoteId: {type: String, required: [true, 'quoteId required'], unique: true},
@@ -117,6 +123,7 @@ const QuoteSchema = new Schema({
     productDesc: {type: String},
     isManualQuote: {type: Boolean, default: false},
     addUser: {type: String},
+    amsInfo: {type: amsInfoSchema},
     active: {type: Boolean, default: true}
 });
 
