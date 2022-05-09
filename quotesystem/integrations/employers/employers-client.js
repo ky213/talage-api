@@ -38,14 +38,16 @@ async function auth(integrationObj){
         'Authorization': `Basic ${basicAuth}`
     }}
     const body = {"scope":"das"}
+    let respToken = null;
     try {
         const result = await axios.post(`${authUrl}`, body, headers);
-        return result.data.access_token;
+        respToken = result.data.access_token;
     }
     catch (err) {
         log.error(`Employers Auth failed ` + __location);
         return null
     }
+    return respToken;
 }
 
 module.exports = {auth: auth};

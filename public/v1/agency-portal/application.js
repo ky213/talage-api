@@ -2517,6 +2517,198 @@ async function accesscheck(appId, req, retObject){
 }
 
 
+async function amsCreateClient(req, res, next){
+    // Check for data
+    if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
+        log.warn('No data was received' + __location);
+        return next(serverHelper.requestError('No data was received'));
+    }
+
+    // Make sure basic elements are present
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'applicationId')) {
+        log.warn('Some required data is missing' + __location);
+        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+    }
+
+    // if (!Object.prototype.hasOwnProperty.call(req.body, 'quoteId')) {
+    //     log.warn('Some required data is missing' + __location);
+    //     return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+    // }
+
+    let error = null;
+    const applicationBO = new ApplicationBO();
+    let applicationId = req.body.applicationId;
+    
+    log.debug(`Getting app id  ${applicationId} from mongo` + __location)
+    const applicationDB = await applicationBO.getfromMongoByAppId(applicationId).catch(function(err) {
+        log.error(`Error getting application Doc for bound ${applicationId} ` + err + __location);
+        log.error('Bad Request: Invalid id ' + __location);
+        error = err;
+    });
+    if (error) {
+        return next(Error);
+    }
+    if(applicationDB){
+        applicationId = applicationDB.applicationId;
+    }
+    else {
+        log.error(`Did not find application Doc for mark as dead ${applicationId}` + __location);
+        return next(serverHelper.requestError('Invalid id'));
+    }
+
+    const passedAgencyCheck = await auth.authorizedForAgency(req, applicationDB?.agencyId, applicationDB?.agencyNetworkId)
+    
+    // Make sure this user has access to the requested agent (Done before validation to prevent leaking valid Agent IDs)
+    if (!passedAgencyCheck) {
+        log.info('Forbidden: User is not authorized to access the requested application');
+        return next(serverHelper.forbiddenError('You are not authorized to access the requested application'));
+    }
+    let amsAgencyId = applicationDB.agencyId;
+    let talageWholesaleUser = false;
+    //Check if Talage wholesale....(if user )
+    if(req.authentication.isAgencyNetworkUser
+        && req.authentication.agencyNetworkId === 1
+        && req.authentication.permissions.talageStaff === true){
+
+        talageWholesaleUser = true
+    }
+
+
+    //Check if agency has AMS setup
+    const query = {
+        agencyId: amsAgencyId,
+        active: true
+    }
+    const AgencyAmsCredModel = global.mongoose.AgencyAmsCred;
+    const agencyAmsCredJson = await AgencyAmsCredModel.findOne(query, '-__v').lean();
+    if(!agencyAmsCredJson && talageWholesaleUser){
+        ///TODO check agencyLocation has talageWholes setup
+
+        amsAgencyId = 1;
+    }
+    else {
+        log.error(`AP: amsCreateClient No AMS configured for agencyId ${applicationDB.agencyId} appId: ${applicationId} ` + __location);
+        return next(serverHelper.requestError('No AMS connect has been configured for the Agency.'));
+    }
+    
+
+    const nextsureClient = global.requireRootPath('ams-integrations/nextsure/nextsure-client.js')
+
+    const newClientId = await nextsureClient.createClientFromAppDoc(amsAgencyId,applicationDB);
+
+
+    // Send back mark status.
+    if(newClientId){
+        res.send(200, {"done": true, newClientId: newClientId});
+    }
+    else {
+        res.send({'message': 'Failed to create client record in AMS.'});
+    }
+    return next();
+}
+
+//amsGetPolicies
+
+async function amsGetPolicies(req, res, next){
+    // Check for data
+    if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
+        log.warn('No data was received' + __location);
+        return next(serverHelper.requestError('No data was received'));
+    }
+
+    // Make sure basic elements are present
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'applicationId')) {
+        log.warn('Some required data is missing' + __location);
+        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+    }
+
+    // if (!Object.prototype.hasOwnProperty.call(req.body, 'quoteId')) {
+    //     log.warn('Some required data is missing' + __location);
+    //     return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+    // }
+
+    let error = null;
+    const applicationBO = new ApplicationBO();
+    let applicationId = req.body.applicationId;
+    
+    log.debug(`Getting app id  ${applicationId} from mongo` + __location)
+    const applicationDB = await applicationBO.getfromMongoByAppId(applicationId).catch(function(err) {
+        log.error(`Error getting application Doc for bound ${applicationId} ` + err + __location);
+        log.error('Bad Request: Invalid id ' + __location);
+        error = err;
+    });
+    if (error) {
+        return next(Error);
+    }
+    if(applicationDB){
+        applicationId = applicationDB.applicationId;
+    }
+    else {
+        log.error(`Did not find application Doc for mark as dead ${applicationId}` + __location);
+        return next(serverHelper.requestError('Invalid id'));
+    }
+
+    const passedAgencyCheck = await auth.authorizedForAgency(req, applicationDB?.agencyId, applicationDB?.agencyNetworkId)
+    
+    // Make sure this user has access to the requested agent (Done before validation to prevent leaking valid Agent IDs)
+    if (!passedAgencyCheck) {
+        log.info('Forbidden: User is not authorized to access the requested application');
+        return next(serverHelper.forbiddenError('You are not authorized to access the requested application'));
+    }
+
+    let amsAgencyId = applicationDB.agencyId;
+    let talageWholesaleUser = false;
+    //Check if Talage wholesale....(if user )
+    if(req.authentication.isAgencyNetworkUser
+        && req.authentication.agencyNetworkId === 1
+        && req.authentication.permissions.talageStaff === true){
+
+        talageWholesaleUser = true
+    }
+
+
+    //Check if agency has AMS setup
+    const query = {
+        agencyId: amsAgencyId,
+        active: true
+    }
+    const AgencyAmsCredModel = global.mongoose.AgencyAmsCred;
+    const agencyAmsCredJson = await AgencyAmsCredModel.findOne(query, '-__v').lean();
+    if(!agencyAmsCredJson && talageWholesaleUser){
+        ///TODO check agencyLocation has talageWholes setup
+
+        amsAgencyId = 1;
+    }
+    else {
+        log.error(`AP: amsCreateClient No AMS configured for agencyId ${applicationDB.agencyId} appId: ${applicationId} ` + __location);
+        return next(serverHelper.requestError('No AMS connect has been configured for the Agency.'));
+    }
+    
+
+    const nextsureClient = global.requireRootPath('ams-integrations/nextsure/nextsure-client.js')
+
+
+    if(!applicationDB.amsInfo?.clientId){
+        // TODO do an auto lookup 
+        log.error(`AP: amsCreateClient No AMS client Id on application for agencyId ${applicationDB.agencyId} appId: ${applicationId} ` + __location);
+        return next(serverHelper.requestError('No AMS ClientId not set on application.'));
+    }
+
+
+    const policies = await nextsureClient.getPoliciesByClientId(amsAgencyId,applicationDB.amsInfo?.clientId, applicationDB, req.body.processBound);
+
+
+    // Send back mark status.
+    if(policies){
+        res.send(200, policies);
+    }
+    else {
+        res.send({'message': 'Failed to get policies from AMS.'});
+    }
+    return next();
+}
+
+
 exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('Get Application', `${basePath}/application`, getApplication, 'applications', 'view');
     server.addGetAuth('Get Application Doc', `${basePath}/application/:id`, getApplicationDoc, 'applications', 'view');
@@ -2551,4 +2743,8 @@ exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('Get Quote Limits Info',`${basePath}/application/quote-limits`, GetQuoteLimits);
     server.addGetAuth('GET Appplication Hints', `${basePath}/application/:id/hints`, getHints, 'applications', 'manage');
     server.addPutAuth('PUT Mark Quote As Dead', `${basePath}/application/:id/mark-as-dead`, markQuoteAsDead, 'applications', 'manage');
+
+
+    server.addPutAuth('PUT Create Client in AMS', `${basePath}/application/:id/ams/create`, amsCreateClient, 'applications', 'manage');
+    server.addPutAuth('PUT Check Policies in AMS', `${basePath}/application/:id/ams/policy`, amsGetPolicies, 'applications', 'manage');
 };
