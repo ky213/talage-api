@@ -1,6 +1,4 @@
 /* eslint-disable require-jsdoc */
-'use strict';
-
 const crypt = global.requireShared('services/crypt.js');
 const jwt = require('jsonwebtoken');
 const serverHelper = global.requireRootPath('server.js');
@@ -27,7 +25,7 @@ var uuid = require('uuid');
  */
 async function login(req, res, next){
     // Check for data
-    if (!req.body || typeof req.body !== 'object' || Object.keys(req.body).length === 0) {
+    if (!req.body || typeof req.body !== 'object' || Object.keys(req.body).length <= 0) {
         log.info('Bad Request: Missing both email and password');
         return next(serverHelper.requestError('You must supply an email address and password'));
     }

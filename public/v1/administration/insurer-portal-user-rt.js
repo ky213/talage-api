@@ -1,13 +1,3 @@
-/* eslint-disable no-loop-func */
-/* eslint-disable object-property-newline */
-/* eslint-disable block-scoped-var */
-/* eslint-disable object-curly-newline */
-/* eslint-disable dot-location */
-/* eslint-disable prefer-const */
-/* eslint-disable guard-for-in */
-/* eslint-disable require-jsdoc */
-'use strict';
-
 const InsurerPortalUserBO = global.requireShared('./models/InsurerPortalUser-BO.js');
 const crypt = global.requireShared('./services/crypt.js');
 

@@ -1,17 +1,18 @@
 var InsurerPortalUserGroup = global.mongoose.InsurerPortalUserGroup;
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
+
 module.exports = class InsurerPortalUserGroupBO{
     constructor(){
         this.id = 0;
     }
 
     /**
-	 * Save Model
+     * Save Model
      *
-	 * @param {object} newObjectJSON - newObjectJSON JSON
-	 * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessContact , or an Error if rejected
-	 */
+     * @param {object} newObjectJSON - newObjectJSON JSON
+     * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessContact , or an Error if rejected
+     */
     async saveModel(newObjectJSON){
         let updatedDoc = null;
         try{

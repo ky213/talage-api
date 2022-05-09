@@ -4,8 +4,6 @@
  * FROM: agency-portal/api
  */
 
-'use strict';
-
 /**
  * Validates that the JWT includes the parameters we are expecting
  *
