@@ -278,37 +278,33 @@ module.exports = class InsurerPortalUserBO{
     }
 
 
-    async getByEmailAndInsurerId(email, activeUser = true, insurerId) {
-        return new Promise(async(resolve, reject) => {
-            if (email) {
-                const query = {
-                    email: email.toLowerCase(),
-                    insurerId: insurerId,
-                    active: activeUser
-                };
-                log.debug(`getByEmailAndInsurerId ${JSON.stringify(query)} insurerId ${insurerId}` + __location);
-                try {
-                    const userDoc = await InsurerPortalUserModel.findOne(query, '-__v');
-
-                    if(userDoc){
-                        userDoc.id = userDoc.insurerId;
-                        resolve(mongoUtils.objCleanup(userDoc));
-                    }
-                    else {
-                        resolve(null);
-                    }
-                }
-                catch (err) {
-                    log.error("Getting InsurerPortalUser error " + err + __location);
-                    reject(err);
-                }
-
+    async getByEmail(email, activeUser = true, insurerId) {
+        if (email) {
+            const query = {
+                email: email.toLowerCase(),
+                active: activeUser
+            };
+            log.debug(`getByEmail ${JSON.stringify(query)} insurerId ${insurerId}` + __location);
+            let userDoc = null;
+            try {
+                userDoc = await InsurerPortalUserModel.findOne(query, '-__v');
             }
-            else {
-                log.info(`no email supplied` + __location)
-                reject(new Error('no email supplied'))
+            catch (err) {
+                log.error("Getting InsurerPortalUser error " + err + __location);
+                throw err;
             }
-        });
+
+            if(!userDoc){
+                return null;
+            }
+
+            return mongoUtils.objCleanup(userDoc);
+
+        }
+        else {
+            log.info(`no email supplied` + __location)
+            throw new Error('no email supplied');
+        }
     }
 
     async updateMongo(docId, newObjectJSON) {

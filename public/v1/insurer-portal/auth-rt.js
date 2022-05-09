@@ -26,8 +26,6 @@ var uuid = require('uuid');
  * @returns {object} res - Returns an authorization token using username/password credentials
  */
 async function login(req, res, next){
-    let error = false;
-
     // Check for data
     if (!req.body || typeof req.body !== 'object' || Object.keys(req.body).length === 0) {
         log.info('Bad Request: Missing both email and password');
@@ -48,39 +46,30 @@ async function login(req, res, next){
         return next();
     }
 
-    // Makes sure a password was provided
-    if (!req.body.insurerId) {
-        log.info('Missing Insurer ID' + __location);
-        res.send(400, serverHelper.requestError('Insurer ID is required'));
-        return next();
-    }
-
     // This is a complete hack. Plus signs in email addresses are valid, but the Restify queryParser removes plus signs. Add them back in
     req.body.email = req.body.email.replace(' ', '+');
 
     // Authenticate the information provided by the user
     const insurerPortalUserBO = new InsurerPortalUserBO();
-    const insurerPortalUserDBJson = await insurerPortalUserBO.getByEmailAndInsurerId(req.body.email, true, req.body.insurerId).catch(function(e) {
+    let insurerPortalUserDBJson = null;
+    try {
+        insurerPortalUserDBJson = await insurerPortalUserBO.getByEmail(req.body.email, true);
+    }
+    catch (e) {
         log.error(e.message + __location);
-        res.send(500, serverHelper.internalError('Error querying database. Check logs.'));
-        error = true;
-    });
-    if (error) {
-        return next(false);
+        return next(serverHelper.internalError('Error querying database. Check logs.'));
     }
 
     // Make sure we found the user
     if (!insurerPortalUserDBJson) {
         log.info('Authentication failed - Account not found ' + req.body.email);
-        res.send(401, serverHelper.invalidCredentialsError('Invalid API Credentials'));
-        return next();
+        return next(serverHelper.invalidCredentialsError('Invalid API Credentials'));
     }
 
     // Check the password
     if (!crypt.verifyPassword(insurerPortalUserDBJson.password, req.body.password)) {
         log.info('Authentication failed ' + req.body.email);
-        res.send(401, serverHelper.invalidCredentialsError('Invalid API Credentials'));
-        return next();
+        return next(serverHelper.invalidCredentialsError('Invalid API Credentials'));
 
     }
 
@@ -90,7 +79,7 @@ async function login(req, res, next){
     const jwtToken = await AuthHelper.createMFAToken(insurerPortalUserDBJson, sessionUuid);
     const token = `Bearer ${jwtToken}`;
 
-    const redisKey = "apusermfacode-" + insurerPortalUserDBJson.insurerPortalUserId + "-" + mfaCode;
+    const redisKey = "ipusermfacode-" + insurerPortalUserDBJson.insurerPortalUserId + "-" + mfaCode;
     const ttlSeconds = 900; //15 minutes
     await global.redisSvc.storeKeyValue(redisKey, sessionUuid, ttlSeconds);
 
@@ -99,36 +88,23 @@ async function login(req, res, next){
         'subject': `Your Insurer Portal Login Code `,
         'to': insurerPortalUserDBJson.email
     };
+    let emailResp = null;
+    try {
+        emailResp = await emailsvc.send(emailData.to, emailData.subject, emailData.html, {}, insurerPortalUserDBJson.insurerId, "");
+    }
+    catch (e) {
+        log.error(e.message + __location);
+        return next(serverHelper.internalError('Error fetching mfa redis value.'));
 
-    const emailResp = await emailsvc.send(emailData.to, emailData.subject, emailData.html, {}, insurerPortalUserDBJson.insurerId, "");
-    if(emailResp === false){
+    }
+    if(!emailResp){
         log.error(`Failed to send the mfa code email to ${insurerPortalUserDBJson.email}. Please contact the user.`);
         slack.send('#alerts', 'warning',`Failed to send the mfa code email to ${insurerPortalUserDBJson.email}. Please contact the user.`);
-        res.send(500, serverHelper.internalError('Internal error when authenticating.'));
-        return next(false);
+        return next(serverHelper.internalError('Internal error when authenticating.'));
     }
 
     res.send(200, token);
     return next();
-    // const redisKey = "apuserinfo-" + agencyPortalUserDBJson.agencyPortalUserId;
-    // await global.redisSvc.storeKeyValue(redisKey, JSON.stringify(agencyPortalUserDBJson));
-
-
-    // try {
-    //     const jwtToken = await AuthHelper.createToken(req.body.email, req.body.agencyNetworkId);
-    //     const token = `Bearer ${jwtToken}`;
-    //     res.send(201, {
-    //         status: 'Created',
-    //         token: token,
-    //         loginComplete: true
-    //     });
-    //     return next();
-    // }
-    // catch (ex) {
-    //     log.error(`Internal error when authenticating ${ex}` + __location);
-    //     res.send(500, serverHelper.internalError('Internal error when authenticating. Check logs.'));
-    //     return next(false);
-    // }
 }
 
 /**
@@ -180,19 +156,27 @@ async function refresh(req, res, next) {
  */
 async function verify(req, res, next) {
     // Ensure we have the proper parameters
-    if (!req.body || !req.body.mfaCode) {
-        log.info('Bad Request: Missing parameter mfaCode ' + __location);
+    if (!req.body || !req.body.code) {
+        log.info('Bad Request: Missing parameter code ' + __location);
         return next(serverHelper.requestError('A parameter is missing for mfacheck.'));
     }
 
     //check code versus Redis.
-    const redisKey = "ipusermfacode-" + req.authentication.userId + "-" + req.body.mfaCode;
-    const redisValueRaw = await global.redisSvc.getKeyValue(redisKey);
-    if (!redisValueRaw.found) {
+    const redisKey = "ipusermfacode-" + req.authentication.userId + "-" + req.body.code;
+    let redisValueRaw = null;
+    try {
+        redisValueRaw = await global.redisSvc.getKeyValue(redisKey);
+    }
+    catch (e) {
+        log.error(e.message + __location);
+        return next(serverHelper.internalError('Error fetching mfa redis value.'));
+    }
+
+    if (!redisValueRaw?.found) {
         log.info('Unable to find user MFA key - Data may of expired.' + __location);
         return next(serverHelper.notAuthorizedError('Not Authorized'));
     }
-    else if(req.authentication.tokenId === redisValueRaw.value){
+    else if(req.authentication.tokenId === redisValueRaw?.value){
         // for security, we delete the key. Auto-login is one-time use only
         await global.redisSvc.deleteKey(redisKey);
 
@@ -214,7 +198,7 @@ async function verify(req, res, next) {
         await global.redisSvc.storeKeyValue(redisKeyUser, JSON.stringify(insurerPortalUserDBJson));
 
         try {
-            const jwtToken = await AuthHelper.createToken(insurerPortalUserDBJson.email, insurerPortalUserDBJson.insurerId);
+            const jwtToken = await AuthHelper.createToken(insurerPortalUserDBJson.email);
             const token = `Bearer ${jwtToken}`;
             res.send(201, token);
             return next();
@@ -225,7 +209,6 @@ async function verify(req, res, next) {
             return next(false);
         }
 
-
     }
     else {
         log.info('Mismatch on MFA tokenId' + __location);
@@ -234,7 +217,7 @@ async function verify(req, res, next) {
 }
 
 exports.registerEndpoint = (server, basePath) => {
-    server.addPost('Create Token', `${basePath}/insurer-portal`, login);
-    server.addPut('Refresh Token', `${basePath}/insurer-portal`, refresh);
-    server.addPostMFA('MFA Check', `${basePath}/insurer-portal/verify`, verify);
+    server.addPost('Create Token', `${basePath}/auth`, login);
+    server.addPut('Refresh Token', `${basePath}/auth`, refresh);
+    server.addPostMFA('MFA Check', `${basePath}/auth/verify`, verify);
 };
