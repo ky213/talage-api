@@ -9,6 +9,7 @@ const moment_timezone = require('moment-timezone');
 const Integration = require('../Integration.js');
 const InsurerBO = global.requireShared('./models/Insurer-BO.js');
 global.requireShared('./helpers/tracker.js');
+const {convertToDollarFormat} = global.requireShared('./helpers/stringFunctions.js');
 
 module.exports = class AcuityBOP extends Integration {
 
@@ -803,6 +804,16 @@ module.exports = class AcuityBOP extends Integration {
             return this.return_result('autodeclined');
         }
 
+        // get quote number (optional)
+        let quoteNumber = null;
+        const CompanysQuoteNumber = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.BOPPolicyQuoteInqRs.CommlPolicy.QuoteInfo.CompanysQuoteNumber');
+        if (CompanysQuoteNumber) {
+            quoteNumber = CompanysQuoteNumber[0];
+        }
+        else {
+            log.warn(`${logPrefix}Couldn't parse quote number` + __location);
+        }
+
         switch (policyStatusCode) {
             case 'com.acuity_Incomplete':
                 log.error(`Acuity BOP (appId ${this.app.id}): Reporting incomplete information for quoting.` + __location);
@@ -817,7 +828,9 @@ module.exports = class AcuityBOP extends Integration {
                     policyAmount = parseFloat(policyAmountNode);
                 }
                 // Get the returned limits
+                const quoteCoverages = [];
                 let foundLimitsCount = 0;
+                let sortIndex = 0;
                 const commlCoverage = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.BOPPolicyQuoteInqRs.BOPLineBusiness.LiabilityInfo.CommlCoverage', true);
                 if (!commlCoverage) {
                     this.reasons.push(`Could not find CommlCoverage node  with Limit information in response.`);
@@ -829,35 +842,95 @@ module.exports = class AcuityBOP extends Integration {
                         if (!coverage.Limit || !coverage.Limit.length) {
                             return;
                         }
-                        const amount = parseInt(coverage.Limit[0].FormatInteger[0], 10);
+                        const limitAmt = parseInt(coverage.Limit[0].FormatInteger[0], 10);
+                        const quoteCoverage = {
+                            value: convertToDollarFormat(limitAmt, true),
+                            sort: sortIndex++,
+                            category: `General Limits`,
+                            insurerIdentifier: coverage.CoverageCd[0]
+                        }
+                        let description = '';
                         switch (coverage.CoverageCd[0]) {
                             case "EAOCC":
-                                this.limits[4] = amount;
+                                quoteCoverage.description = 'Each Occurrence';
                                 foundLimitsCount++;
+                                quoteCoverages.push(quoteCoverage);
                                 break;
                             case "GENAG":
-                                this.limits[8] = amount;
+                                quoteCoverage.description = 'General Aggregate';
                                 foundLimitsCount++;
+                                quoteCoverages.push(quoteCoverage);
                                 break;
                             case "PRDCO":
-                                this.limits[9] = amount;
+                                quoteCoverage.description = 'Products & Completed Operations';
                                 foundLimitsCount++;
+                                quoteCoverages.push(quoteCoverage);
                                 break;
                             case "PIADV":
-                                this.limits[7] = amount;
+                                quoteCoverage.description = 'Personal and Advertising Injury';
                                 foundLimitsCount++;
+                                quoteCoverages.push(quoteCoverage);
                                 break;
                             default:
                                 break;
                         }
                     });
-                    if (!foundLimitsCount) {
-                        //this.reasons.push(`Did not recognized any returned limits.`);
-                        log.error(`Acuity BOP (application ${this.app.id}): Did not recognized any returned limits. ${__location}`);
-                        //return this.return_error('error', 'Acuity returned an unexpected reply');
-                    }
                 }
+
+                // Get Location based Limits
+                const CommlPropertyInfoList = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.BOPPolicyQuoteInqRs.BOPLineBusiness.PropertyInfo.CommlPropertyInfo', true);
+                log.debug(`CommlPropertyInfoList:\n ${JSON.stringify(CommlPropertyInfoList, null, 4)}`);
+                CommlPropertyInfoList.forEach( (location, index) => {
+                    const commlCoverage = location.CommlCoverage;
+                    if (commlCoverage) {
+                        commlCoverage.forEach((coverage => {
+                            let description = '';
+                            switch (coverage.CoverageCd[0]) {
+                                case "BPP":
+                                    description = 'Business Personal Property';
+                                    break;
+                                case "BLDG":
+                                    description = 'Building';
+                                    break;
+                                default:
+                                    break;
+                            }
+
+                            if (coverage.Limit && coverage.Limit.length) {
+                                const limitAmt = parseInt(coverage.Limit[0].FormatInteger[0], 10);
+                                const quoteCoverage = {
+                                    description: description + ' Limit',
+                                    value: convertToDollarFormat(limitAmt, true),
+                                    sort: sortIndex++,
+                                    category: `Location ${index+1}`,
+                                    insurerIdentifier: coverage.CoverageCd[0]
+                                }
+                                foundLimitsCount++;
+                                quoteCoverages.push(quoteCoverage);
+                            }
+                            if (coverage.Deductible && coverage.Deductible.length) {
+                                const deductibleAmt = parseInt(coverage.Deductible[0].FormatInteger[0], 10);
+                                const quoteCoverage = {
+                                    description: description + ' Deductible',
+                                    value: convertToDollarFormat(deductibleAmt, true),
+                                    sort: sortIndex++,
+                                    category: `Location ${index+1}`,
+                                    insurerIdentifier: coverage.CoverageCd[0]
+                                }
+                                foundLimitsCount++;
+                                quoteCoverages.push(quoteCoverage);
+                            }
+                        }))
+                    }
+                });
+
                 // Ensure we found some limits
+                if (!foundLimitsCount) {
+                    //this.reasons.push(`Did not recognized any returned limits.`);
+                    log.error(`Acuity BOP (application ${this.app.id}): Did not recognized any returned limits. ${__location}`);
+                    //return this.return_error('error', 'Acuity returned an unexpected reply');
+                }
+
                 if (policyAmount) {
                     // Set the policy amount
                     this.amount = policyAmount;
@@ -871,6 +944,8 @@ module.exports = class AcuityBOP extends Integration {
 
                 // Retrieve and the quote letter if it exists
                 const fileAttachmentInfoList = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.BOPPolicyQuoteInqRs.FileAttachmentInfo', true);
+                let quoteLetter = null;
+                let quoteMIMEType = null;
                 if(fileAttachmentInfoList){
                     for (const fileAttachmentInfo of fileAttachmentInfoList) {
                         switch (fileAttachmentInfo.AttachmentDesc[0]) {
@@ -880,6 +955,8 @@ module.exports = class AcuityBOP extends Integration {
                                     data: fileAttachmentInfo.cData[0],
                                     file_name: `${this.insurer.name}_ ${this.policy.type}_quote_letter.pdf`
                                 };
+                                quoteMIMEType = fileAttachmentInfo.MIMEContentTypeCd[0];
+                                quoteLetter = fileAttachmentInfo.cData[0];
                                 break;
                             case "URL":
                                 this.quoteLink = fileAttachmentInfo.WebsiteURL[0];
@@ -937,9 +1014,9 @@ module.exports = class AcuityBOP extends Integration {
                 })
 
 
-                const status = policyStatusCode === "com.acuity_BindableQuote" ? "quoted" : "referred";
+                const status = policyStatusCode === "com.acuity_BindableQuote" || policyStatusCode === "com.acuity_BindableModifiedQuote" ? "quoted" : "referred";
                 log.info(`Acuity: Returning ${status} ${policyAmount ? "with price" : ""}`);
-                return this.return_result(status);
+                return this.client_quoted(quoteNumber, [], policyAmount, quoteLetter, quoteMIMEType, quoteCoverages);
             case "com.acuity_Declined":
                 const extendedStatusList = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.BOPPolicyQuoteInqRs.MsgStatus.ExtendedStatus', true);
                 if (extendedStatusList) {
