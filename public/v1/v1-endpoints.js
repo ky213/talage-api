@@ -137,6 +137,8 @@ exports.registerEndpoints = (server) => {
     registerEndpoint(server, 'administration', 'insurer-activity-code-rt');
     registerEndpoint(server, 'administration', 'insurer-question-rt');
     registerEndpoint(server, 'administration', 'insurer-logo-rt');
+    registerEndpoint(server, 'administration', 'insurer-portal-user-group-rt');
+    registerEndpoint(server, 'administration', 'insurer-portal-user-rt');
     registerEndpoint(server, 'administration', 'question-type-rt');
     registerEndpoint(server, 'administration', 'policy-type-rt');
     registerEndpoint(server, 'administration', 'payment-plan-rt');
@@ -167,6 +169,14 @@ exports.registerEndpoints = (server) => {
     registerEndpoint(server, 'digalent', 'agency-quote-rt');
     registerEndpoint(server, 'digalent', 'application-meta-rt');
     registerEndpoint(server, 'digalent', 'auth-quote-rt');
+
+    // Insurer Portal Endpoints
+    registerEndpoint(server, 'insurer-portal', 'auth-rt');
+    // registerEndpoint(server, 'insurer-portal', 'account');
+    // registerEndpoint(server, 'insurer-portal', 'agencies');
+    // registerEndpoint(server, 'insurer-portal', 'applications');
+    // registerEndpoint(server, 'insurer-portal', 'reports');
+    // registerEndpoint(server, 'insurer-portal', 'users');
 
 
     // Server.AddGet('Uptime Check', '/', GetUptime);
