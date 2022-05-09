@@ -402,7 +402,6 @@
             ],
             "radix": "error",
             "require-await": "off",
-            "require-jsdoc": "error",
             "require-yield": "error",
             "semi": "off",
             "semi-spacing": "error",
