@@ -569,10 +569,11 @@ module.exports = class AcuityBOP extends Integration {
             }
 
             if (location.buildingLimit) {
+                CommlCoverage = CommlPropertyInfo.ele('CommlCoverage');
                 CommlCoverage.ele('CoverageCd', 'BLDG');
                 CommlCoverage.ele('CoverageDesc', 'Building');
                 Limit = CommlCoverage.ele('Limit'); 
-                Limit.ele('FormatInteger', location.businessPersonalPropertyLimit);
+                Limit.ele('FormatInteger', location.buildingLimit);
                 Limit.ele('LimitAppliesToCd', 'BLDG');
                 // </Limit>
                 let Deductible = CommlCoverage.ele('Deductible');
