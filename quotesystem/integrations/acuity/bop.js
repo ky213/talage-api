@@ -559,7 +559,6 @@ module.exports = class AcuityBOP extends Integration {
                 Limit = CommlCoverage.ele('Limit'); 
                 Limit.ele('FormatInteger', location.businessPersonalPropertyLimit);
                 Limit.ele('LimitAppliesToCd', 'BPP');
-                // Limit.ele('ValuationCd', 'RC'); // zy Should I include this and should it be 'ACV' or 'RC'?
                 // </Limit>
                 let Deductible = CommlCoverage.ele('Deductible');
                 Deductible.ele('FormatInteger', 0);
@@ -570,13 +569,11 @@ module.exports = class AcuityBOP extends Integration {
             }
 
             if (location.buildingLimit) {
-                CommlCoverage = CommlPropertyInfo.ele('CommlCoverage');
                 CommlCoverage.ele('CoverageCd', 'BLDG');
                 CommlCoverage.ele('CoverageDesc', 'Building');
                 Limit = CommlCoverage.ele('Limit'); 
                 Limit.ele('FormatInteger', location.businessPersonalPropertyLimit);
                 Limit.ele('LimitAppliesToCd', 'BLDG');
-                // Limit.ele('ValuationCd', 'RC'); // zy Should I include this and should it be 'ACV' or 'RC'?
                 // </Limit>
                 let Deductible = CommlCoverage.ele('Deductible');
                 Deductible.ele('FormatInteger', 0);
@@ -807,7 +804,7 @@ module.exports = class AcuityBOP extends Integration {
 
         switch (policyStatusCode) {
             case 'com.acuity_Incomplete':
-                log.error(`Acuity GL (appId ${this.app.id}): Reporting incomplete information for quoting.` + __location);
+                log.error(`Acuity BOP (appId ${this.app.id}): Reporting incomplete information for quoting.` + __location);
                 return this.client_declined("incomplete information to quote");
             case "com.acuity_BindableQuote":
             case "com.acuity_BindableModifiedQuote":
@@ -823,7 +820,7 @@ module.exports = class AcuityBOP extends Integration {
                 const commlCoverage = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.BOPPolicyQuoteInqRs.BOPLineBusiness.LiabilityInfo.CommlCoverage', true);
                 if (!commlCoverage) {
                     this.reasons.push(`Could not find CommlCoverage node  with Limit information in response.`);
-                    log.error(`Acuity GL (application ${this.app.id}): Could not find the CommlCoverage with Limit information node. ${__location}`);
+                    log.error(`Acuity BOP (application ${this.app.id}): Could not find the CommlCoverage with Limit information node. ${__location}`);
                     //return this.return_error('error', 'Acuity returned an unexpected reply');
                 }
                 if(commlCoverage){
@@ -855,7 +852,7 @@ module.exports = class AcuityBOP extends Integration {
                     });
                     if (!foundLimitsCount) {
                         //this.reasons.push(`Did not recognized any returned limits.`);
-                        log.error(`Acuity GL (application ${this.app.id}): Did not recognized any returned limits. ${__location}`);
+                        log.error(`Acuity BOP (application ${this.app.id}): Did not recognized any returned limits. ${__location}`);
                         //return this.return_error('error', 'Acuity returned an unexpected reply');
                     }
                 }
