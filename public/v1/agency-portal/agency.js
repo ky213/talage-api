@@ -1087,6 +1087,219 @@ async function getAgencyTierList(req, res, next) {
     return next();
 }
 
+
+/**
+ * Returns the record for a single Agency
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {void}
+ */
+async function getAgencyAmsSearch(req, res, next) {
+    let error = false;
+
+    // Check that query parameters were received
+    if (!req.body || typeof req.body !== 'object' || Object.keys(req.body).length === 0) {
+        log.info('Bad Request: Query parameters missing');
+        return next(serverHelper.requestError('Query parameters missing'));
+    }
+
+    // Check for required parameters
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'agencyId') || !req.body.agencyId) {
+        log.info('Bad Request: You must specify an agencyId');
+        return next(serverHelper.requestError('You must specify an agencyId'));
+    }
+
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'clientname') || !req.body.clientname) {
+        log.info('Bad Request: You must specify an clientname to search on');
+        return next(serverHelper.requestError('You must specify an agent  to search on'));
+    }
+
+    // // Determine which permissions group to use (start with the default permission needed by an agency network)
+    // let permissionGroup = 'agencies';
+
+    // // If this is not an agency network, use the agency specific permissions
+    // if (req.authentication.isAgencyNetworkUser === false) {
+    //     permissionGroup = 'settings';
+    // }
+
+    // // Make sure the authentication payload has everything we are expecting
+    // await auth.validateJWT(req, permissionGroup, 'view').catch(function(e) {
+    //     error = e;
+    // });
+    // if (error) {
+    //     return next(error);
+    // }
+    let agencyId = parseInt(req.body.agencyId, 10);
+
+    if (req.authentication.isAgencyNetworkUser) {
+
+        if(req.authentication.isAgencyNetworkUser && req.authentication.agencyNetworkId === 1
+            && req.authentication.permissions.talageStaff === true
+            && req.authentication.enableGlobalView === true){
+            log.info(`Getting agency in global mode agency ${agencyId}`)
+        }
+        else {
+            // This is an agency network user, they can only modify agencies in their network
+            // Get the agencies that we are permitted to manage
+            const agencyBO = new AgencyBO();
+            const agencydb = await agencyBO.getById(parseInt(req.body.agent, 10));
+            if(agencydb?.agencyNetworkId !== req.authentication.agencyNetworkId){
+                log.info('Forbidden: User is not authorized to manage th is agency');
+                return next(serverHelper.forbiddenError('You are not authorized to manage this agency'));
+            }
+        }
+    }
+    else {
+        // Get the agents that we are permitted to view
+        const agencyIdList = await auth.getAgents(req).catch(function(e) {
+            error = e;
+        });
+        if (error) {
+            return next(error);
+        }
+        // Make sure this user has access to the requested agent (Done before validation to prevent leaking valid Agent IDs)
+        if (!agencyIdList.includes(parseInt(agencyId, 10))) {
+            log.info('Forbidden: User is not authorized to access the requested agency');
+            return next(serverHelper.forbiddenError('You are not authorized to access the requested agency'));
+        }
+        // By default, the use first agency available to this user (for non-agency network users, they will only have one which is their agency)
+        agencyId = agencyIdList[0];
+    }
+    // Validate parameters
+    if (!await validator.integer(agencyId)) {
+        log.info('Bad Request: Invalid agent selected');
+        // return next(serverHelper.requestError('The agent you selected is invalid'));
+        //Just return not found
+        return next(serverHelper.notFoundError('Agency not found'));
+    }
+    let clientList = [];
+
+    // TODO when 2nd AMS change to use a routing layer.
+    const nextsureClient = global.requireRootPath('ams-integrations/nextsure/nextsure-client.js')
+
+    clientList = await nextsureClient.clientSearch(agencyId,req.body.clientname, req.body.territory)
+
+
+    // Build the response
+    const response = clientList;
+    // Return the response
+    res.send(200, response);
+    return next();
+}
+
+
+/**
+ * Returns the record for a single Agency
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {void}
+ */
+async function getAgencyAmsCreateApp(req, res, next) {
+    let error = false;
+
+    // Check that query parameters were received
+    if (!req.body || typeof req.body !== 'object' || Object.keys(req.body).length === 0) {
+        log.info('Bad Request: Query parameters missing');
+        return next(serverHelper.requestError('Query parameters missing'));
+    }
+
+    // Check for required parameters
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'agencyId') || !req.body.agencyId) {
+        log.info('Bad Request: You must specify an agencyId');
+        return next(serverHelper.requestError('You must specify an agencyId'));
+    }
+
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'clientId') || !req.body.clientId) {
+        log.info('Bad Request: You must specify an clientId to search on');
+        return next(serverHelper.requestError('You must specify an agent  to search on'));
+    }
+
+    // // Determine which permissions group to use (start with the default permission needed by an agency network)
+    // let permissionGroup = 'agencies';
+
+    // // If this is not an agency network, use the agency specific permissions
+    // if (req.authentication.isAgencyNetworkUser === false) {
+    //     permissionGroup = 'settings';
+    // }
+
+    // // Make sure the authentication payload has everything we are expecting
+    // await auth.validateJWT(req, permissionGroup, 'view').catch(function(e) {
+    //     error = e;
+    // });
+    // if (error) {
+    //     return next(error);
+    // }
+    let agencyId = parseInt(req.body.agencyId, 10);
+
+
+    if (req.authentication.isAgencyNetworkUser) {
+
+        if(req.authentication.isAgencyNetworkUser && req.authentication.agencyNetworkId === 1
+            && req.authentication.permissions.talageStaff === true
+            && req.authentication.enableGlobalView === true){
+            log.info(`Getting agency in global mode agency ${agencyId}`)
+        }
+        else {
+            // This is an agency network user, they can only modify agencies in their network
+            // Get the agencies that we are permitted to manage
+            const agencyBO = new AgencyBO();
+            const agencydb = await agencyBO.getById(parseInt(req.body.agent, 10));
+            if(agencydb?.agencyNetworkId !== req.authentication.agencyNetworkId){
+                log.info('Forbidden: User is not authorized to manage th is agency');
+                return next(serverHelper.forbiddenError('You are not authorized to manage this agency'));
+            }
+        }
+    }
+    else {
+        // Get the agents that we are permitted to view
+        const agencyIdList = await auth.getAgents(req).catch(function(e) {
+            error = e;
+        });
+        if (error) {
+            return next(error);
+        }
+        // Make sure this user has access to the requested agent (Done before validation to prevent leaking valid Agent IDs)
+        if (!agencyIdList.includes(parseInt(agencyId, 10))) {
+            log.info('Forbidden: User is not authorized to access the requested agency');
+            return next(serverHelper.forbiddenError('You are not authorized to access the requested agency'));
+        }
+        // By default, the use first agency available to this user (for non-agency network users, they will only have one which is their agency)
+        agencyId = agencyIdList[0];
+    }
+    // Validate parameters
+    if (!await validator.integer(agencyId)) {
+        log.info('Bad Request: Invalid agent selected');
+        // return next(serverHelper.requestError('The agent you selected is invalid'));
+        //Just return not found
+        return next(serverHelper.notFoundError('Agency not found'));
+    }
+
+    // TODO when 2nd AMS change to use a routing layer.
+    const nextsureClient = global.requireRootPath('ams-integrations/nextsure/nextsure-client.js')
+
+    const agencyLocationId = req.body.agencyLocationId > 0 ? req.body.agencyLocationId : null;
+    const clientId = req.body.clientId;
+
+    const newAppId = await nextsureClient.createApplicationFromClientId(agencyId,clientId,req.authentication.userID, agencyLocationId)
+
+    if(newAppId){
+        // Build the response
+        const response = {applicationId: newAppId};
+        // Return the response
+        res.send(200, response);
+    }
+    else {
+        res.send(400, {"message": "Application Not Created"});
+    }
+    return next();
+}
+
 exports.registerEndpoint = (server, basePath) => {
     server.addDeleteAuth('Delete Agency', `${basePath}/agency`, deleteAgency, 'agencies', 'manage');
     server.addGetAuth('Get Agency', `${basePath}/agency`, getAgency, 'agencies', 'view');
@@ -1096,4 +1309,7 @@ exports.registerEndpoint = (server, basePath) => {
     server.addPostAuth('Post Agency', `${basePath}/agency/socialMediaTags`, postSocialMediaTags, 'agencies', 'manage');
     server.addPostAuth('Post Social Media Tags', `${basePath}/agency/socialMediaInfo`, postSocialMediaInfo, 'agencies', 'manage');
     server.addGetAuth('Get Agency Tier List', `${basePath}/agency/tiers`, getAgencyTierList, 'agencies', 'view');
+    //ams integration
+    server.addPostAuth('Get AMS Client List', `${basePath}/agency/ams/search`, getAgencyAmsSearch, 'agencies', 'view');
+    server.addPostAuth('Create Application from AMS', `${basePath}/agency/ams/createapp`, getAgencyAmsCreateApp, 'agencies', 'view');
 };

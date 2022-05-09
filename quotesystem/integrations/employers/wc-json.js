@@ -36,13 +36,11 @@ module.exports = class EmployersWC extends Integration {
      * @returns {string} - Phone number in the form: "###-###-####"
      */
     formatPhoneForEmployers(phone) {
-        let strPhone = phone;
         if (!phone || typeof phone !== 'string') {
             log.error(`Employers WC App ID: ${this.app.id}: Bad phone number format: "${phone}" ` + __location);
-            strPhone = phone.toString();
-            // convert to string and allow regex to sort out the numbers.
+            return '';
         }
-        const phoneDigits = strPhone.trim().replace(/\D/g, '');
+        const phoneDigits = phone.trim().replace(/\D/g, '');
         if (phoneDigits.length !== 10) {
             log.error(`Employers WC App ID: ${this.app.id}, Incorrect number of digits in phone number: ${phone} ` + __location);
             return '';
@@ -186,7 +184,7 @@ module.exports = class EmployersWC extends Integration {
                 const proposalContact = {"email": this.quotingAgencyLocationDB.email ? this.quotingAgencyLocationDB.email : agency.agencyEmail};
 
                 const formattedPhone = this.formatPhoneForEmployers(primaryContact.phone);
-                const formattedAgencyPhone = this.formatPhoneForEmployers(this.quotingAgencyLocationDB.phone ? this.quotingAgencyLocationDB.phone : agency.agencyPhone);
+                let formattedAgencyPhone = this.formatPhoneForEmployers(this.quotingAgencyLocationDB.phone ? this.quotingAgencyLocationDB.phone : agency.agencyPhone);
 
                 if (formattedPhone) {
                     applicantContact.phoneNumber = formattedPhone;
@@ -200,7 +198,7 @@ module.exports = class EmployersWC extends Integration {
                     proposalContact.phoneNumber = formattedAgencyPhone;
                 }
                 else {
-                    throw new Error('Proposal Contact Phone Number is blank or not valid');
+                    formattedAgencyPhone = "";
                 }
 
                 const applicantName = `${primaryContact.firstName} ${primaryContact.lastName}`;
