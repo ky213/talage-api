@@ -7,6 +7,7 @@ const ApplicationBO = global.requireShared('./models/Application-BO.js');
 const AgencyBO = global.requireShared('./models/Agency-BO.js');
 const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
 const IndustryCodeSvc = global.requireShared('services/industrycodesvc.js');
+const InsurerBO = global.requireShared('./models/Insurer-BO.js');
 
 /**
  * Simple axios wrapper
@@ -449,6 +450,10 @@ async function getPoliciesByClientId(agencyId, clientId, appDoc, processBound = 
                 policies = [returnedJSON.Policies.Policy]
             }
 
+            const insurerBO = new InsurerBO();
+            const insurerList = await insurerBO.getList({active: true}).catch(function(err) {
+                log.error("Insurer load error " + err + __location);
+            });
             //load ams
             const query = {"amsType" : "Nextsure"}
             const AmsModel = global.mongoose.Ams;
@@ -464,6 +469,15 @@ async function getPoliciesByClientId(agencyId, clientId, appDoc, processBound = 
                                 insurerId = amsJson.insurerMap[insurerName];
                             }
                         }
+                        if(insurerId === 0 && insurerList){
+                            for(const insurerDB of insurerList){
+                                if(insurerId === 0 && amsPolicy.BillingCarrier.CarrierName.indexOf(insurerDB.name) > -1){
+                                    insurerId = insurerDB.insurerId
+                                    break;
+                                }
+                            }
+                        }
+
                     }
                     if(insurerId > 0){
                         amsPolicy.insurerId = insurerId;
@@ -499,6 +513,25 @@ async function createClientFromAppDoc(agencyId, appDoc, quoteDoc){
     }
     if(appDoc.amsInfo?.clientId){
         return appDoc.amsInfo.clientId
+    }
+    if(appDoc.primaryState || appDoc.mailingState){
+        const appStateCd = appDoc.primaryState ? appDoc.primaryState : appDoc.mailingState
+        const oldClientList = await clientSearch(agencyId, appDoc.businessName, appStateCd);
+        if(oldClientList?.length === 1){
+            const clientId = oldClientList[0].clientId;
+            try{
+                const applicationBO = new ApplicationBO();
+                const amsJSON = {amsInfo : {
+                    "amsType" : "Nextsure",
+                    clientId: clientId
+                }};
+                await applicationBO.updateMongo(appDoc.applicationId, amsJSON);
+            }
+            catch(err){
+                log.error(`Nextsure createClientFromAppDoc updating App Doc error ${err}` + __location)
+            }
+            return clientId;
+        }
     }
 
     let newClientId = null
