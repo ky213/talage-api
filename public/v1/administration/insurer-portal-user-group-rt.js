@@ -17,15 +17,14 @@ const tracker = global.requireShared('./helpers/tracker.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
 async function findAll(req, res, next) {
-    let error = null;
     const insurerPortalUserGroupBO = new InsurerPortalUserGroupBO();
-
-    const rows = await insurerPortalUserGroupBO.getList(req.query).catch(function(err) {
+    let rows = null;
+    try {
+        rows = await insurerPortalUserGroupBO.getList(req.query)
+    }
+    catch(err) {
         log.error("admin insurerPortalUserGroupBO error: " + err + __location);
-        error = err;
-    })
-    if (error) {
-        return next(error);
+        return next(err);
     }
     if (rows) {
         res.send(200, rows);
@@ -44,15 +43,17 @@ async function findOne(req, res, next) {
     if (!id) {
         return next(new Error("bad parameter"));
     }
-    let error = null;
     const insurerPortalUserGroupBO = new InsurerPortalUserGroupBO();
     // Load the request data into it
-    const objectJSON = await insurerPortalUserGroupBO.getById(id).catch(function(err) {
+    let objectJSON = null;
+    try {
+        objectJSON = await insurerPortalUserGroupBO.getById(id);
+    }
+    catch(err) {
         log.error("insurerPortalUserGroupBO load error " + err + __location);
-        error = err;
-    });
-    if (error && error.message !== "not found") {
-        return next(error);
+        if (err && err.message !== "not found") {
+            return next(err);
+        }
     }
     // Send back a success response
     if (objectJSON) {
@@ -67,21 +68,17 @@ async function findOne(req, res, next) {
 }
 //add
 async function add(req, res, next) {
-
-
     const insurerPortalUserGroupBO = new InsurerPortalUserGroupBO();
-    let error = null;
-    const userGroupJSON = await insurerPortalUserGroupBO.saveModel(req.body).catch(function(err) {
-        log.error("insurerPortalUserGroupBO save error " + err + __location);
-        error = err;
-    });
-    if (error) {
-        return next(error);
+    let userGroupJSON = null;
+    try {
+        userGroupJSON = await insurerPortalUserGroupBO.saveModel(req.body);
     }
-
+    catch(err) {
+        log.error("insurerPortalUserGroupBO save error " + err + __location);
+        return next(err);
+    }
     res.send(200, userGroupJSON);
     return next();
-
 }
 
 
@@ -91,20 +88,17 @@ async function update(req, res, next) {
     if (!id) {
         return next(new Error("bad parameter"));
     }
-
     const insurerPortalUserGroupBO = new InsurerPortalUserGroupBO();
-    let error = null;
-    const userGroupJSON = await insurerPortalUserGroupBO.saveModel(req.body).catch(function(err) {
-        log.error("insurerPortalUserGroupBO save error " + err + __location);
-        error = err;
-    });
-    if (error) {
-        return next(error);
+    let userGroupJSON = null;
+    try {
+        userGroupJSON = await insurerPortalUserGroupBO.saveModel(req.body);
     }
-
+    catch(err) {
+        log.error("insurerPortalUserGroupBO save error " + err + __location);
+        return next(err);
+    }
     res.send(200, userGroupJSON);
     return next();
-
 }
 
 async function deleteObject(req, res, next) {
@@ -112,14 +106,13 @@ async function deleteObject(req, res, next) {
     if (!id) {
         return next(new Error("bad parameter"));
     }
-    let error = null;
     const insurerPortalUserGroupBO = new InsurerPortalUserGroupBO();
-    await insurerPortalUserGroupBO.deleteSoftById(id).catch(function(err) {
+    try {
+        await insurerPortalUserGroupBO.deleteSoftById(id);
+    }
+    catch(err) {
         log.error("insurerPortalUserGroupBO delete error " + err + __location);
-        error = err;
-    });
-    if (error) {
-        return next(error);
+        return next(err);
     }
     res.send(200, {"success": true});
     return next();

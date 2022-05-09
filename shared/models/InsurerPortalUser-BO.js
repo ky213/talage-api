@@ -1,9 +1,3 @@
-/* eslint-disable prefer-const */
-'use strict';
-
-
-// eslint-disable-next-line no-unused-vars
-const tracker = global.requireShared('./helpers/tracker.js');
 const moment = require('moment');
 var InsurerPortalUserModel = global.mongoose.InsurerPortalUser;
 var InsurerPortalUserGroup = global.mongoose.InsurerPortalUserGroup;
@@ -26,251 +20,236 @@ module.exports = class InsurerPortalUserBO{
 	 * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessContact , or an Error if rejected
 	 */
     // Use SaveMessage
-    saveModel(newObjectJSON){
-        return new Promise(async(resolve, reject) => {
-            if(!newObjectJSON){
-                reject(new Error(`empty ${collectionName} object given`));
-            }
-            let newDoc = true;
-            if(newObjectJSON.id){
+    async saveModel(newObjectJSON){
+        if(!newObjectJSON){
+            throw new Error(`empty ${collectionName} object given`);
+        }
+        let newDoc = true;
+        let dbDocJSON = null;
+        if(newObjectJSON.id){
+            try {
                 const skipActiveCheck = true;
-                const dbDocJSON = await this.getMongoDocbyUserId(newObjectJSON.id,false,skipActiveCheck).catch(function(err) {
-                    log.error(`Error getting ${collectionName} from Database ` + err + __location);
-                    reject(err);
-                    return;
-                });
-                if(dbDocJSON){
-                    newObjectJSON.insurerPortalUserId = dbDocJSON.insurerPortalUserId;
-                    this.id = dbDocJSON.insurerPortalUserId;
-                    newDoc = false;
-                    await this.updateMongo(dbDocJSON.insurerPortalUserUuidId,newObjectJSON)
-                }
-                else {
-                    log.error("InsurerPortalUser PUT object not found " + newObjectJSON.id + __location)
-                }
+                dbDocJSON = await this.getMongoDocbyUserId(newObjectJSON.id,false,skipActiveCheck);
             }
-            if(newDoc === true) {
-                newDoc = await this.insertMongo(newObjectJSON).catch((err) => {
-                    log.error("InsurerPortalUser POST object error " + err + __location);
-                    reject(err);
-                });
-                this.id = newDoc.insurerPortalUserId;
-                this.mongoDoc = newDoc;
-
+            catch(err) {
+                log.error(`Error getting ${collectionName} from Database ` + err + __location);
+                throw err;
+            }
+            if(dbDocJSON){
+                newObjectJSON.insurerPortalUserId = dbDocJSON.insurerPortalUserId;
+                this.id = dbDocJSON.insurerPortalUserId;
+                newDoc = false;
+                await this.updateMongo(dbDocJSON.insurerPortalUserUuidId,newObjectJSON)
             }
             else {
-                this.mongoDoc = this.getById(this.id);
+                log.error("InsurerPortalUser PUT object not found " + newObjectJSON.id + __location)
             }
-            resolve(true);
+        }
+        if(newDoc) {
+            try {
+                newDoc = await this.insertMongo(newObjectJSON)
+            }
+            catch(err) {
+                log.error("InsurerPortalUser POST object error " + err + __location);
+                throw err;
+            }
+            this.id = newDoc.insurerPortalUserId;
+            this.mongoDoc = newDoc;
 
-        });
+        }
+        else {
+            this.mongoDoc = this.getById(this.id);
+        }
+        return true;
     }
 
 
-    getList(requestQueryJSON, addPermissions = false, includeDisabled = false) {
-        return new Promise(async(resolve, reject) => {
-            if(!requestQueryJSON){
-                requestQueryJSON = {};
+    async getList(requestQueryJSON, addPermissions = false, includeDisabled = false) {
+        if(!requestQueryJSON){
+            requestQueryJSON = {};
+        }
+        // eslint-disable-next-line prefer-const
+        let queryJSON = JSON.parse(JSON.stringify(requestQueryJSON));
+        const queryProjection = {
+            "__v": 0,
+            "_id": 0,
+            "password": 0
+        }
+
+        let findCount = false;
+
+        // eslint-disable-next-line prefer-const
+
+        const query = {};
+        if (!includeDisabled) {
+            query.active = true;
+        }
+
+        var queryOptions = {};
+        queryOptions.sort = {insurerPortalUserId: 1};
+        if (queryJSON.sort) {
+            var acs = 1;
+            if (queryJSON.desc) {
+                acs = -1;
+                delete queryJSON.desc
             }
-            // eslint-disable-next-line prefer-const
-            let queryJSON = JSON.parse(JSON.stringify(requestQueryJSON));
-            const queryProjection = {
-                "__v": 0,
-                "_id": 0,
-                "password": 0
-            }
+            queryOptions.sort[queryJSON.sort] = acs;
+            delete queryJSON.sort
+        }
+        else {
+            // default to DESC on sent
+            queryOptions.sort.createdAt = -1;
 
-            let findCount = false;
-
-            let rejected = false;
-            // eslint-disable-next-line prefer-const
-
-            let query = {};
-            if (!includeDisabled) {
-                query.active = true;
-            }
-
-            let error = null;
-
-
-            var queryOptions = {};
-            queryOptions.sort = {insurerPortalUserId: 1};
-            if (queryJSON.sort) {
-                var acs = 1;
-                if (queryJSON.desc) {
-                    acs = -1;
-                    delete queryJSON.desc
-                }
-                queryOptions.sort[queryJSON.sort] = acs;
-                delete queryJSON.sort
-            }
-            else {
-                // default to DESC on sent
-                queryOptions.sort.createdAt = -1;
-
-            }
-            const queryLimit = 500;
-            if (queryJSON.limit) {
-                var limitNum = parseInt(queryJSON.limit, 10);
-                delete queryJSON.limit
-                if (limitNum < queryLimit) {
-                    queryOptions.limit = limitNum;
-                }
-                else {
-                    queryOptions.limit = queryLimit;
-                }
+        }
+        const queryLimit = 500;
+        if (queryJSON.limit) {
+            var limitNum = parseInt(queryJSON.limit, 10);
+            delete queryJSON.limit
+            if (limitNum < queryLimit) {
+                queryOptions.limit = limitNum;
             }
             else {
                 queryOptions.limit = queryLimit;
             }
-            if (queryJSON.count) {
-                if(queryJSON.count === 1 || queryJSON.count === true || queryJSON.count === "1" || queryJSON.count === "true"){
-                    findCount = true;
-                }
-                delete queryJSON.count;
+        }
+        else {
+            queryOptions.limit = queryLimit;
+        }
+        if (queryJSON.count) {
+            if(queryJSON.count === 1 || queryJSON.count || queryJSON.count === "1" || queryJSON.count === "true"){
+                findCount = true;
             }
+            delete queryJSON.count;
+        }
 
-            if(queryJSON.id && Array.isArray(queryJSON.id)){
-                query.insurerPortalUserId = {$in: queryJSON.id};
-                delete queryJSON.id;
-            }
-            else if(queryJSON.id){
-                query.insurerPortalUserId = queryJSON.id;
-                delete queryJSON.id;
-            }
+        if(queryJSON.id && Array.isArray(queryJSON.id)){
+            query.insurerPortalUserId = {$in: queryJSON.id};
+            delete queryJSON.id;
+        }
+        else if(queryJSON.id){
+            query.insurerPortalUserId = queryJSON.id;
+            delete queryJSON.id;
+        }
 
-            if(queryJSON.insurerPortalUserId && Array.isArray(queryJSON.insurerPortalUserId)){
-                query.insurerPortalUserId = {$in: queryJSON.insurerPortalUserId};
-                delete queryJSON.insurerPortalUserId;
-            }
-            else if(queryJSON.insurerPortalUserId){
-                query.insurerPortalUserId = queryJSON.insurerPortalUserId;
-                delete queryJSON.insurerPortalUserId;
-            }
+        if(queryJSON.insurerPortalUserId && Array.isArray(queryJSON.insurerPortalUserId)){
+            query.insurerPortalUserId = {$in: queryJSON.insurerPortalUserId};
+            delete queryJSON.insurerPortalUserId;
+        }
+        else if(queryJSON.insurerPortalUserId){
+            query.insurerPortalUserId = queryJSON.insurerPortalUserId;
+            delete queryJSON.insurerPortalUserId;
+        }
 
-            if(queryJSON.insurerId && Array.isArray(queryJSON.insurerId)){
-                query.insurerId = {$in: queryJSON.insurerId};
-                delete queryJSON.insurerId;
-            }
-            else if(queryJSON.insurerId){
-                query.insurerId = queryJSON.insurerId;
-                delete queryJSON.insurerId;
-            }
+        if(queryJSON.insurerId && Array.isArray(queryJSON.insurerId)){
+            query.insurerId = {$in: queryJSON.insurerId};
+            delete queryJSON.insurerId;
+        }
+        else if(queryJSON.insurerId){
+            query.insurerId = queryJSON.insurerId;
+            delete queryJSON.insurerId;
+        }
 
 
-            if (queryJSON) {
-                for (var key in queryJSON) {
-                    if (typeof queryJSON[key] === 'string' && queryJSON[key].includes('%')) {
-                        let clearString = queryJSON[key].replace("%", "");
-                        clearString = clearString.replace("%", "");
-                        query[key] = {
-                            "$regex": clearString,
-                            "$options": "i"
-                        };
-                    }
-                    else {
-                        query[key] = queryJSON[key];
-                    }
-                }
-            }
-            if (findCount === false) {
-                let docList = null;
-                // eslint-disable-next-line prefer-const
-                try {
-                    docList = await InsurerPortalUserModel.find(query,queryProjection, queryOptions)
-                }
-                catch (err) {
-                    log.error(err + __location);
-                    error = null;
-                    rejected = true;
-                }
-                if(rejected){
-                    reject(error);
-                    return;
-                }
-                if(docList && docList.length > 0){
-                    for(let i = 0; i < docList.length; i++){
-                        if(docList[i].password){
-                            delete docList[i].password;
-                        }
-                        if(addPermissions){
-                            const userGroupQuery = {"systemId": docList[i].insurerPortalUserGroupId};
-                            const userGroup = await InsurerPortalUserGroup.findOne(userGroupQuery, '-__v');
-                            if(userGroup){
-                                docList[i].groupRole = userGroup.name;
-                                docList[i].permissions = userGroup.permissions;
-                            }
-                        }
-                    }
-                    resolve(docList);
+        if (queryJSON) {
+            for (var key in queryJSON) {
+                if (typeof queryJSON[key] === 'string' && queryJSON[key].includes('%')) {
+                    let clearString = queryJSON[key].replace("%", "");
+                    clearString = clearString.replace("%", "");
+                    query[key] = {
+                        "$regex": clearString,
+                        "$options": "i"
+                    };
                 }
                 else {
-                    resolve([]);
+                    query[key] = queryJSON[key];
                 }
-                return;
+            }
+        }
+        if (!findCount) {
+            let docList = null;
+            // eslint-disable-next-line prefer-const
+            try {
+                docList = await InsurerPortalUserModel.find(query,queryProjection, queryOptions)
+            }
+            catch (err) {
+                log.error(err + __location);
+                throw err;
+            }
+            if(docList && docList.length > 0){
+                for(let i = 0; i < docList.length; i++){
+                    if(docList[i].password){
+                        delete docList[i].password;
+                    }
+                    if(addPermissions){
+                        const userGroupQuery = {"systemId": docList[i].insurerPortalUserGroupId};
+                        const userGroup = await InsurerPortalUserGroup.findOne(userGroupQuery, '-__v');
+                        if(userGroup){
+                            docList[i].groupRole = userGroup.name;
+                            docList[i].permissions = userGroup.permissions;
+                        }
+                    }
+                }
+                return docList;
             }
             else {
-                const docCount = await InsurerPortalUserModel.countDocuments(query).catch(err => {
-                    log.error("InsurerPortalUserModel.countDocuments error " + err + __location);
-                    error = null;
-                    rejected = true;
-                })
-                if(rejected){
-                    reject(error);
-                    return;
-                }
-                resolve({count: docCount});
-                return;
+                return [];
             }
-
-
-        });
+        }
+        else {
+            let docCount = 0;
+            try {
+                docCount = await InsurerPortalUserModel.countDocuments(query)
+            }
+            catch(err) {
+                log.error("InsurerPortalUserModel.countDocuments error " + err + __location);
+                throw err;
+            }
+            return {count: docCount};
+        }
     }
 
 
     async getMongoDocbyUserId(insurerPortalUserId, returnMongooseModel = false, skipActiveCheck = false) {
-        return new Promise(async(resolve, reject) => {
-            if (insurerPortalUserId) {
-                const query = {
-                    insurerPortalUserId: insurerPortalUserId,
-                    active: true
-                };
-                if(skipActiveCheck){
-                    delete query.active;
-                }
-                const queryProjection = {
-                    "__v": 0,
-                    "password": 0
-                }
+        if (insurerPortalUserId) {
+            const query = {
+                insurerPortalUserId: insurerPortalUserId,
+                active: true
+            };
+            if(skipActiveCheck){
+                delete query.active;
+            }
+            const queryProjection = {
+                "__v": 0,
+                "password": 0
+            }
 
-                let docDB = null;
-                try {
-                    docDB = await InsurerPortalUserModel.findOne(query, queryProjection);
-                    if(docDB){
-                        docDB.id = docDB.insurerPortalUserId;
-                    }
+            let docDB = null;
+            try {
+                docDB = await InsurerPortalUserModel.findOne(query, queryProjection);
+                if(docDB){
+                    docDB.id = docDB.insurerPortalUserId;
                 }
-                catch (err) {
-                    log.error("Getting insurerPortalUser error " + err + __location);
-                    reject(err);
-                }
-                if(returnMongooseModel){
-                    resolve(docDB);
-                }
-                else if(docDB){
-                    const insurerPortalUserDoc = mongoUtils.objCleanup(docDB);
-                    resolve(insurerPortalUserDoc);
-                }
-                else {
-                    resolve(null);
-                }
-
+            }
+            catch (err) {
+                log.error("Getting insurerPortalUser error " + err + __location);
+                throw err;
+            }
+            if(returnMongooseModel){
+                return docDB;
+            }
+            else if(docDB){
+                const insurerPortalUserDoc = mongoUtils.objCleanup(docDB);
+                return insurerPortalUserDoc;
             }
             else {
-                log.info(`no id supplied` + __location);
-                reject(new Error('no id supplied'))
+                return null;
             }
-        });
+
+        }
+        else {
+            log.info(`no id supplied` + __location);
+            throw new Error('no id supplied');
+        }
     }
 
     getById(id) {
@@ -313,7 +292,7 @@ module.exports = class InsurerPortalUserBO{
 
                 const query = {insurerPortalUserUuidId: docId};
                 //allow reset to active = true only.
-                if(newObjectJSON.active === false){
+                if(!newObjectJSON.active){
                     delete newObjectJSON.active;
                 }
                 try {
@@ -374,10 +353,13 @@ module.exports = class InsurerPortalUserBO{
         newObjectJSON.insurerPortalUserId = newSystemId;
         const insurerPortalUser = new InsurerPortalUserModel(newObjectJSON);
         //Insert a doc
-        await insurerPortalUser.save().catch(function(err) {
+        try {
+            await insurerPortalUser.save();
+        }
+        catch(err) {
             log.error('Mongo InsurerPortalUser Save err ' + err + __location);
             throw err;
-        });
+        }
         newObjectJSON.id = newSystemId;
         return mongoUtils.objCleanup(insurerPortalUser);
     }
@@ -414,11 +396,15 @@ module.exports = class InsurerPortalUserBO{
 
     async getByInsurerId(insurerId, addPermissions = false) {
         if(insurerId){
-            addPermissions = true;
-            const query = {insurerId: insurerId};
-            const userList = await this.getList(query, addPermissions).catch(function(err){
+            let userList = [];
+            try{
+                addPermissions = true;
+                const query = {insurerId: insurerId};
+                userList = await this.getList(query, addPermissions)
+            }
+            catch(err){
                 throw err;
-            })
+            }
             return userList;
         }
         else {
@@ -426,47 +412,43 @@ module.exports = class InsurerPortalUserBO{
         }
     }
 
-    deleteSoftById(id) {
-        return new Promise(async(resolve, reject) => {
-            //validate
-            if (id) {
-                try {
-                    const getDoc = true;
-                    const insurerPortalUserDoc = await this.getMongoDocbyUserId(id, getDoc);
-                    insurerPortalUserDoc.active = false;
-                    await insurerPortalUserDoc.save();
-                }
-                catch (err) {
-                    log.error(`Error marking insurerPortalUserDoc from id ${id} ` + err + __location);
-                    reject(err);
-                }
-                resolve(true);
-
-            }
-            else {
-                log.info(`no id supplied` + __location);
-                reject(new Error('no id supplied'))
-            }
-        });
-    }
-
-    getGroupList() {
-        return new Promise(async(resolve, reject) => {
-            const query = {active: true};
-            let userGroupList = null;
+    async deleteSoftById(id) {
+        //validate
+        if (id) {
             try {
-                const doclist = await InsurerPortalUserGroup.find(query, '-__v').lean();
-                userGroupList = mongoUtils.objListCleanup(doclist);
-                for(let i = 0; i < userGroupList.length; i++) {
-                    userGroupList[i].id = userGroupList[i].systemId;
-                }
+                const getDoc = true;
+                const insurerPortalUserDoc = await this.getMongoDocbyUserId(id, getDoc);
+                insurerPortalUserDoc.active = false;
+                await insurerPortalUserDoc.save();
             }
             catch (err) {
-                log.error("Getting InsurerPortalUserGroup error " + err + __location);
-                reject(err);
+                log.error(`Error marking insurerPortalUserDoc from id ${id} ` + err + __location);
+                throw err;
             }
-            resolve(userGroupList);
-        });
+            return true;
+
+        }
+        else {
+            log.info(`no id supplied` + __location);
+            throw new Error('no id supplied');
+        }
+    }
+
+    async getGroupList() {
+        const query = {active: true};
+        let userGroupList = null;
+        try {
+            const doclist = await InsurerPortalUserGroup.find(query, '-__v').lean();
+            userGroupList = mongoUtils.objListCleanup(doclist);
+            for(let i = 0; i < userGroupList.length; i++) {
+                userGroupList[i].id = userGroupList[i].systemId;
+            }
+        }
+        catch (err) {
+            log.error("Getting InsurerPortalUserGroup error " + err + __location);
+            throw err;
+        }
+        return userGroupList;
     }
 
     async updateRole(insurerPortalUserId, insurerPortalUserGroupId){
@@ -538,36 +520,34 @@ module.exports = class InsurerPortalUserBO{
         return hasDuplicate;
     }
 
-    setPassword(id, newHashedPassword) {
-        return new Promise(async(resolve, reject) => {
-            //validate
-            if (id && id > 0) {
-                let insurerPortalUserDoc = null;
-                try {
-                    const getDoc = true;
-                    insurerPortalUserDoc = await this.getMongoDocbyUserId(id, getDoc);
-                    if(insurerPortalUserDoc){
-                        insurerPortalUserDoc.password = newHashedPassword;
-                        insurerPortalUserDoc.resetRequired = false;
-                        await insurerPortalUserDoc.save();
-                    }
-                    else {
-                        log.info(`Set Password user not found ${id}` + __location);
-                        reject(new Error(`User not found ${id}`))
-                    }
+    async setPassword(id, newHashedPassword) {
+        //validate
+        if (id && id > 0) {
+            let insurerPortalUserDoc = null;
+            try {
+                const getDoc = true;
+                insurerPortalUserDoc = await this.getMongoDocbyUserId(id, getDoc);
+                if(insurerPortalUserDoc){
+                    insurerPortalUserDoc.password = newHashedPassword;
+                    insurerPortalUserDoc.resetRequired = false;
+                    await insurerPortalUserDoc.save();
                 }
-                catch (err) {
-                    log.warn(`Error setting password insurerPortalUserDoc from id ${id} ` + err + __location);
-                    reject(err);
+                else {
+                    log.info(`Set Password user not found ${id}` + __location);
+                    throw new Error(`User not found ${id}`);
                 }
-                resolve(true);
+            }
+            catch (err) {
+                log.warn(`Error setting password insurerPortalUserDoc from id ${id} ` + err + __location);
+                throw err;
+            }
+            return true;
 
-            }
-            else {
-                log.info(`no id supplied` + __location);
-                reject(new Error('no id supplied'))
-            }
-        });
+        }
+        else {
+            log.info(`no id supplied` + __location);
+            throw new Error('no id supplied');
+        }
     }
 
 

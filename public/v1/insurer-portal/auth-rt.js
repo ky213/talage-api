@@ -177,14 +177,18 @@ async function verify(req, res, next) {
         return next(serverHelper.notAuthorizedError('Not Authorized'));
     }
     else if(req.authentication.tokenId === redisValueRaw?.value){
-        // for security, we delete the key. Auto-login is one-time use only
-        await global.redisSvc.deleteKey(redisKey);
+        let insurerPortalUserDBJson = null;
+        try {
+            // for security, we delete the key. Auto-login is one-time use only
+            await global.redisSvc.deleteKey(redisKey);
 
-        //load Insurer Portal BO
-        const insurerPortalUserBO = new InsurerPortalUserBO();
-        const insurerPortalUserDBJson = await insurerPortalUserBO.getById(req.authentication.userId).catch(function(e) {
+            //load Insurer Portal BO
+            const insurerPortalUserBO = new InsurerPortalUserBO();
+            insurerPortalUserDBJson = await insurerPortalUserBO.getById(req.authentication.userId)
+        }
+        catch(e) {
             log.error(`AP login MFA error ${e.message}` + __location);
-        });
+        }
 
         // Make sure we found the user
         if (!insurerPortalUserDBJson) {

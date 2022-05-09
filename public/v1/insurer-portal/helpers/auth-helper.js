@@ -37,9 +37,12 @@ async function createToken(email, insurerId) {
     }
 
     const insurerPortalUserBO = new InsurerPortalUserBO();
-    await insurerPortalUserBO.updateLastLogin(insurerPortalUserDBJson.insurerPortalUserId).catch(function(e) {
+    try{
+        await insurerPortalUserBO.updateLastLogin(insurerPortalUserDBJson.insurerPortalUserId)
+    }
+    catch(e) {
         log.error(e.message + __location);
-    });
+    }
 
     // Begin constructing the payload
     const payload = {
