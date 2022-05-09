@@ -221,9 +221,53 @@ async function GetBopIndustryCodes(industryCodeId, insurerArray){
 
 
 }
+
+
+async function GetIndustryCodesByNaics(naicsCode){
+    const start = moment();
+    const IndustryCodeModel = global.mongoose.IndustryCode;
+    let IndustryCodeList = [];
+    try{
+        const icQuery = {
+            naics: naicsCode,
+            active: true,
+            talageStandard: true
+        }
+        const queryProjection = {
+            "__v": 0,
+            "_id": 0,
+            "id": 0,
+            "talageStandard": 0,
+            "codeGroupList":0,
+            active: 0,
+            talageIndustryCodeUuid: 0,
+            activityCodeIdList: 0,
+            primaryActivityCodeId: 0,
+            updatedAt: 0,
+            createdAt: 0
+        };
+        const queryOptions = {sort: {industryCodeId: 1}};
+
+        IndustryCodeList = await IndustryCodeModel.find(icQuery, queryProjection, queryOptions).lean();
+
+    }
+    catch(err){
+        log.warn(`IndustryCodeSvc.GetIndustryCodes  ${err}` + __location);
+    }
+
+    const endMongo = moment();
+    const diff = endMongo.diff(start, 'milliseconds', true);
+    log.info(`Mongo IndustryCode By Naics processing  count ${IndustryCodeList.length} duration: ${diff} milliseconds` + __location);
+
+    return IndustryCodeList;
+
+}
+
+
 module.exports = {
     GetIndustryCodes: GetIndustryCodes,
     GetIndustryCodeCategories: GetIndustryCodeCategories,
-    GetBopIndustryCodes: GetBopIndustryCodes
+    GetBopIndustryCodes: GetBopIndustryCodes,
+    GetIndustryCodesByNaics: GetIndustryCodesByNaics
     //UpdateRedisActivityCodeByIndustryCache: UpdateRedisActivityCodeByIndustryCache
 }
