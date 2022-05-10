@@ -4,22 +4,20 @@ var InsurerPortalUserGroup = global.mongoose.InsurerPortalUserGroup;
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
 const collectionName = 'InsurerPortalUsers'
-module.exports = class InsurerPortalUserBO{
 
+module.exports = class InsurerPortalUserBO{
 
     constructor(){
         this.id = 0;
         this.mongoDoc = null;
     }
 
-
     /**
-	 * Save Model
+     * Save Model
      *
-	 * @param {object} newObjectJSON - newObjectJSON JSON
-	 * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessContact , or an Error if rejected
-	 */
-    // Use SaveMessage
+     * @param {object} newObjectJSON - newObjectJSON JSON
+     * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessContact , or an Error if rejected
+     */
     async saveModel(newObjectJSON){
         if(!newObjectJSON){
             throw new Error(`empty ${collectionName} object given`);
@@ -116,9 +114,7 @@ module.exports = class InsurerPortalUserBO{
             queryOptions.limit = queryLimit;
         }
         if (queryJSON.count) {
-            if(queryJSON.count === 1 || queryJSON.count || queryJSON.count === "1" || queryJSON.count === "true"){
-                findCount = true;
-            }
+            findCount = true;
             delete queryJSON.count;
         }
 
@@ -486,13 +482,13 @@ module.exports = class InsurerPortalUserBO{
     }
 
     /**
-	 * checkForDuplicateEmail
+     * checkForDuplicateEmail
      *
-	 * @param {object} insurerPortalUserId - new or updating userId -999 for new
+     * @param {object} insurerPortalUserId - new or updating userId -999 for new
      * @param {object} chkEmail - chkEmail to check
      * @param {object} insurerId - users agency network
-	 * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessContact , or an Error if rejected
-	 */
+     * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessContact , or an Error if rejected
+     */
     async checkForDuplicateEmail(insurerPortalUserId, chkEmail, insurerId){
         let hasDuplicate = false;
         //new user
@@ -510,8 +506,7 @@ module.exports = class InsurerPortalUserBO{
                 query.insurerId = insurerId;
             }
             const ipuDoc = await InsurerPortalUserModel.findOne(query)
-            // eslint-disable-next-line no-unneeded-ternary
-            hasDuplicate = ipuDoc ? true : false;
+            hasDuplicate = Boolean(ipuDoc);
         }
         catch(err){
             log.error(`Error saving last log for ${insurerPortalUserId} error: ` + err + __location)

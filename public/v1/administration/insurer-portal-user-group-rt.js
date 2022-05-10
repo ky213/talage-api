@@ -1,13 +1,3 @@
-
-/* eslint-disable object-property-newline */
-/* eslint-disable block-scoped-var */
-/* eslint-disable object-curly-newline */
-/* eslint-disable dot-location */
-/* eslint-disable prefer-const */
-/* eslint-disable guard-for-in */
-/* eslint-disable require-jsdoc */
-'use strict';
-
 const InsurerPortalUserGroupBO = global.requireShared('./models/InsurerPortalUserGroup-BO.js');
 
 const serverHelper = global.requireRootPath('server.js');
