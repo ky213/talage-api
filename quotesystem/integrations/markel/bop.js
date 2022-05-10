@@ -804,7 +804,7 @@ module.exports = class MarkelWC extends Integration {
 
         let response = null;
         try {
-            response = await this.send_json_request(host, path, JSON.stringify(jsonRequest), key, 'POST', false);
+            response = await this.send_json_request(host, path, JSON.stringify(jsonRequest), key, 'POST');
         }
         catch (error) {
             log.error(`${logPrefix}Integration Error: ${error} ${__location}`);

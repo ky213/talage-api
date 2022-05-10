@@ -427,7 +427,7 @@ module.exports = class BtisGL extends Integration {
         // Send JSON to the insurer
         let quoteResult = null;
         try{
-            quoteResult = await this.send_json_request(host, QUOTE_URL, JSON.stringify(data), token, 'POST', false);
+            quoteResult = await this.send_json_request(host, QUOTE_URL, JSON.stringify(data), token, 'POST');
         }
         catch(error){
             log.error(`${logPrefix} Quote Endpoint Returned Error ${util.inspect(error, false, null)}` + __location);
