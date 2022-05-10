@@ -114,7 +114,7 @@ module.exports = class InsurerPortalUserBO{
             queryOptions.limit = queryLimit;
         }
         if (queryJSON.count) {
-            findCount = Boolean(queryJSON.count);
+            findCount = true;
             delete queryJSON.count;
         }
 
