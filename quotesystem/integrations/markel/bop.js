@@ -807,8 +807,10 @@ module.exports = class MarkelWC extends Integration {
             response = await this.send_json_request(host, path, JSON.stringify(jsonRequest), key, 'POST');
         }
         catch (error) {
-            log.error(`${logPrefix}Integration Error: ${error} ${__location}`);
-            this.reasons.push(error);
+            const errorMessage = `${error} ${error.response ? error.response : ""}`
+            log.error(`${logPrefix}Integration Error: ${errorMessage} ${__location}`);
+
+            this.reasons.push(errorMessage);
             return this.return_result('error');
         }
 
@@ -1072,6 +1074,19 @@ module.exports = class MarkelWC extends Integration {
         }
         else if (response[rquIdKey]?.errors) {
             for (const error of response[rquIdKey].errors) {
+                if(typeof error === 'string'){
+                    this.reasons.push(`${error}`);
+                    if(error.indexOf("class codes are Declined") > -1 || error.indexOf("class codes were not eligible.") > -1){
+                        return this.client_declined(`${error}`);
+                    }
+                }
+                else {
+                    this.reasons.push(`${JSON.stringify(error)}`);
+                }
+            }
+        }
+        else if (response[rquIdKey]?.ERRORS) {
+            for (const error of response[rquIdKey].ERRORS) {
                 if(typeof error === 'string'){
                     this.reasons.push(`${error}`);
                     if(error.indexOf("class codes are Declined") > -1 || error.indexOf("class codes were not eligible.") > -1){

@@ -132,8 +132,9 @@ module.exports = class BtisGL extends Integration {
                 agency_credentials_response = await this.send_json_request(host, REGISTER_AGENT_URL, credentials_request_data)
             }
             catch(error){
-                this.reasons.push(`Failed to retrieve credentials from BTIS for agency: ${this.app.agencyLocation.agency}. `);
-                return this.return_error('error', `${logPrefix}Failed to retrieve credentials from BTIS for agency: ${this.app.agencyLocation.agency}. ` + error.message + __location);
+                errorMessage = `${error} ${error.response ? error.response : ""}`
+                this.reasons.push(`Failed to retrieve credentials from BTIS for agency: ${this.app.agencyLocation.agency}.  ${errorMessage} `);
+                return this.return_error('error', `${logPrefix}Failed to retrieve credentials from BTIS for agency: ${this.app.agencyLocation.agency}. ` + errorMessage + __location);
             }
 
             log.debug(agency_credentials_response + __location);
@@ -161,7 +162,8 @@ module.exports = class BtisGL extends Integration {
 
         }
         catch(error){
-            this.reasons.push('Failed to retrieve auth from BTIS.')
+            errorMessage = `${error} ${error.response ? error.response : ""}`
+            this.reasons.push('Failed to retrieve auth from BTIS. error ' + errorMessage)
             return this.return_error('error', `${logPrefix}Failed to retrieve auth from BTIS: ` + error.message + __location);
         }
 
@@ -437,7 +439,8 @@ module.exports = class BtisGL extends Integration {
                 return this.return_result('declined');
             }
             else {
-                this.reasons.push('Problem connecting to insurer BTIS ' + error);
+                errorMessage = `${error} ${error.response ? error.response : ""}`
+                this.reasons.push('Problem connecting to insurer BTIS ' + errorMessage);
                 return this.return_result('autodeclined');
             }
         }
