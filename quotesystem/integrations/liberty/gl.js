@@ -494,10 +494,10 @@ module.exports = class LibertyGL extends Integration{
                                     GeneralLiabilityClassification.att('LocationRef', `l${index + 1}`);
                                     GeneralLiabilityClassification.att('InsuredOrPrincipalRef', InsuredOrPrincipalUUID);
                                     GeneralLiabilityClassification.ele('ClassCd', this.industry_code.cgl);
-    
+
                                     // <ExposureInfo>
                                     const ExposureInfo = GeneralLiabilityClassification.ele('ExposureInfo');
-    
+
                                         // Determine the appropriate exposure amount
                                         let exposure = 0;
                                         switch(this.industry_code.attributes.premiumBasis){
@@ -526,7 +526,7 @@ module.exports = class LibertyGL extends Integration{
                                                 throw new Error(`Encountered unsupported premium basis of ${this.industry_code.attributes.premiumBasis}`);
                                         }
                                         if(!exposure || exposure <= 0){
-                                            // need the premium basis or whaterver came as zero ... exit from the for each loop 
+                                            // need the premium basis or whaterver came as zero ... exit from the for each loop
                                             throw new Error(`Bad exposure amount (less than or equal to 0): ${exposure} in application attributes in ${this.industry_code.attributes.premiumBasis}`);
                                         }
                                         ExposureInfo.ele('Exposure', Math.round(exposure / this.app.business.locations.length));
