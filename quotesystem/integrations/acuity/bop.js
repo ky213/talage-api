@@ -126,6 +126,7 @@ module.exports = class AcuityBOP extends Integration {
         // <BOPPolicyQuoteInqRq>
         const BOPPolicyQuoteInqRq = InsuranceSvcRq.ele('BOPPolicyQuoteInqRq');
         BOPPolicyQuoteInqRq.ele('RqUID', this.request_id);
+        BOPPolicyQuoteInqRq.ele('BusinessPurposeTypeCd', 'com.acuity_NBQ_RC2');
         BOPPolicyQuoteInqRq.ele('TransactionRequestDt', now.format('YYYY-MM-DDTHH:mm:ss'));
         BOPPolicyQuoteInqRq.ele('TransactionEffectiveDt', now.format('YYYY-MM-DD'));
         BOPPolicyQuoteInqRq.ele('CurCd', 'USD');
@@ -463,10 +464,6 @@ module.exports = class AcuityBOP extends Integration {
             const Location = BOPPolicyQuoteInqRq.ele('Location');
             Location.att('id', `L${index + 1}`);
 
-            // TO DO: Ask Adam: The RiskLocationCd is used to indicate if an address is within city limits (IN) or outside city limits (OUT).  I believe this only comes into play for the state of KY when more detailed location info is needed for tax purposes.  For the Rating API, if this information is not provided, the default is to assume the address IS within city limits.
-            // <RiskLocationCd>IN</RiskLocationCd>
-            // We must ask the user (it is higher in the city limits)
-
             // <Addr>
             Addr = Location.ele('Addr');
             Addr.ele('Addr1', location.address);
@@ -477,10 +474,26 @@ module.exports = class AcuityBOP extends Integration {
             Addr.ele('StateProvCd', location.territory);
             Addr.ele('PostalCode', location.zip);
             // </Addr>
+
+            // <Sublocation>
+            const Sublocation = Location.ele('SubLocation');
+            Sublocation.att('id', `L${index + 1}S1`); // Only supports one sublocation per location right now
+            // <Addr>
+            Addr = Sublocation.ele('Addr');
+            Addr.ele('Addr1', location.address);
+            if (location.address2) {
+                Addr.ele('Addr2', location.address2);
+            }
+            Addr.ele('City', location.city);
+            Addr.ele('StateProvCd', location.territory);
+            Addr.ele('PostalCode', location.zip);
+            // </Addr>
+            // </Sublocation>
         });
 
         // <BOPLineBusiness>
         const BOPLineBusiness = BOPPolicyQuoteInqRq.ele('BOPLineBusiness');
+        BOPLineBusiness.ele('LOBCd', 'BOP');
 
         // <LiabilityInfo>
         const LiabilityInfo = BOPLineBusiness.ele('LiabilityInfo');
@@ -541,6 +554,7 @@ module.exports = class AcuityBOP extends Integration {
 
         const PropertyInfo = BOPLineBusiness.ele('PropertyInfo');
 
+
         const locationQuestionsToIgnore = [
             'AcuityRoofConstruction',
             'AcuityBOPRoofGeometry',
@@ -548,12 +562,13 @@ module.exports = class AcuityBOP extends Integration {
             'AcuityBOPUnoccupiedSqft'
         ]
         appDoc.locations.forEach((location, index) => {
-            const CommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo');
-            CommlPropertyInfo.att('LocationRef', `L${index+1}`);
-
             // <CommlCoverage>
             // <Limit>
             if (location.businessPersonalPropertyLimit) {
+                const CommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo');
+                CommlPropertyInfo.att('LocationRef', `L${index+1}`);
+                CommlPropertyInfo.att('SublocationRef', `L1`);
+                CommlPropertyInfo.ele('SubjectInsuranceCd', `BPP`);
                 CommlCoverage = CommlPropertyInfo.ele('CommlCoverage');
                 CommlCoverage.ele('CoverageCd', 'BPP');
                 CommlCoverage.ele('CoverageDesc', 'Business Personal Property');
@@ -570,6 +585,10 @@ module.exports = class AcuityBOP extends Integration {
             }
 
             if (location.buildingLimit) {
+                const CommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo');
+                CommlPropertyInfo.att('LocationRef', `L${index+1}`);
+                CommlPropertyInfo.att('SublocationRef', `L1`);
+                CommlPropertyInfo.ele('SubjectInsuranceCd', `BLDG`);
                 CommlCoverage = CommlPropertyInfo.ele('CommlCoverage');
                 CommlCoverage.ele('CoverageCd', 'BLDG');
                 CommlCoverage.ele('CoverageDesc', 'Building');
@@ -603,7 +622,7 @@ module.exports = class AcuityBOP extends Integration {
                 QuestionAnswer.ele('QuestionCd', QuestionCd);
 
                 // Determine how to send the answer
-                if (question.type === 'Yes/No') {
+                if (question.questionType === 'Yes/No') {
                     QuestionAnswer.ele('YesNoCd', question.answerValue.toUpperCase());
                 }
                 else if (/^\d+$/.test(question.answerValue)) {
@@ -616,6 +635,7 @@ module.exports = class AcuityBOP extends Integration {
             // </CommlCoverage>
         })
         // </BOPLineBusiness>
+        // log.debug(`Appdoc.location[0]: ${JSON.stringify(appDoc.locations[0], null, 4)}`);
 
         // <CommlSubLocation>
         const constructionTypeMatrix =  {
@@ -628,11 +648,11 @@ module.exports = class AcuityBOP extends Integration {
             'Masonry Veneer': 'V'
         };
 
-
         appDoc.locations.forEach((location, index) => { 
             // <CommlSubLocation>
             const CommlSubLocation = BOPPolicyQuoteInqRq.ele('CommlSubLocation');
             CommlSubLocation.att('LocationRef', `L${index+1}`);
+            CommlSubLocation.att('SubLocationRef', `L${index+1}S1`); // Only supports one sublocation per location
 
             CommlSubLocation.ele('InterestCd', location.own ? 'OWNER' : 'TENANT');
             // <Construction>
@@ -732,7 +752,7 @@ module.exports = class AcuityBOP extends Integration {
         // Get the XML structure as a string
         const xml = ACORD.end({pretty: true});
 
-        // console.log('request', xml);
+        // console.log(`XML Request`, xml);
 
         // Determine which URL to use
         let host = '';
@@ -879,7 +899,7 @@ module.exports = class AcuityBOP extends Integration {
 
                 // Get Location based Limits
                 const CommlPropertyInfoList = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.BOPPolicyQuoteInqRs.BOPLineBusiness.PropertyInfo.CommlPropertyInfo', true);
-                log.debug(`CommlPropertyInfoList:\n ${JSON.stringify(CommlPropertyInfoList, null, 4)}`);
+                // log.debug(`CommlPropertyInfoList:\n ${JSON.stringify(CommlPropertyInfoList, null, 4)}`); // zy debug remove
                 CommlPropertyInfoList.forEach( (location, index) => {
                     const commlCoverage = location.CommlCoverage;
                     if (commlCoverage) {
@@ -1015,8 +1035,12 @@ module.exports = class AcuityBOP extends Integration {
 
 
                 const status = policyStatusCode === "com.acuity_BindableQuote" || policyStatusCode === "com.acuity_BindableModifiedQuote" ? "quoted" : "referred";
-                log.info(`Acuity: Returning ${status} ${policyAmount ? "with price" : ""}`);
-                return this.client_quoted(quoteNumber, [], policyAmount, quoteLetter, quoteMIMEType, quoteCoverages);
+                if (policyStatusCode === "com.acuity_BindableQuote" || policyStatusCode === "com.acuity_BindableModifiedQuote") {
+                    return this.client_quoted(quoteNumber, [], policyAmount, quoteLetter, quoteMIMEType, quoteCoverages);
+                }
+                else {
+                    return this.client_referred(quoteNumber, [], policyAmount, quoteLetter, quoteMIMEType, quoteCoverages);
+                }
             case "com.acuity_Declined":
                 const extendedStatusList = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.BOPPolicyQuoteInqRs.MsgStatus.ExtendedStatus', true);
                 if (extendedStatusList) {
