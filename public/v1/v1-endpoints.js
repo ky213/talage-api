@@ -172,6 +172,7 @@ exports.registerEndpoints = (server) => {
 
     // Insurer Portal Endpoints
     registerEndpoint(server, 'insurer-portal', 'auth');
+    registerEndpoint(server, 'insurer-portal', 'winloss-rt');
     // registerEndpoint(server, 'insurer-portal', 'account');
     // registerEndpoint(server, 'insurer-portal', 'agencies');
     // registerEndpoint(server, 'insurer-portal', 'applications');
