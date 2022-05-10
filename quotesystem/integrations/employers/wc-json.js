@@ -37,7 +37,7 @@ module.exports = class EmployersWC extends Integration {
      */
     formatPhoneForEmployers(phone) {
         if (!phone || typeof phone !== 'string') {
-            log.error(`Employers WC App ID: ${this.app.id}: Bad phone number format: "${phone}" ` + __location);
+            log.warn(`Employers WC App ID: ${this.app.id}: Bad phone number format: "${phone}" ` + __location);
             return '';
         }
         const phoneDigits = phone.trim().replace(/\D/g, '');
