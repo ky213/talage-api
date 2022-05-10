@@ -11,7 +11,9 @@ const tracker = global.requireShared('./helpers/tracker.js');
 const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
-const AgencyBO = global.requireShared('./models/Agency-BO.js');
+//const AgencyBO = global.requireShared('./models/Agency-BO.js');
+const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
+const ZipCodeBO = global.requireShared('./models/ZipCode-BO.js');
 
 /**
  * Agency report Task processor
@@ -76,9 +78,20 @@ var agencyReportTask = async function(){
         // Load the request data into it
         // get all non-deleted agencies
         //Wheelhouse only 2022-04-29
-        const query = {agencyNetworkId: 1};
-        const agencyBO = new AgencyBO();
-        agencyList = await agencyBO.getList(query);
+        const query = {
+            agencyNetworkId: 1,
+            active: true
+        };
+        var queryOptions = {};
+        queryOptions.sort = {name: 1};
+        const projection = {
+            "id":0,
+            "__v":0
+        }
+        // const agencyBO = new AgencyBO();
+        // agencyList = await agencyBO.getList(query);
+        const AgencyModel = global.mongoose.Agency;
+        agencyList = await AgencyModel.find(query, projection, queryOptions).lean();
     }
     catch(err){
         log.error("AgencyReporting agencybo getList error " + err + __location);
@@ -87,14 +100,18 @@ var agencyReportTask = async function(){
 
     const dbDataColumns = {
         "systemId": "Agency ID",
-        "name": "Angency Name",
-        "state": "Active",
+        "name": "Agency Name",
+        "territory": "Agency State",
+        "status": "Active",
         "networkName": "Agency Network",
         "created": "Created",
         "wholesale_agreement_signed":"Wholesale Agreement Signed",
         "modified": "Modified",
         "deleted": "Deleted"
     };
+
+    const agencyLocationBO = new AgencyLocationBO();
+    const zipCodeBO = new ZipCodeBO();
 
     // Loop locations setting up activity codes.
     if(agencyList && agencyList.length > 0){
@@ -113,19 +130,46 @@ var agencyReportTask = async function(){
             agency.created = moment_timezone(agency.createdAt).tz('America/Los_Angeles').format('YYYY-MM-DD');
             agency.modified = moment_timezone(agency.updatedAt).tz('America/Los_Angeles').format('YYYY-MM-DD');
 
+            const agencyPrimeLocationDB = await agencyLocationBO.getByAgencyPrimary(agency.systemId);
+            if(agencyPrimeLocationDB){
+                if(agencyPrimeLocationDB.state){
+                    agency.territory = agencyPrimeLocationDB.state
+                }
+                else if(agencyPrimeLocationDB.zipcode){
+                    try {
+                        const zipcodeDB = await zipCodeBO.loadByZipCode(agencyPrimeLocationDB.zipcode);
+                        if(zipcodeDB?.state){
+                            agency.territory = zipcodeDB.state
+                        }
+                        else {
+                            agency.territory = "bad location zip";
+                        }
+                    }
+                    catch (err) {
+                        log.error(`Agency reporting zipcode error ${err}` + __location)
+                    }
 
-            agency.state = ""
+                }
+                else {
+                    agency.territory = "bad location no zip or state";
+                }
+            }
+            else {
+                agency.territory = "no location";
+            }
+
+            agency.status = ""
             if(agency.agency_network === 2){
                 if(agency.wholesaleAgreementSigned){
                     const signedDtm = moment_timezone(agency.wholesaleAgreementSigned).tz('America/Los_Angeles')
                     agency.wholesale_agreement_signed = signedDtm.format('YYYY-MM-DD');
                     if(signedDtm < startOfMonth){
-                        agency.state = "Active"
+                        agency.status = "Active"
                     }
                 }
             }
             else if(createdDtm < startOfMonth){
-                agency.state = "Active";
+                agency.status = "Active";
                 //make sure if it exists it is formatted.
                 if(agency.wholesaleAgreementSigned){
                     const signedDtm = moment_timezone(agency.wholesaleAgreementSigned).tz('America/Los_Angeles')
