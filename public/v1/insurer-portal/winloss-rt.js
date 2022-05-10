@@ -279,7 +279,7 @@ async function winlossBOP(req, res, next) {
     const IndustryCodeModel = global.mongoose.IndustryCode;
 
     // TODO get insurerId from User's auth.
-    const insurerId = 14;  // 14 = Liberty mutual has both GL and BOP
+    const insurerId = 14; // 14 = Liberty mutual has both GL and BOP
     const policyType = req.query.policytype
 
 
