@@ -1417,8 +1417,9 @@ module.exports = class MarkelWC extends Integration {
             response = await this.send_json_request(host, path, JSON.stringify(jsonRequest), key, 'POST');
         }
         catch (error) {
-            log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: ${error} ${__location}`);
-            this.reasons.push(error);
+            const errorMessage = `${error} ${error.response ? error.response : ""}`
+            log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: ${errorMessage} ${__location}`);
+            this.reasons.push(errorMessage);
             return this.return_result('error');
         }
 

@@ -182,17 +182,18 @@ module.exports = class PieWC extends Integration {
             res = await this.send_json_request(host, requestPath, JSON.stringify(data), headers);
         }
         catch (error) {
+            const errorMessage = `${error} ${error.response ? error.response : ""}`
             if(error.httpStatusCode === 400 && error.response){
-                log.error(`Appid: ${this.app.id} Pie WC BAD Request: Error  ${error} ` + __location)
+                log.error(`Appid: ${this.app.id} Pie WC BAD Request: Error  ${errorMessage} ` + __location)
                 try{
                     res = JSON.parse(error.response);
                 }
                 catch(e){
-                    log.error(`Appid: ${this.app.id} Pie error parsing error response: Error  ${error} ` + __location)
+                    log.error(`Appid: ${this.app.id} Pie error parsing error response: Error  ${errorMessage} ` + __location)
                 }
             }
             else {
-                log.error(`Appid: ${this.app.id} Pie WC Request: Error  ${error} ` + __location)
+                log.error(`Appid: ${this.app.id} Pie WC Request: Error  ${errorMessage} ` + __location)
             }
             pricingResult = {
                 gotPricing: false,
@@ -858,17 +859,18 @@ module.exports = class PieWC extends Integration {
             res = await this.send_json_request(host,requestPath , JSON.stringify(data), headers);
         }
         catch (error) {
+            const errorMessage = `${error} ${error.response ? error.response : ""}`
             if(error.httpStatusCode === 400 && error.response){
-                log.error(`Appid: ${this.app.id} Pie WC BAD Request: Error  ${error} ` + __location)
+                log.error(`Appid: ${this.app.id} Pie WC BAD Request: Error  ${errorMessage} ` + __location)
                 try{
                     res = JSON.parse(error.response);
                 }
                 catch(e){
-                    log.error(`Appid: ${this.app.id} Pie error parsing error response: Error  ${error} ` + __location)
+                    log.error(`Appid: ${this.app.id} Pie error parsing error response: Error  ${errorMessage} ` + __location)
                 }
             }
             else {
-                log.error(`Appid: ${this.app.id} Pie WC Request: Error  ${error} ` + __location)
+                log.error(`Appid: ${this.app.id} Pie WC Request: Error  ${errorMessage} ` + __location)
                 return this.return_result('error');
             }
         }

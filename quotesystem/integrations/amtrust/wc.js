@@ -255,7 +255,9 @@ module.exports = class AMTrustWC extends Integration {
                 verb, true, true);
         }
         catch (error) {
-            this.log_error(`Error sending Amtrust Request ${path}: ${error}`, __location);
+            const errorMessage = `${error} ${error.response ? error.response : ""}`
+            this.reasons.push(errorMessage);
+            this.log_error(`Error sending Amtrust Request ${path}: ${errorMessage}`, __location);
             return null;
         }
         if (typeof response === "string" && response.startsWith("BadRequest:")) {
