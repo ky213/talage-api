@@ -184,12 +184,21 @@ module.exports = class EmployersWC extends Integration {
                 const proposalContact = {"email": this.quotingAgencyLocationDB.email ? this.quotingAgencyLocationDB.email : agency.agencyEmail};
 
                 const formattedPhone = this.formatPhoneForEmployers(primaryContact.phone);
-                const formattedAgencyPhone = this.formatPhoneForEmployers(this.quotingAgencyLocationDB.phone ? this.quotingAgencyLocationDB.phone : agency.agencyPhone);
+                let formattedAgencyPhone = this.formatPhoneForEmployers(this.quotingAgencyLocationDB.phone ? this.quotingAgencyLocationDB.phone : agency.agencyPhone);
 
                 if (formattedPhone) {
                     applicantContact.phoneNumber = formattedPhone;
                     billingContact.phoneNumber = formattedPhone;
+                }
+                else {
+                    throw new Error('Primary Contact Phone Number is blank or not valid');
+                }
+
+                if (formattedAgencyPhone) {
                     proposalContact.phoneNumber = formattedAgencyPhone;
+                }
+                else {
+                    formattedAgencyPhone = "";
                 }
 
                 const applicantName = `${primaryContact.firstName} ${primaryContact.lastName}`;
@@ -237,6 +246,10 @@ module.exports = class EmployersWC extends Integration {
             }
             catch (err) {
                 log.error(`${logPrefix}Problem creating contact information on quote request: ${err} ` + __location);
+                // immediately autodecline and report the error
+                this.reasons.push(`${logPrefix} ${err.message}  - Stopped before submission to insurer`);
+                fulfill(this.return_result('autodeclined'));
+                return;
             }
 
             //We use the Agency Code (Entered in AP) only send the agencyCode so not to trigger secondary employer search

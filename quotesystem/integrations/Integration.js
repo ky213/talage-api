@@ -552,8 +552,9 @@ module.exports = class Integration {
                     }
 
                     if (!Object.prototype.hasOwnProperty.call(question.possible_answers, answer_id)) {
-                        log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} question ${question.id} anwserid ${answer_id} encountered an answer to a question that is not possible. ${question.possible_answers}` + __location);
-                        //log.debug(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} question ${question.id} the question with not possible answer is as follows:\n ${util.inspect(question, false, null)} `);
+                        if(!question.parent){
+                            log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} question ${question.id} anwserid ${answer_id} encountered an answer to a question that is not possible. ${question.possible_answers}` + __location);
+                        }
                         return false;
                     }
 
@@ -571,8 +572,10 @@ module.exports = class Integration {
         else if (question.type === 'Yes/No' || question.type === 'Select List') {
             // Determine the answer based on the Answer ID stored in our database
             if (!Object.prototype.hasOwnProperty.call(question.possible_answers, question.answer_id)) {
-                log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} question ${question.id} encountered an answer to a question that is not possible.` + __location);
-                log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} question ${question.id} the question with not possible answer is as follows:\n ${util.inspect(question, false, null)} `);
+                if (!question.parent){
+                    log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} question ${question.id} encountered an answer to a question that is not possible.` + __location);
+                    log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} question ${question.id} the question with not possible answer is as follows:\n ${util.inspect(question, false, null)} `);
+                }
                 return false;
             }
 

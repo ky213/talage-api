@@ -17,11 +17,11 @@ const InsurerPortalUserGroupBO = global.requireShared('models/InsurerPortalUserG
  * @returns {JWT} Newly generated JWT token
  */
 async function createToken(email, insurerId) {
-    const insurerPortalUserDBJson = await getUser(email, insurerId);
+    const insurerPortalUserDBJson = await getUser(email);
 
     // Make sure we found the user
     if (!insurerPortalUserDBJson) {
-        log.info(`Authentication failed - Account not found ${email} agencyNetworkId ${insurerId}` + __location);
+        log.info(`Authentication failed - Account not found ${email} Insurer ${insurerId}` + __location);
         throw new Error('Authentication failed - Account not found ' + email);
     }
 
@@ -37,9 +37,12 @@ async function createToken(email, insurerId) {
     }
 
     const insurerPortalUserBO = new InsurerPortalUserBO();
-    await insurerPortalUserBO.updateLastLogin(insurerPortalUserDBJson.insurerPortalUserId).catch(function(e) {
+    try{
+        await insurerPortalUserBO.updateLastLogin(insurerPortalUserDBJson.insurerPortalUserId)
+    }
+    catch(e) {
         log.error(e.message + __location);
-    });
+    }
 
     // Begin constructing the payload
     const payload = {
@@ -64,7 +67,8 @@ async function createToken(email, insurerId) {
 async function createMFAToken(insurerPortalUserDBJson, sessionUuid) {
     const payload = {
         userId: insurerPortalUserDBJson.insurerPortalUserId,
-        tokenId: sessionUuid
+        tokenId: sessionUuid,
+        mfaCheck: true
     };
 
     return jwt.sign(payload, global.settings.AUTH_SECRET_KEY, {expiresIn: 900});
@@ -78,7 +82,7 @@ async function createMFAToken(insurerPortalUserDBJson, sessionUuid) {
  * @param {*} insurerId insurerId of the user.
  * @returns {object} Talage user object in mongo
  */
-async function getUser(email, insurerId) {
+async function getUser(email) {
     // This is a complete hack. Plus signs in email addresses are valid, but the Restify queryParser removes plus signs. Add them back in
     email = email.replace(' ', '+');
 
@@ -87,7 +91,7 @@ async function getUser(email, insurerId) {
     const insurerPortalUserBO = new InsurerPortalUserBO();
     let userDoc = null;
     try {
-        userDoc = await insurerPortalUserBO.getByEmailAndInsurerId(email, true, insurerId);
+        userDoc = await insurerPortalUserBO.getByEmail(email);
     }
     catch (e) {
         log.error(e.message + __location);

@@ -1,16 +1,10 @@
-'use strict';
-
-// eslint-disable-next-line no-unused-vars
-const tracker = global.requireShared('./helpers/tracker.js');
 var InsurerPortalUserGroup = global.mongoose.InsurerPortalUserGroup;
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
 module.exports = class InsurerPortalUserGroupBO{
-
     constructor(){
         this.id = 0;
     }
-
 
     /**
 	 * Save Model
@@ -18,37 +12,21 @@ module.exports = class InsurerPortalUserGroupBO{
 	 * @param {object} newObjectJSON - newObjectJSON JSON
 	 * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessContact , or an Error if rejected
 	 */
-    saveModel(newObjectJSON){
-        return new Promise(async(resolve, reject) => {
-            let updatedDoc = null;
-            try{
-                if(newObjectJSON.id){
-                    updatedDoc = await this.update(newObjectJSON.id, newObjectJSON);
-                }
-                else{
-                    updatedDoc = await this.insert(newObjectJSON);
-                }
+    async saveModel(newObjectJSON){
+        let updatedDoc = null;
+        try{
+            if(newObjectJSON.id){
+                updatedDoc = await this.update(newObjectJSON.id, newObjectJSON);
             }
-            catch(err){
-                reject(err);
+            else{
+                updatedDoc = await this.insert(newObjectJSON);
             }
-            resolve(updatedDoc);
-        });
+        }
+        catch(err){
+            throw err;
+        }
+        return updatedDoc;
     }
-
-    // /**
-    //  * saves model.
-    //  *
-    //  * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved model , or an Error if rejected
-    //  */
-
-    // save(asNew = false){
-    //     return new Promise(async(resolve, reject) => {
-    //     //validate
-
-    //         resolve(true);
-    //     });
-    // }
 
     async update(id, newObjectJSON){
         if(id && id > 0){
@@ -97,114 +75,106 @@ module.exports = class InsurerPortalUserGroupBO{
         newObjecJSON.systemId = newSystemId;
         log.debug("newSystemId: " + newSystemId)
         const insurerPortalUserGroup = new InsurerPortalUserGroup(newObjecJSON);
-        //Insert a doc
-        await insurerPortalUserGroup.save().catch(function(err){
+        try {
+            //Insert a doc
+            await insurerPortalUserGroup.save();
+        }
+        catch(err){
             log.error('Mongo insurerPortalUserGroup Save err ' + err + __location);
             throw err;
-        });
+        }
         // eslint-disable-next-line prefer-const
         let userGroup = mongoUtils.objCleanup(insurerPortalUserGroup);
         userGroup.id = userGroup.systemId;
         return userGroup;
     }
 
-    getList(queryJSON) {
-        return new Promise(async(resolve, reject) => {
-            // Create the update query
-            // eslint-disable-next-line prefer-const
-            let query = {active: true};
-            if(queryJSON){
+    async getList(queryJSON) {
+        const query = {active: true};
+        if(queryJSON){
 
-                if(queryJSON.active){
-                    query.active = queryJSON.active
-                }
-                if(queryJSON.name){
-                    query.name = queryJSON.name
-                }
+            if(queryJSON.active){
+                query.active = queryJSON.active
             }
+            if(queryJSON.name){
+                query.name = queryJSON.name
+            }
+        }
 
-            // Run the query
-            let userGroupList = null;
+        // Run the query
+        let userGroupList = null;
+        try {
+            const doclist = await InsurerPortalUserGroup.find(query, '-__v');
+            userGroupList = mongoUtils.objListCleanup(doclist);
+            for(let i = 0; i < userGroupList.length; i++) {
+                userGroupList[i].id = userGroupList[i].systemId;
+            }
+        }
+        catch (err) {
+            log.error("Getting InsurerPortalUserGroup error " + err + __location);
+            throw err;
+        }
+
+        if(userGroupList && userGroupList.length > 0){
+            return userGroupList;
+        }
+        else {
+            //Search so no hits ok.
+            return [];
+        }
+    }
+
+
+    async getById(id) {
+        //validate
+        if(id && id > 0){
+            const query = {
+                "systemId": id,
+                active: true
+            };
+            let userGroup = null;
             try {
-                const doclist = await InsurerPortalUserGroup.find(query, '-__v');
-                userGroupList = mongoUtils.objListCleanup(doclist);
-                for(let i = 0; i < userGroupList.length; i++) {
-                    userGroupList[i].id = userGroupList[i].systemId;
+                const docDB = await InsurerPortalUserGroup.findOne(query, '-__v');
+                if(docDB){
+                    userGroup = mongoUtils.objCleanup(docDB);
+                    userGroup.id = userGroup.systemId;
                 }
             }
             catch (err) {
                 log.error("Getting InsurerPortalUserGroup error " + err + __location);
-                reject(err);
+                throw err;
             }
-
-            if(userGroupList && userGroupList.length > 0){
-                resolve(userGroupList);
-            }
-            else {
-                //Search so no hits ok.
-                resolve([]);
-            }
-
-
-        });
+            return userGroup;
+        }
+        else {
+            throw new Error('no id supplied');
+        }
     }
 
-
-    getById(id) {
-        return new Promise(async(resolve, reject) => {
-            //validate
-            if(id && id > 0){
-                const query = {
-                    "systemId": id,
-                    active: true
-                };
-                let userGroup = null;
-                try {
-                    const docDB = await InsurerPortalUserGroup.findOne(query, '-__v');
-                    if(docDB){
-                        userGroup = mongoUtils.objCleanup(docDB);
-                        userGroup.id = userGroup.systemId;
-                    }
-                }
-                catch (err) {
-                    log.error("Getting InsurerPortalUserGroup error " + err + __location);
-                    reject(err);
-                }
-                resolve(userGroup);
+    async deleteSoftById(id) {
+        //validate
+        if(id && id > 0){
+            const activeJson = {active: false};
+            const query = {"systemId": id};
+            try {
+                await InsurerPortalUserGroup.updateOne(query, activeJson);
             }
-            else {
-                reject(new Error('no id supplied'))
+            catch (err) {
+                log.error("Soft Deleting InsurerPortalUserGroup error " + err + __location);
+                throw err;
             }
-        });
-    }
 
-    deleteSoftById(id) {
-        return new Promise(async(resolve, reject) => {
-            //validate
-            if(id && id > 0){
-                const activeJson = {active: false};
-                const query = {"systemId": id};
-                try {
-                    await InsurerPortalUserGroup.updateOne(query, activeJson);
-                }
-                catch (err) {
-                    log.error("Soft Deleting InsurerPortalUserGroup error " + err + __location);
-                    reject(err);
-                }
+            return true;
 
-                resolve(true);
-
-            }
-            else {
-                reject(new Error('no id supplied'))
-            }
-        });
+        }
+        else {
+            throw new Error('no id supplied');
+        }
     }
 
     async getMaxSystemId(){
         let maxId = 0;
         try{
-
             //small collection - get the collection and loop through it.
             const query = {active: true}
             const docList = await InsurerPortalUserGroup.find(query)

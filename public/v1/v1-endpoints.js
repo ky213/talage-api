@@ -171,7 +171,7 @@ exports.registerEndpoints = (server) => {
     registerEndpoint(server, 'digalent', 'auth-quote-rt');
 
     // Insurer Portal Endpoints
-    registerEndpoint(server, 'insurer-portal', 'auth');
+    registerEndpoint(server, 'insurer-portal', 'auth-rt');
     registerEndpoint(server, 'insurer-portal', 'winloss-rt');
     // registerEndpoint(server, 'insurer-portal', 'account');
     // registerEndpoint(server, 'insurer-portal', 'agencies');

@@ -20,14 +20,13 @@ const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
 async function findAll(req, res, next) {
     log.debug(`Admin users find all ${JSON.stringify(req.query)}`)
-    let error = null;
-
-    const insurerPortalUserBO = new InsurerPortalUserBO();
-    const rows = await insurerPortalUserBO.getList(req.query).catch(function(err) {
-        error = err;
-    })
-    if (error) {
-        return next(error);
+    let rows = null;
+    try {
+        const insurerPortalUserBO = new InsurerPortalUserBO();
+        rows = await insurerPortalUserBO.getList(req.query)
+    }
+    catch(err) {
+        return next(err);
     }
     if (rows) {
 
@@ -42,16 +41,15 @@ async function findAll(req, res, next) {
 
 async function findGroupAll(req, res, next) {
 
-    let error = null;
-    const insurerPortalUserBO = new InsurerPortalUserBO();
-    const rows = await insurerPortalUserBO.getGroupList().catch(function(err) {
-        error = err;
-    })
-    if (error) {
-        return next(error);
+    let rows = null;
+    try {
+        const insurerPortalUserBO = new InsurerPortalUserBO();
+        rows = await insurerPortalUserBO.getGroupList();
+    }
+    catch(err) {
+        return next(err);
     }
     if (rows) {
-
         res.send(200, rows);
         return next();
     }
@@ -66,15 +64,15 @@ async function findOne(req, res, next) {
     if (!id) {
         return next(new Error("bad parameter"));
     }
-    let error = null;
-    const insurerPortalUserBO = new InsurerPortalUserBO();
-    // Load the request data into it
-    const userJSON = await insurerPortalUserBO.getById(id).catch(function(err) {
+    let userJSON = null;
+    try {
+        const insurerPortalUserBO = new InsurerPortalUserBO();
+        // Load the request data into it
+        userJSON = await insurerPortalUserBO.getById(id);
+    }
+    catch(err) {
         log.error("insurerPortalUserBO load error " + err + __location);
-        error = err;
-    });
-    if (error) {
-        return next(error);
+        return next(err);
     }
     if(userJSON.password){
         delete userJSON.password
@@ -92,7 +90,6 @@ async function findOne(req, res, next) {
 }
 
 async function add(req, res, next) {
-
     if (!req.body.insurerId) {
         return next(serverHelper.requestError('Missing insurerId'));
     }
@@ -108,7 +105,6 @@ async function add(req, res, next) {
     else {
         return next(serverHelper.requestError('Missing password'));
     }
-
     const allowedPropsInsert = [
         'password',
         'email',
@@ -128,26 +124,24 @@ async function add(req, res, next) {
 
     if(needToUpdate){
         const insurerPortalUserBO = new InsurerPortalUserBO();
-        let error = null;
-        await insurerPortalUserBO.saveModel(insertJSON).catch(function(err) {
-            log.error("insurerPortalUserBO load error " + err + __location);
-            error = err;
-        });
-        if (error) {
-            return next(error);
+        try {
+            await insurerPortalUserBO.saveModel(insertJSON);
         }
-
-        const userJSON = await insurerPortalUserBO.getById(insurerPortalUserBO.id).catch(function(err) {
+        catch(err) {
             log.error("insurerPortalUserBO load error " + err + __location);
-            error = err;
-        });
-        if (error) {
-            return next(error);
+            return next(err);
+        }
+        let userJSON = null;
+        try {
+            userJSON = await insurerPortalUserBO.getById(insurerPortalUserBO.id);
+        }
+        catch(err) {
+            log.error("insurerPortalUserBO load error " + err + __location);
+            return next(err);
         }
         if(userJSON.password){
             delete userJSON.password
         }
-
         res.send(200, userJSON);
         return next();
     }
@@ -193,26 +187,19 @@ async function update(req, res, next) {
             updateJSON.clear_email = req.body.email;
         }
         const insurerPortalUserBO = new InsurerPortalUserBO();
-        let error = null;
-        await insurerPortalUserBO.saveModel(updateJSON).catch(function(err) {
-            log.error("insurerPortalUserBO load error " + err + __location);
-            error = err;
-        });
-        if (error) {
-            return next(error);
+        let userJSON = null;
+        try {
+            await insurerPortalUserBO.saveModel(updateJSON)
+            userJSON = await insurerPortalUserBO.getById(id)
         }
-        const userJSON = await insurerPortalUserBO.getById(id).catch(function(err) {
+        catch(err) {
             log.error("insurerPortalUserBO load error " + err + __location);
-            error = err;
-        });
-        if (error) {
-            return next(error);
+            return next(err);
         }
 
         if(userJSON.password){
             delete userJSON.password
         }
-
         res.send(200, userJSON);
         return next();
     }
@@ -229,14 +216,13 @@ async function deleteUser(req, res, next) {
     if (!id) {
         return next(new Error("bad parameter"));
     }
-    let error = null;
     const insurerPortalUserBO = new InsurerPortalUserBO();
-    await insurerPortalUserBO.deleteSoftById(id).catch(function(err) {
+    try {
+        await insurerPortalUserBO.deleteSoftById(id);
+    }
+    catch(err) {
         log.error("insurerPortalUserBO load error " + err + __location);
-        error = err;
-    });
-    if (error) {
-        return next(error);
+        return next(err);
     }
     res.send(200, {"success": true});
     return next();
