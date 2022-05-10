@@ -2678,8 +2678,8 @@ module.exports = class Integration {
                         const error = new Error(`Appid: ${this.app.id} insurer request encountered a ${res.statusCode} error`);
                         // Added check - do not log errors if there is a special response case for the client to handle
                         if(log_errors){
-                            log.error(error.message + `  Appid: ${this.app.id} calling ${this.insurer.name} ` + __location);
-                            log.verbose(rawData);
+                            log.error(error.message + `  Appid: ${this.app.id} calling ${this.insurer.name} response: ${JSON.stringify(rawData)} ` + __location);
+                            log.error(rawData);
                             this.log += `--------======= Error Appid: ${this.app.id} calling ${this.insurer.name}  =======--------<br><br>`;
                             this.log += `Status Code: ${res.statusCode} <br>`;
                             this.log += `<pre>${htmlentities.encode(formattedData)}</pre><br><br>`;
