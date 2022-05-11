@@ -1581,7 +1581,7 @@ module.exports = class Application {
             //validateBOPPolicies
             if(this.has_policy_type('BOP')){
                 try {
-                    validateBOPPolicies(this.applicationDocData, this.agencyLocation.insurerList, logValidationErrors);
+                    await validateBOPPolicies(this.applicationDocData, this.agencyLocation.insurerList, logValidationErrors);
                 }
                 catch (e) {
                     return reject(new Error(`Failed validating BOP policy: ${e}`));
