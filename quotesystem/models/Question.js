@@ -20,6 +20,7 @@ module.exports = class Question{
         this.required = false;
         this.text = '';
         this.inputType = '';
+        this.applicationId = '';
     }
 
     /**
@@ -62,7 +63,11 @@ module.exports = class Question{
 	 * @param {object} data - The business data
 	 * @returns {void}
 	 */
-    load(data){
+    load(data, applicationId){
+
+        if(applicationId){
+            this.applicationId = applicationId;
+        }
         Object.keys(this).forEach((property) => {
             if(!Object.prototype.hasOwnProperty.call(data, property)){
                 return;
@@ -159,11 +164,13 @@ module.exports = class Question{
                 // Only 1 checkbox was selected and it is number in the JSON
                 answerArray = [answer];
             }
-            else if (typeof answer === 'string') {
+            else if (answer && typeof answer === 'string') {
                 // Only 1 checkbox was selected and it is string in the JSON
                 //convert to number
                 const answerInt = parseInt(answer, 10);
-                answerArray = [answerInt]
+                if(answerArray){
+                    answerArray = [answerInt]
+                }
             }
             // If we don't have a valid array, that means they either didn't provide an array, or we couldn't parse an array above.
             // This can happen if they don't enable any checkboxes for a question. -SF
@@ -175,7 +182,7 @@ module.exports = class Question{
             for (const answer_id of answerArray) {
                 // If the answer wasn't numeric, it is wrong
                 if (!this.parent && typeof answer_id !== 'number') {
-                    const errorMessage = `Invalid answer provided - non number -  for Question ${this.id}. (${htmlentities.decode(this.text)}) answer_id ${answer_id} typeof answer_id ${typeof answer_id}`
+                    const errorMessage = `AppId ${this.applicationId} Invalid answer provided - non number -  for Question ${this.id}. (${htmlentities.decode(this.text)}) answer_id ${answer_id} typeof answer_id ${typeof answer_id}`
                     log.error(errorMessage + __location);
                     //logging in calling method.
                     //throw new Error(errorMessage);
@@ -193,7 +200,7 @@ module.exports = class Question{
             //issues are logged in calling methods.  It has the applicationId
             // If the answer wasn't numeric, it is wrong
             if (!this.parent && typeof answer !== 'number') {
-                const errorMessage = `Invalid answer provided - non number -  for Question ${this.id}. (${htmlentities.decode(this.text)}) answerId ${answer} typeof answerId ${typeof answer}`
+                const errorMessage = `AppId ${this.applicationId} Invalid answer provided - non number -  for Question ${this.id}. (${htmlentities.decode(this.text)}) answerId ${answer} typeof answerId ${typeof answer}`
                 log.error(errorMessage + __location);
                 //throw new Error(`Invalid answer provided - non number - for Question ${this.id}. (${htmlentities.decode(this.text)})`);
             }
@@ -214,7 +221,7 @@ module.exports = class Question{
                     }
                 }
                 if(!this.parent && found === false){
-                    const errorMessage = `Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)}) anwser ${answer} not in ${JSON.stringify(this.possible_answers)}`
+                    const errorMessage = `AppId ${this.applicationId} Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)}) anwser ${answer} not in ${JSON.stringify(this.possible_answers)}`
                     log.error(errorMessage + __location);
                     //throw new Error(`Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)}) anwser ${answer} not in ${JSON.stringify(this.possible_answers)}`);
                 }

@@ -529,7 +529,7 @@ module.exports = class Application {
                 //log.debug(`questionDef ${JSON.stringify(questionDef)}`)
                 // Prepare a Question object based on this data and store it
                 const q = new Question();
-                q.load(questionDef);
+                q.load(questionDef,this.applicationDocData.applicationId);
                 // Load the user's answer
                 //work with Application dataa
                 if (this.applicationDocData.questions) {
