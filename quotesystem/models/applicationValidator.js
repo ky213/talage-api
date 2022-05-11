@@ -641,7 +641,7 @@ const validatePolicies = (applicationDocData,agencyNetworkJSON) => {
  * @param {string} insurerList - The list of possible insurers from Agencylocation Doc  (not Application model insurers JSON)
  * @returns {void}
  */
-const validateBOPPolicies = (applicationDocData,insurerList) => {
+const validateBOPPolicies = async(applicationDocData,insurerList) => {
     //Travelers, Markel, Liberty, Arrowhead    (not chubb, coterie)
     // eslint-disable-next-line array-element-newline
     const fullBOPInsurers = [2,3,14,19,27];
@@ -669,8 +669,27 @@ const validateBOPPolicies = (applicationDocData,insurerList) => {
 
     if(needBOPIndustryCodeId){
         const bopPolicy = applicationDocData.policies.find((p) => p.policyType === "BOP");
-        if(bopPolicy && !bopPolicy.bopIndustryCodeId){
-            errorMessage += `;Missing BOP Industry Code. See "We need more detail about what the applicant is doing" in UI`;
+        if(bopPolicy && !bopPolicy.bopIndustryCodeId && applicationDocData.industryCode){
+            let invalid = false;
+            //Does industryCode have any BOPCode children.
+            try{
+                var IndustryCode = global.mongoose.IndustryCode;
+                const industryCodeId = parseInt(applicationDocData.industryCode,10)
+                const query = {
+                    parentIndustryCodeId: industryCodeId,
+                    codeGroupList: "BOP"
+                }
+                const icBopCount = await IndustryCode.countDocuments(query);
+                if(icBopCount > 0){
+                    invalid = true;
+                }
+            }
+            catch(err){
+                log.error(`AppId: ${applicationDocData.applicationId} error in validateBOPPolicies ${err} ` + __location)
+            }
+            if(invalid){
+                errorMessage += `;Missing BOP Industry Code. See "We need more detail about what the applicant is doing" in UI`;
+            }
         }
     }
 
