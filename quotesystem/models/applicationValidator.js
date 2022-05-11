@@ -817,6 +817,7 @@ const validateQuestion = async(applicationDocData, question, logValidationErrors
  * @returns {void}
  */
 const validateClaims = async(applicationDocData) => {
+
     for (const claim of applicationDocData.claims) {
 
         /**
@@ -864,7 +865,19 @@ const validateClaims = async(applicationDocData) => {
         if (!claim.open && claim.amountReserved) {
             throw new Error('Only open claims can have an amount reserved');
         }
+        if (claim.amountPaid) {
+            if (!validator.claim_amount(claim.amountPaid)) {
+                throw new Error('Data Error: The amount must be a dollar value greater than 0 and below 15,000,000');
+            }
+        }
+        if (claim.amountReserved) {
+            if (!validator.claim_amount(claim.amountReserved)) {
+                throw new Error('Data Error: The amountReserved must be a dollar value greater than 0 and below 15,000,000');
+            }
+        }
     }
+
+    return;
 }
 
 /**

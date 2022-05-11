@@ -233,7 +233,7 @@ module.exports = class Application {
             else {
                 log.error(`Error translating application: ${e}` + __location);
             }
-            //throw e;
+            throw e;
         }
     }
 
@@ -433,9 +433,6 @@ module.exports = class Application {
                  * - < 15,000,000
                  */
                 if (claim.amountPaid) {
-                    if (!validator.claim_amount(claim.amountPaid)) {
-                        throw new Error('Data Error: The amount must be a dollar value greater than 0 and below 15,000,000');
-                    }
 
                     // Cleanup this input
                     if (typeof claim.amountPaid === 'number') {
@@ -458,10 +455,6 @@ module.exports = class Application {
                  * - < 15,000,000
                  */
                 if (claim.amountReserved) {
-                    if (!validator.claim_amount(claim.amountReserved)) {
-                        throw new Error('Data Error: The amountReserved must be a dollar value greater than 0 and below 15,000,000');
-                    }
-
                     // Cleanup this input
                     if (typeof claim.amountReserved === 'number') {
                         claim.amountReserved = Math.round(claim.amountReserved);
@@ -1503,7 +1496,7 @@ module.exports = class Application {
 
             // Contacts (required)
             try {
-                validateContacts(this.applicationDocData,logValidationErrors);
+                await validateContacts(this.applicationDocData,logValidationErrors);
             }
             catch (e) {
                 return reject(new Error(`Failed validating contacts: ${e}`));
@@ -1511,7 +1504,7 @@ module.exports = class Application {
 
             // Locations (required)
             try {
-                validateLocations(this.applicationDocData, logValidationErrors);
+                await validateLocations(this.applicationDocData, logValidationErrors);
             }
             catch (e) {
                 return reject(new Error(`Failed validating locations: ${e}`));
@@ -1519,7 +1512,7 @@ module.exports = class Application {
 
             // Claims (optional)
             try {
-                validateClaims(this.applicationDocData,logValidationErrors);
+                await validateClaims(this.applicationDocData,logValidationErrors);
             }
             catch (e) {
                 return reject(new Error(`Failed validating claims: ${e}`));
