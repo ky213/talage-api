@@ -80,6 +80,14 @@ module.exports = class AcuityBOP extends Integration {
             return this.client_error("Acuity BOP requires FEIN.", __location);
         }
 
+        if (!this.industry_code.attributes.acuityNAICSCode) {
+            log.error(`Acuity (application ${this.app.id}): Could not find ACUITYNAICSCode for industry code ${this.industry_code.id} ${__location}`);
+            return this.return_result('autodeclined');
+        }
+        let quickQuote = false;
+        if (this.industry_code.attributes.acuityNAICSCode.split('-')[1] === '000') {
+            quickQuote = true;
+        }
 
         // Acuity has us define our own Request ID
         this.request_id = this.generate_uuid();
@@ -126,7 +134,7 @@ module.exports = class AcuityBOP extends Integration {
         // <BOPPolicyQuoteInqRq>
         const BOPPolicyQuoteInqRq = InsuranceSvcRq.ele('BOPPolicyQuoteInqRq');
         BOPPolicyQuoteInqRq.ele('RqUID', this.request_id);
-        BOPPolicyQuoteInqRq.ele('BusinessPurposeTypeCd', 'com.acuity_NBQ_RC2');
+        BOPPolicyQuoteInqRq.ele('BusinessPurposeTypeCd', quickQuote ? 'com.acuity_NBQ_RC1' : 'com.acuity_NBQ_RC2');
         BOPPolicyQuoteInqRq.ele('TransactionRequestDt', now.format('YYYY-MM-DDTHH:mm:ss'));
         BOPPolicyQuoteInqRq.ele('TransactionEffectiveDt', now.format('YYYY-MM-DD'));
         BOPPolicyQuoteInqRq.ele('CurCd', 'USD');
@@ -252,11 +260,6 @@ module.exports = class AcuityBOP extends Integration {
         // <InsuredOrPrincipalInfo>
         const InsuredOrPrincipalInfo = InsuredOrPrincipal.ele('InsuredOrPrincipalInfo');
         InsuredOrPrincipalInfo.ele('InsuredOrPrincipalRoleCd', 'Insured');
-
-        if (!this.industry_code.attributes.acuityNAICSCode) {
-            log.error(`Acuity (application ${this.app.id}): Could not find ACUITYNAICSCode for industry code ${this.industry_code.id} ${__location}`);
-            return this.return_result('autodeclined');
-        }
         // <BusinessInfo>
         const BusinessInfo = InsuredOrPrincipalInfo.ele('BusinessInfo');
         BusinessInfo.ele('NAICSCd', this.industry_code.attributes.acuityNAICSCode);
@@ -563,22 +566,18 @@ module.exports = class AcuityBOP extends Integration {
         ]
         appDoc.locations.forEach((location, index) => {
             // <CommlCoverage>
-            // <Limit>
             if (location.businessPersonalPropertyLimit) {
                 const CommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo');
                 CommlPropertyInfo.att('LocationRef', `L${index+1}`);
-                CommlPropertyInfo.att('SublocationRef', `L1`);
+                CommlPropertyInfo.att('SublocationRef', `L${index+1}S1`);
                 CommlPropertyInfo.ele('SubjectInsuranceCd', `BPP`);
                 CommlCoverage = CommlPropertyInfo.ele('CommlCoverage');
                 CommlCoverage.ele('CoverageCd', 'BPP');
                 CommlCoverage.ele('CoverageDesc', 'Business Personal Property');
                 Limit = CommlCoverage.ele('Limit'); 
                 Limit.ele('FormatInteger', location.businessPersonalPropertyLimit);
-                Limit.ele('LimitAppliesToCd', 'BPP');
-                // </Limit>
                 let Deductible = CommlCoverage.ele('Deductible');
                 Deductible.ele('FormatInteger', 0);
-                Deductible.ele('DeductibleAppliesToCd', 'BPP');
             }
             else {
                 log.error(`${logPrefix}: No Business Personal Property Limit present on application`);
@@ -587,24 +586,25 @@ module.exports = class AcuityBOP extends Integration {
             if (location.buildingLimit) {
                 const CommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo');
                 CommlPropertyInfo.att('LocationRef', `L${index+1}`);
-                CommlPropertyInfo.att('SublocationRef', `L1`);
+                CommlPropertyInfo.att('SublocationRef', `L${index+1}S1`);
                 CommlPropertyInfo.ele('SubjectInsuranceCd', `BLDG`);
                 CommlCoverage = CommlPropertyInfo.ele('CommlCoverage');
                 CommlCoverage.ele('CoverageCd', 'BLDG');
                 CommlCoverage.ele('CoverageDesc', 'Building');
                 Limit = CommlCoverage.ele('Limit'); 
                 Limit.ele('FormatInteger', location.buildingLimit);
-                Limit.ele('LimitAppliesToCd', 'BLDG');
-                // </Limit>
                 let Deductible = CommlCoverage.ele('Deductible');
                 Deductible.ele('FormatInteger', 0);
-                Deductible.ele('DeductibleAppliesToCd', 'BLDG');
             }
             else {
                 log.error(`${logPrefix}: No Building Limit present on application`)
             }
 
             // For assigning question elements in question loop
+            let CommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo');
+            CommlPropertyInfo.att('LocationRef', `L${index+1}`);
+            CommlPropertyInfo.att('SublocationRef', `L${index+1}S1`);
+            CommlCoverage = CommlPropertyInfo.ele('CommlCoverage');
             const CommlCoverageSupplement = CommlCoverage.ele('CommlCoverageSupplement');
             for (const question of location.questions) {
                 if (locationQuestionsToIgnore.includes(question.insurerQuestionIdentifier)) {
@@ -841,6 +841,7 @@ module.exports = class AcuityBOP extends Integration {
             case "com.acuity_BindableQuote":
             case "com.acuity_BindableModifiedQuote":
             case 'com.acuity_BindableReferredQuote':
+            case 'com.acuity_BindableModifiedReferredQuote':
             case "com.acuity_NonBindableQuote":
                 let policyAmount = 0;
                 const policyAmountNode = this.get_xml_child(policySummaryInfo, 'FullTermAmt.Amt');
@@ -857,6 +858,7 @@ module.exports = class AcuityBOP extends Integration {
                     log.error(`Acuity BOP (application ${this.app.id}): Could not find the CommlCoverage with Limit information node. ${__location}`);
                     //return this.return_error('error', 'Acuity returned an unexpected reply');
                 }
+
                 if(commlCoverage){
                     commlCoverage.forEach((coverage) => {
                         if (!coverage.Limit || !coverage.Limit.length) {
@@ -899,50 +901,51 @@ module.exports = class AcuityBOP extends Integration {
 
                 // Get Location based Limits
                 const CommlPropertyInfoList = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.BOPPolicyQuoteInqRs.BOPLineBusiness.PropertyInfo.CommlPropertyInfo', true);
-                // log.debug(`CommlPropertyInfoList:\n ${JSON.stringify(CommlPropertyInfoList, null, 4)}`); // zy debug remove
-                CommlPropertyInfoList.forEach( (location, index) => {
-                    const commlCoverage = location.CommlCoverage;
-                    if (commlCoverage) {
-                        commlCoverage.forEach((coverage => {
-                            let description = '';
-                            switch (coverage.CoverageCd[0]) {
-                                case "BPP":
-                                    description = 'Business Personal Property';
-                                    break;
-                                case "BLDG":
-                                    description = 'Building';
-                                    break;
-                                default:
-                                    break;
-                            }
-
-                            if (coverage.Limit && coverage.Limit.length) {
-                                const limitAmt = parseInt(coverage.Limit[0].FormatInteger[0], 10);
-                                const quoteCoverage = {
-                                    description: description + ' Limit',
-                                    value: convertToDollarFormat(limitAmt, true),
-                                    sort: sortIndex++,
-                                    category: `Location ${index+1}`,
-                                    insurerIdentifier: coverage.CoverageCd[0]
-                                }
-                                foundLimitsCount++;
-                                quoteCoverages.push(quoteCoverage);
-                            }
-                            if (coverage.Deductible && coverage.Deductible.length) {
-                                const deductibleAmt = parseInt(coverage.Deductible[0].FormatInteger[0], 10);
-                                const quoteCoverage = {
-                                    description: description + ' Deductible',
-                                    value: convertToDollarFormat(deductibleAmt, true),
-                                    sort: sortIndex++,
-                                    category: `Location ${index+1}`,
-                                    insurerIdentifier: coverage.CoverageCd[0]
-                                }
-                                foundLimitsCount++;
-                                quoteCoverages.push(quoteCoverage);
-                            }
-                        }))
+                for (const coverage of CommlPropertyInfoList) {
+                    if (!coverage?.CommlCoverage?.length) {
+                        continue;
                     }
-                });
+                    const commlCoverage = coverage.CommlCoverage[0];
+                    if (commlCoverage.CoverageCd) {
+                        let description = '';
+                        switch (commlCoverage.CoverageCd[0]) {
+                            case "BPP":
+                                description = 'Business Personal Property';
+                                break;
+                            case "BLDG":
+                                description = 'Building';
+                                break;
+                            default:
+                                continue;
+                                break;
+                        }
+
+                        if (commlCoverage.Limit && commlCoverage.Limit.length) {
+                            const limitAmt = parseInt(commlCoverage.Limit[0].FormatInteger[0], 10);
+                            const quoteCoverage = {
+                                description: description + ' Limit',
+                                value: convertToDollarFormat(limitAmt, true),
+                                sort: sortIndex++,
+                                category: `Location ${coverage['$'].LocationRef}`,
+                                insurerIdentifier: commlCoverage.CoverageCd[0]
+                            }
+                            foundLimitsCount++;
+                            quoteCoverages.push(quoteCoverage);
+                        }
+                        if (commlCoverage.Deductible && commlCoverage.Deductible.length) {
+                            const deductibleAmt = parseInt(commlCoverage.Deductible[0].FormatInteger[0], 10);
+                            const quoteCoverage = {
+                                description: description + ' Deductible',
+                                value: convertToDollarFormat(deductibleAmt, true),
+                                sort: sortIndex++,
+                                category: `Location ${coverage['$'].LocationRef}`,
+                                insurerIdentifier: commlCoverage.CoverageCd[0]
+                            }
+                            foundLimitsCount++;
+                            quoteCoverages.push(quoteCoverage);
+                        }
+                    }
+                }
 
                 // Ensure we found some limits
                 if (!foundLimitsCount) {
@@ -1033,9 +1036,7 @@ module.exports = class AcuityBOP extends Integration {
                     }
                 })
 
-
-                const status = policyStatusCode === "com.acuity_BindableQuote" || policyStatusCode === "com.acuity_BindableModifiedQuote" ? "quoted" : "referred";
-                if (policyStatusCode === "com.acuity_BindableQuote" || policyStatusCode === "com.acuity_BindableModifiedQuote") {
+                if (!quickQuote && (policyStatusCode === "com.acuity_BindableQuote" || policyStatusCode === "com.acuity_BindableModifiedQuote")) {
                     return this.client_quoted(quoteNumber, [], policyAmount, quoteLetter, quoteMIMEType, quoteCoverages);
                 }
                 else {
