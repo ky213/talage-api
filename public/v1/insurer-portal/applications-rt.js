@@ -60,13 +60,17 @@ const AgencyBO = global.requireShared('./models/Agency-BO.js');
                     // log.debug('agency id ' + JSON.stringify(appx, '', 4));
                     appDoc.agencyOwnerName = appx.firstName + ' ' + appx.lastName;
                     appDoc.agencyOwnerEmail = appx.email;
-                    if(appDoc.phone){
-                        appDoc.agencyOwnerPhone = appx.phone;
-                    }else{
-                        appDoc.agencyOwnerPhone = '';
+                    if(appx.phone){
+                        appDoc.agencyPhone = appx.phone;
+                    }
+                    else{
+                        appDoc.agencyPhone = '';
                     }
                     if(appDoc.metrics && appDoc.metrics.appValue){
                         appDoc.appValue = appDoc.metrics.appValue;
+                    }
+                    else {
+                        appDoc.appValue = 0;
                     }
 
                     appList.push(appDoc);
