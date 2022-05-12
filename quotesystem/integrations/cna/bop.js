@@ -14,6 +14,7 @@
 /* eslint multiline-comment-style: 0 */
 const axios = require('axios');
 const moment = require('moment');
+const {get, isArray} = require("lodash")
 
 
 const Integration = require('../Integration.js');
@@ -960,54 +961,53 @@ module.exports = class CnaBOP extends Integration {
 
                         try {
                             // property limits
-                            response.BOPLineBusiness.PropertyInfo.CommlPropertyInfo[0].CommlCoverage.forEach(propLim => {
-                                let description = propLim.CoverageCd.value;
-                                switch (propLim.CoverageCd.value) {
-                                    case "BLDG":
-                                        description = "Building";
-                                        break;
-                                    case "BPP":
-                                        description = "Building Personal Property";
-                                        break;
-                                    case "WH":
-                                        description = "Wind / Hail";
-                                        break;
-                                    case "GLASS":
-                                        description = "Glass";
-                                        break;
-                                    default:
-                                        break;
-                                }
-
-                                if (propLim.Limit) {
-                                    const newCoverage = {
-                                        description: description + " Limit",
-                                        value: convertToDollarFormat(propLim.Limit[0].FormatInteger.value, true),
-                                        sort: coverageSort++,
-                                        category: 'Property Limits',
-                                        insurerIdentifier: propLim.CoverageCd.value
+                            const commlCoverage = get(response, "BOPLineBusiness.PropertyInfo.CommlPropertyInfo[0].CommlCoverage")
+                            
+                            if(commlCoverage && isArray(commlCoverage)){
+                                commlCoverage.forEach(propLim => {
+                                    const coverageCode = propLim.CoverageCd?.value;
+                                    const descriptionsMap = {
+                                    BLDG: "Building",
+                                    BPP: "Building Personal Property",
+                                    WH: "Wind / Hail",
+                                    GLASS: "Glass"
                                     };
-    
-                                    quoteCoverages.push(newCoverage);
-                                }
+                                    const description = descriptionsMap[coverageCode] || ''
 
-                                if (propLim.Deductible) {
-                                    let value = null;
-                                    if (propLim.Deductible[0].FormatText.value && propLim.Deductible[0].FormatText.value === "Policy Level") {
-                                        value = "Policy Level";
+                                    if (propLim.Limit) {
+                                        const limit = get(propLim, "Limit[0].FormatInteger.value")
+                                        const newCoverage = {
+                                            description: description + " Limit",
+                                            value: convertToDollarFormat(limit, true),
+                                            sort: coverageSort++,
+                                            category: 'Property Limits',
+                                            insurerIdentifier: coverageCode
+                                        };
+        
+                                        quoteCoverages.push(newCoverage);
                                     }
 
-                                    const newCoverage = {
-                                        description: description + " Deductible",
-                                        value: value ? value : convertToDollarFormat(propLim.Deductible[0].FormatInteger.value, true),
-                                        sort: coverageSort++,
-                                        category: 'Property Limits',
-                                        insurerIdentifier: propLim.CoverageCd.value
-                                    };
-    
-                                    quoteCoverages.push(newCoverage);
-                                }
-                            });
+                                    if (propLim.Deductible) {
+                                        const deductibleText = get(propLim, "Deductible[0].FormatText.value")
+                                        const deductibleValue = get(propLim, "Deductible[0].FormatInteger.value")
+                                        let value = null;
+
+                                        if (deductibleText === "Policy Level") {
+                                            value = "Policy Level";
+                                        }
+
+                                        const newCoverage = {
+                                            description: description + " Deductible",
+                                            value: value ? value : convertToDollarFormat(deductibleValue, true),
+                                            sort: coverageSort++,
+                                            category: 'Property Limits',
+                                            insurerIdentifier: coverageCode
+                                        };
+        
+                                        quoteCoverages.push(newCoverage);
+                                    }
+                                });
+                            }
                         }
                         catch (e) {
                             log.error(`${logPrefix}Couldn't parse one or more property limit values from the response: ${e}.` + __location);
