@@ -88,7 +88,7 @@ async function login(req, res, next){
     };
     let emailResp = null;
     try {
-        emailResp = await emailsvc.send(emailData.to, emailData.subject, emailData.html, {}, insurerPortalUserDBJson.insurerId, "");
+        emailResp = await emailsvc.send(emailData.to, emailData.subject, emailData.html, {}, 1, "");
     }
     catch (e) {
         log.error(e.message + __location);
