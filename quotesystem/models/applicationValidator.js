@@ -584,17 +584,15 @@ const validatePolicies = (applicationDocData,agencyNetworkJSON) => {
         }
 
         // BOP specific validation
-        if (policy.policyType === 'BOP') {
-            // Coverage Lapse Due To Non-Payment - Note: Quote does not collect this for BOP only WC.
-            if (policy.coverageLapseNonPayment === null) {
-                throw new Error('coverage_lapse_non_payment is required, and must be a true or false value');
-            }
-        }
-        else if (policy.policyType === 'GL') {
-            // GL specific validation
-            // currently nothing specific to do here...
-        }
-        else if (policy.policyType === 'WC') {
+        // if (policy.policyType === 'BOP') {
+        //    // nothing for
+        // }
+        // else if (policy.policyType === 'GL') {
+        //     // GL specific validation
+        //     // currently nothing specific to do here...
+        // }
+        // else
+        if (policy.policyType === 'WC') {
             // WC Specific Properties
 
             /**
@@ -643,14 +641,17 @@ const validatePolicies = (applicationDocData,agencyNetworkJSON) => {
  * @param {string} insurerList - The list of possible insurers from Agencylocation Doc  (not Application model insurers JSON)
  * @returns {void}
  */
-const validateBOPPolicies = (applicationDocData,insurerList) => {
+const validateBOPPolicies = async(applicationDocData,insurerList) => {
     //Travelers, Markel, Liberty, Arrowhead    (not chubb, coterie)
     // eslint-disable-next-line array-element-newline
-    const fullBOPInsurers = [2,3,12,27];
+    const fullBOPInsurers = [2,3,14,19,27];
+    // eslint-disable-next-line array-element-newline
+    const BOPCodeInsurers = [3,4,14,19,27];
     const coteireInsurerId = 29;
     let errorMessage = "";
     let fullBOP = false;
     let hasCoterie = false;
+    let needBOPIndustryCodeId = false;
     log.debug(` insurerList ${JSON.stringify(insurerList)}`)
     for(const insurer of insurerList){
         // TODO take into acount what policyTypes the agencylocation as activate for insurer.
@@ -660,6 +661,35 @@ const validateBOPPolicies = (applicationDocData,insurerList) => {
         }
         if(insurer.insurerId === coteireInsurerId && insurer.policyTypeInfo.BOP?.enabled === true){
             hasCoterie = true;
+        }
+        if(BOPCodeInsurers.indexOf(insurer.insurerId) > -1 && insurer.policyTypeInfo.BOP?.enabled === true){
+            needBOPIndustryCodeId = true;
+        }
+    }
+
+    if(needBOPIndustryCodeId){
+        const bopPolicy = applicationDocData.policies.find((p) => p.policyType === "BOP");
+        if(bopPolicy && !bopPolicy.bopIndustryCodeId && applicationDocData.industryCode){
+            let invalid = false;
+            //Does industryCode have any BOPCode children.
+            try{
+                var IndustryCode = global.mongoose.IndustryCode;
+                const industryCodeId = parseInt(applicationDocData.industryCode,10)
+                const query = {
+                    parentIndustryCodeId: industryCodeId,
+                    codeGroupList: "BOP"
+                }
+                const icBopCount = await IndustryCode.countDocuments(query);
+                if(icBopCount > 0){
+                    invalid = true;
+                }
+            }
+            catch(err){
+                log.error(`AppId: ${applicationDocData.applicationId} error in validateBOPPolicies ${err} ` + __location)
+            }
+            if(invalid){
+                errorMessage += `;Missing BOP Industry Code. See "We need more detail about what the applicant is doing" in UI`;
+            }
         }
     }
 
@@ -817,6 +847,7 @@ const validateQuestion = async(applicationDocData, question, logValidationErrors
  * @returns {void}
  */
 const validateClaims = async(applicationDocData) => {
+
     for (const claim of applicationDocData.claims) {
 
         /**
@@ -864,7 +895,19 @@ const validateClaims = async(applicationDocData) => {
         if (!claim.open && claim.amountReserved) {
             throw new Error('Only open claims can have an amount reserved');
         }
+        if (claim.amountPaid) {
+            if (!validator.claim_amount(claim.amountPaid)) {
+                throw new Error('Data Error: The amount must be a dollar value greater than 0 and below 15,000,000');
+            }
+        }
+        if (claim.amountReserved) {
+            if (!validator.claim_amount(claim.amountReserved)) {
+                throw new Error('Data Error: The amountReserved must be a dollar value greater than 0 and below 15,000,000');
+            }
+        }
     }
+
+    return;
 }
 
 /**

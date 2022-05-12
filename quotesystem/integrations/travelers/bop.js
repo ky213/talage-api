@@ -104,7 +104,7 @@ module.exports = class AcuityWC extends Integration {
             const insurerClaimQuestions = await this.getInsurerQuestionsByTalageQuestionId('claim', claimQuestionIds, ['BOP']);
             for (const question of claim.questions) {
                 const insurerClaimQuestion = insurerClaimQuestions.find(icq => icq.talageQuestionId === question.questionId);
-                if (insurerClaimQuestion.identifier === 'claim_lossType') {
+                if (insurerClaimQuestion?.identifier === 'claim_lossType') {
                     causeCode = lossCauseCodeMatrix[question.answerValue.trim()];
                     if (!causeCode) {
                         causeCode = 'OTHR';
@@ -457,9 +457,14 @@ module.exports = class AcuityWC extends Integration {
                 if(!question){
                     continue;
                 }
-                // limits and other things will go in a questions.
-                if(eligibilityPropList.indexOf(insurerQuestion.identifier) > -1){
-                    quoteRequestData.basisOfQuotation.eligibility[insurerQuestion.identifier] = question.get_answer_as_boolean()
+                try{
+                    // limits and other things will go in a questions.
+                    if(eligibilityPropList.indexOf(insurerQuestion?.identifier) > -1){
+                        quoteRequestData.basisOfQuotation.eligibility[insurerQuestion.identifier] = question.get_answer_as_boolean()
+                    }
+                }
+                catch(err){
+                    log.error(`${logPrefix} Unable to get quoteRequestData.basisOfQuotation.eligibility[insurerQuestion.identifier]. error: ${err} ` + __location);
                 }
             }
         }

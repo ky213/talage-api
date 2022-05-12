@@ -487,56 +487,62 @@ module.exports = class LibertyGL extends Integration{
                                     Limit.ele('FormatCurrencyAmt').ele('Amt', limits[2]);
                             // </CommlCoverage>
 
-                        this.app.business.locations.forEach((loc, index) => {
-                            // <GeneralLiabilityClassification LocationRef="Wc3a968def7d94ae0acdabc4d95c34a86W" InsuredOrPrincipalRef="ABCD">
-                            const GeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification');
-                                GeneralLiabilityClassification.att('LocationRef', `l${index + 1}`);
-                                GeneralLiabilityClassification.att('InsuredOrPrincipalRef', InsuredOrPrincipalUUID);
-                                GeneralLiabilityClassification.ele('ClassCd', this.industry_code.cgl);
+                        try {
+                            this.app.business.locations.forEach((loc, index) => {
+                                // <GeneralLiabilityClassification LocationRef="Wc3a968def7d94ae0acdabc4d95c34a86W" InsuredOrPrincipalRef="ABCD">
+                                const GeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification');
+                                    GeneralLiabilityClassification.att('LocationRef', `l${index + 1}`);
+                                    GeneralLiabilityClassification.att('InsuredOrPrincipalRef', InsuredOrPrincipalUUID);
+                                    GeneralLiabilityClassification.ele('ClassCd', this.industry_code.cgl);
 
-                                // <ExposureInfo>
-                                const ExposureInfo = GeneralLiabilityClassification.ele('ExposureInfo');
+                                    // <ExposureInfo>
+                                    const ExposureInfo = GeneralLiabilityClassification.ele('ExposureInfo');
 
-                                    // Determine the appropriate exposure amount
-                                    let exposure = 0;
-                                    switch(this.industry_code.attributes.premiumBasis){
-                                        case 'Acre(s)':
-                                            exposure = this.questions['1307']?.answer;
-                                            break;
-                                        case 'Dollars Of Gross Sales':
-                                            exposure = this.policy.gross_sales;
-                                            break;
-                                        case 'Dollars Of Payroll':
-                                            exposure = this.get_total_payroll();
-                                            break;
-                                        case 'Gallon(s)':
-                                            exposure = this.questions['1306']?.answer;
-                                            break;
-                                        case 'Member(s)':
-                                            exposure = this.questions['1308']?.answer;
-                                            break;
-                                        case 'Square Feet Of Area':
-                                            exposure = this.get_total_square_footage();
-                                            break;
-                                        case 'Unit(s)':
-                                            exposure = this.questions['1309']?.answer;
-                                            break;
-                                        default:
-                                            this.reasons.push(`Encountered unsupported premium basis of ${this.industry_code.attributes.premiumBasis}`);
-                                            return this.return_result('error');
-                                    }
-                                    if(!exposure || exposure <= 0){
-                                        this.reasons.push(`Bad exposure amount (less than or equal to 0) in application`);
-                                        return this.return_result('error');
-                                    }
-                                    ExposureInfo.ele('Exposure', Math.round(exposure / this.app.business.locations.length));
-                                    // <ExposureInfoExt>
-                                    const ExposureInfoExt = ExposureInfo.ele('ExposureInfoExt');
-                                        ExposureInfoExt.ele('com.libertymutual.ci_EmployeeRemunerationCategoryCd', 'Empl'); // Per Liberty, this is required and set to EMPL
-                                    // </ExposureInfoExt>
-                                // </ExposureInfo>
-                            // </GeneralLiabilityClassification>
-                        });
+                                        // Determine the appropriate exposure amount
+                                        let exposure = 0;
+                                        switch(this.industry_code.attributes.premiumBasis){
+                                            case 'Acre(s)':
+                                                exposure = this.questions['1307']?.answer;
+                                                break;
+                                            case 'Dollars Of Gross Sales':
+                                                exposure = this.policy.gross_sales;
+                                                break;
+                                            case 'Dollars Of Payroll':
+                                                exposure = this.get_total_payroll();
+                                                break;
+                                            case 'Gallon(s)':
+                                                exposure = this.questions['1306']?.answer;
+                                                break;
+                                            case 'Member(s)':
+                                                exposure = this.questions['1308']?.answer;
+                                                break;
+                                            case 'Square Feet Of Area':
+                                                exposure = this.get_total_square_footage();
+                                                break;
+                                            case 'Unit(s)':
+                                                exposure = this.questions['1309']?.answer;
+                                                break;
+                                            default:
+                                                throw new Error(`Encountered unsupported premium basis of ${this.industry_code.attributes.premiumBasis}`);
+                                        }
+                                        if(!exposure || exposure <= 0){
+                                            // need the premium basis or whaterver came as zero ... exit from the for each loop
+                                            throw new Error(`Bad exposure amount (less than or equal to 0): ${exposure} in application attributes in ${this.industry_code.attributes.premiumBasis}`);
+                                        }
+                                        ExposureInfo.ele('Exposure', Math.round(exposure / this.app.business.locations.length));
+                                        // <ExposureInfoExt>
+                                        const ExposureInfoExt = ExposureInfo.ele('ExposureInfoExt');
+                                            ExposureInfoExt.ele('com.libertymutual.ci_EmployeeRemunerationCategoryCd', 'Empl'); // Per Liberty, this is required and set to EMPL
+                                        // </ExposureInfoExt>
+                                    // </ExposureInfo>
+                                // </GeneralLiabilityClassification>
+                            });
+                        }
+                        catch(err) {
+                            this.reasons.push(`${logPrefix} ${err.message}  - Stopped before submission to insurer`);
+                            return this.return_result('error');
+                        }
+
                         // </LiabilityInfo>
 
                         // <GeneralLiabilityLineBusinessExt>
