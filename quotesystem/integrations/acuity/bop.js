@@ -569,7 +569,7 @@ module.exports = class AcuityBOP extends Integration {
             if (location.businessPersonalPropertyLimit) {
                 const CommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo');
                 CommlPropertyInfo.att('LocationRef', `L${index+1}`);
-                CommlPropertyInfo.att('SublocationRef', `L${index+1}S1`);
+                CommlPropertyInfo.att('SubLocationRef', `L${index+1}S1`);
                 CommlPropertyInfo.ele('SubjectInsuranceCd', `BPP`);
                 CommlCoverage = CommlPropertyInfo.ele('CommlCoverage');
                 CommlCoverage.ele('CoverageCd', 'BPP');
@@ -586,7 +586,7 @@ module.exports = class AcuityBOP extends Integration {
             if (location.buildingLimit) {
                 const CommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo');
                 CommlPropertyInfo.att('LocationRef', `L${index+1}`);
-                CommlPropertyInfo.att('SublocationRef', `L${index+1}S1`);
+                CommlPropertyInfo.att('SubLocationRef', `L${index+1}S1`);
                 CommlPropertyInfo.ele('SubjectInsuranceCd', `BLDG`);
                 CommlCoverage = CommlPropertyInfo.ele('CommlCoverage');
                 CommlCoverage.ele('CoverageCd', 'BLDG');
@@ -603,7 +603,7 @@ module.exports = class AcuityBOP extends Integration {
             // For assigning question elements in question loop
             let CommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo');
             CommlPropertyInfo.att('LocationRef', `L${index+1}`);
-            CommlPropertyInfo.att('SublocationRef', `L${index+1}S1`);
+            CommlPropertyInfo.att('SubLocationRef', `L${index+1}S1`);
             CommlCoverage = CommlPropertyInfo.ele('CommlCoverage');
             const CommlCoverageSupplement = CommlCoverage.ele('CommlCoverageSupplement');
             for (const question of location.questions) {
