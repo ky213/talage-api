@@ -827,6 +827,13 @@ module.exports = class CnaBOP extends Integration {
                 return this.client_error(errorMessage, __location);
             }
 
+            if (errorJSON?.InsuranceSvcRs[0]?.Status?.StatusCd === "500") {
+                const cnaErrorMessage = errorJSON?.InsuranceSvcRs[0]?.Status.StatusDesc;
+                const errorMessage = `${logPrefix}CNA encountered an error and did not return a quote${cnaErrorMessage ? `: ${cnaErrorMessage}` : '.'}`;
+                log.error(errorMessage + __location);
+                return this.client_error(errorMessage, __location);
+            }
+
             if (!errorJSON?.InsuranceSvcRs[0]?.BOPPolicyQuoteInqRs[0]?.MsgStatus) {
                 const errorMessage = `${logPrefix}There was an error parsing the response object: ${errorJSON}. The result structure may have changed.`;
                 log.error(errorMessage + __location);
@@ -835,13 +842,6 @@ module.exports = class CnaBOP extends Integration {
             else {
                 result = errorJSON;
             }
-        }
-
-        if (result.InsuranceSvcRs[0]?.StatusCd === "500") {
-            const cnaErrorMessage = result.InsuranceSvcRq[0]?.StatusDesc;
-            const errorMessage = `${logPrefix}CNA encountered an error and did not return a quote${cnaErrorMessage ? `: ${cnaErrorMessage}` : '.'}`;
-            log.error(errorMessage + __location);
-            return this.client_error(errorMessage, __location);
         }
 
         let quoteNumber = null;
