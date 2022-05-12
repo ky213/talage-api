@@ -1,6 +1,5 @@
 const serverHelper = global.requireRootPath('server.js');
 const AgencyBO = global.requireShared('./models/Agency-BO.js');
-const QuoteBO = global.requireShared('./models/Quote-BO.js');
 const QuoteMongooseModel = global.mongoose.Quote;
 
 /**

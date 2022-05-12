@@ -1340,14 +1340,10 @@ module.exports = class AgencyBO {
             phone: 1
         };
         // TODO: Enable Pagination (After the decision of denormalizing / aggregating)
-        const queryOptions = {
-            sort: {
-                active: -1,
-                name: 1
-            },
-            // limit: 10,
-            // skip: 0
-        };
+        const queryOptions = {sort: {
+            active: -1,
+            name: 1
+        }};
         const query = {agencyNetworkId: {$in: agencyNetworkList.map(agencyNetwork => agencyNetwork.systemId)}};
         try {
             const docList = (await AgencyModel.find(query, queryProjection, queryOptions).
