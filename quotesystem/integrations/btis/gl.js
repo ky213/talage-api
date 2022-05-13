@@ -495,6 +495,11 @@ module.exports = class BtisGL extends Integration {
                         this.limits[12] = requestDeductible;
                     }
                     else{
+                        if(this.reasons.includes('The subcontractor costs are above the maximum allowed')){
+                            this.reasons = ['The subcontractor costs are above the maximum allowed ($100,000)']
+                            return this.return_result('declined')
+                        }
+
                         log.error(`${logPrefix} Integration Error: Quote structure changed. Unable to find limits.  ${JSON.stringify(quoteInfo)}` + __location);
                         this.reasons.push('Quote structure changed. Unable to find limits.');
                     }
