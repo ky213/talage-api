@@ -47,7 +47,7 @@ function validateJWT(options) {
         }
 
         // Validate the JWT and user permissions - for Agency Portal
-        if (options.agencyPortal === true) {
+        if (options.agencyPortal) {
             const errorMessage = await agencyportalAuth.validateJWT(req, options.permission, options.permissionType);
             if (errorMessage) {
                 // There was an error. Return a Forbidden error (403)
@@ -55,7 +55,7 @@ function validateJWT(options) {
             }
             return options.handler(req, res, next);
         }
-        else if (options.insurerPortalAuth === true) {
+        else if (options.insurerPortalAuth) {
             const errorMessage = await insurerPortalAuth.validateJWT(req, options.permission, options.permissionType);
             if (errorMessage) {
                 // There was an error. Return a Forbidden error (403)
