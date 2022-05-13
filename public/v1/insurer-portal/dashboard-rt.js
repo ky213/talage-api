@@ -122,12 +122,12 @@ async function getDashboard(req, res, next){
 }
 
 exports.registerEndpoint = (server, basePath) => {
-    server.addGet('Insurer Portal Dashboard', `${basePath}/dashboard`, async(req, res, next) => {
+    server.addGetInsurerPortalAuth('Insurer Portal Dashboard', `${basePath}/dashboard`, async(req, res, next) => {
         try {
             return await getDashboard(req, res, next);
         }
         catch (ex) {
             console.log(ex);
         }
-    });
+    }, 'dashboard', 'view');
 };

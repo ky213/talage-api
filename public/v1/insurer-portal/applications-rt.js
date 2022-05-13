@@ -80,7 +80,7 @@ async function getApplications(req, res, next){
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
-    server.addGetAuth('Get Applications by InsurerId', `${basePath}/applications`, getApplications, 'applications', 'view', {insurerPortal: true});
+    server.addGetInsurerPortalAuth('Get Applications by InsurerId', `${basePath}/applications`, getApplications, 'applications', 'view');
     // server.addPost('Get Applications by InsurerId', `${basePath}/applications`, getApplications);
 
 };
