@@ -2042,7 +2042,7 @@ module.exports = class ApplicationModel {
     //For AgencyPortal and Quote V2 - skipAgencyCheck === true if caller has already check
     // user rights to application
 
-    async GetQuestions(appId, userAgencyList, questionSubjectArea, locationId, requestStateList, skipAgencyCheck = false, requestActivityCodeList = [], policyTypeRequested = null, returnHidden = false){
+    async GetQuestions(appId, userAgencyList, questionSubjectArea, locationId, requestStateList, skipAgencyCheck = false, requestActivityCodeList = [], policyTypeRequested = null, returnHidden = false, keepPossibleAnswers = false){
         log.debug(`App Doc GetQuestions appId: ${appId}, userAgencyList: ${userAgencyList}, questionSubjectArea: ${questionSubjectArea}, locationId: ${locationId}, requestStateList: ${requestStateList}, skipAgencyCheck: ${skipAgencyCheck}, requestActivityCodeList: ${requestActivityCodeList}, policyType ${policyTypeRequested}, returnHidden ${returnHidden}  `)
         let passedAgencyCheck = false;
         let applicationDocDB = null;
@@ -2305,7 +2305,7 @@ module.exports = class ApplicationModel {
 
         try {
             //log.debug("insurerArray: " + insurerArray);
-            getQuestionsResult = await questionSvc.GetQuestionsForAppBO2(activityCodeList, industryCodeStringArray, zipCodeArray, policyTypeJsonList, questionSubjectArea, returnHidden, stateList);
+            getQuestionsResult = await questionSvc.GetQuestionsForAppBO2(activityCodeList, industryCodeStringArray, zipCodeArray, policyTypeJsonList, questionSubjectArea, returnHidden, stateList, keepPossibleAnswers);
         }
         catch (err) {
             log.error("AppBO GetQuestions - Error call in question service " + err + __location);
