@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
+const InsurerBO = global.requireShared('models/Insurer-BO.js');
 const InsurerPortalUserBO = global.requireShared('models/InsurerPortalUser-BO.js');
 const InsurerPortalUserGroupBO = global.requireShared('models/InsurerPortalUserGroup-BO.js');
 
@@ -36,6 +37,15 @@ async function createToken(email, insurerId) {
         log.error("Error get permissions from Mongo " + err + __location);
     }
 
+    try{
+        const insurerBO = new InsurerBO();
+        const insurerDB = await insurerBO.getById(insurerPortalUserDBJson.insurerId);
+        insurerPortalUserDBJson.insurerLogo = insurerDB.logo;
+    }
+    catch(err){
+        log.error("Error get permissions from Mongo " + err + __location);
+    }
+
     const insurerPortalUserBO = new InsurerPortalUserBO();
     try{
         await insurerPortalUserBO.updateLastLogin(insurerPortalUserDBJson.insurerPortalUserId)
@@ -50,7 +60,11 @@ async function createToken(email, insurerId) {
         insurerId: insurerPortalUserDBJson.insurerId,
         permissions: insurerPortalUserDBJson.permissions,
         resetRequired: Boolean(insurerPortalUserDBJson.resetRequired),
-        userID: insurerPortalUserDBJson.insurerPortalUserId
+        userID: insurerPortalUserDBJson.insurerPortalUserId,
+        firstName: insurerPortalUserDBJson.firstName,
+        lastName: insurerPortalUserDBJson.lastName,
+        email: insurerPortalUserDBJson.email,
+        insurerLogo: insurerPortalUserDBJson.insurerLogo
     };
 
     return jwt.sign(payload, global.settings.AUTH_SECRET_KEY, {expiresIn: global.settings.JWT_TOKEN_EXPIRATION});
