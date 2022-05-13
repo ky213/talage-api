@@ -562,7 +562,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeStringArray, zi
                     question.possible_answers[answer_obj.answerId] = answer_obj;
 
                 });
-                // If there were no answers, do not return the element
+                // // If there were no answers, do not return the element
                 if (!Object.keys(question.possible_answers).length) {
                     delete question.possible_answers;
                 }
@@ -631,11 +631,12 @@ async function GetQuestions(activityCodeStringArray, industryCodeStringArray, zi
  * @param {string} questionSubjectArea - A string specifying the question subject area ("general", "location", "location.building", ...)
  * @param {boolean} return_hidden - true to return hidden questions, false to only return visible questions
  * @param {array} stateList - An array containing the US State Codes for the application
+ * @param {boolean} keepPossibleAnswers - An array containing the US State Codes for the application
  *
  * @returns {array|false} An array of questions structured the way the front end is expecting them, false otherwise
  *
  */
-exports.GetQuestionsForAppBO2 = async function(activityCodeArray, industryCodeStringArray, zipCodeArray, policyTypeJsonList, questionSubjectArea = "general", return_hidden = true, stateList = []){
+exports.GetQuestionsForAppBO2 = async function(activityCodeArray, industryCodeStringArray, zipCodeArray, policyTypeJsonList, questionSubjectArea = "general", return_hidden = true, stateList = [], keepPossibleAnswers = false){
 
     const questionPullStart = moment();
     const questions = [];
@@ -660,7 +661,8 @@ exports.GetQuestionsForAppBO2 = async function(activityCodeArray, industryCodeSt
         }
         log.debug(`GetQuestionsForAppBO2 after ${policyTypeJSON.type} question count ${questions.length}` + __location)
     }
-    if(questions?.length > 0){
+
+    if(!keepPossibleAnswers && questions?.length > 0){
         for(const question of questions){
             if('possible_answers' in question){
                 question.answers = Object.values(question.possible_answers);
@@ -733,12 +735,11 @@ exports.GetQuestionsForBackend = async function(activityCodeArray, industryCodeS
  * Get talage Question list from  insureQuestionList
  *
  * @param {array} talageQuestionIdArray - An array of question IDs
- * @param {array} insurerQuestionList - An array of insureQuestion objects
  * @param {boolean} return_hidden - true = get hidden questions
  *
  * @returns {mixed} - An array of IDs if questions are missing, false if none are
  */
-async function getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, insurerQuestionList, return_hidden = false){
+async function getTalageQuestionFromInsureQuestionList(talageQuestionIdArray){
     if(!talageQuestionIdArray || talageQuestionIdArray.length === 0){
         return [];
     }
@@ -788,37 +789,8 @@ async function getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, in
     const endSqlSelect = moment();
     const diff = endSqlSelect.diff(start, 'milliseconds', true);
     log.info(`Mongo Talage Question process duration: ${diff} milliseconds`);
-    // should be removed once integration are refactored
-    // to drive off insurer questions not talage quesetions.
-    // this is only need to match TalageQuestion to insurer question.
-    if(insurerQuestionList && talageQuestions && talageQuestions.length && return_hidden){
-        // if(!insurerQuestionList){
-        //     //TODO get insurerQuestionList from talageQuestions
-        // }
-        //Create new return question array with insuer-policytype info
-        //loop  talageQuestions find insurerQuestionList matches.
-        //add row for every match
-        // eslint-disable-next-line prefer-const
-        let talageQuestionPolicyTypeList = [];
-        // eslint-disable-next-line prefer-const
-        talageQuestions.forEach(function(talageQuestion){
-            const iqForTalageQList = insurerQuestionList.filter(function(iq) {
-                return iq.talageQuestionId === talageQuestion.id;
-            });
-            //change to store insurerQuestionId.  will allow for multiple insurerquestions to map to
-            // one talage question.
-            iqForTalageQList.forEach(function(iqForTalageQ){
-                iqForTalageQ.policyTypeList.forEach((policyType) => {
-                    talageQuestionPolicyTypeList.push(iqForTalageQ.insurerId + "-" + policyType)
-                });
-            });
-            talageQuestion.insurers = talageQuestionPolicyTypeList.join(',');
-        });
-        return talageQuestions;
-    }
-    else{
-        return talageQuestions;
-    }
+
+    return talageQuestions;
 
 }
 
