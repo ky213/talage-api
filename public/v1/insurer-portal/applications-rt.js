@@ -20,12 +20,11 @@ const AgencyBO = global.requireShared('./models/Agency-BO.js');
  * @returns {void}
  */
 async function getApplications(req, res, next){
-    const query = {agencyNetworkId: req.params.insurerId}
+    const query = {agencyNetworkId: req.authentication.insurerId}
 
     if(req.params.alt) {
 
         // basic lookup
-        log.debug('application lookup --' + req.params.insurerId);
         try {
             const appDocs = await ApplicationMongooseModel.find(query);
             res.send(200, appDocs);
@@ -81,5 +80,7 @@ async function getApplications(req, res, next){
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
-    server.addPost('Get Applications by InsurerId', `${basePath}/applications`, getApplications);
+    server.addGetAuth('Get Applications by InsurerId', `${basePath}/applications`, getApplications, 'applications', 'view', {insurerPortal: true});
+    // server.addPost('Get Applications by InsurerId', `${basePath}/applications`, getApplications);
+
 };
