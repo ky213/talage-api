@@ -174,10 +174,7 @@ exports.registerEndpoints = (server) => {
     registerEndpoint(server, 'insurer-portal', 'auth-rt');
     registerEndpoint(server, 'insurer-portal', 'agency-rt');
     registerEndpoint(server, 'insurer-portal', 'winloss-rt');
-    // registerEndpoint(server, 'insurer-portal', 'account');
-    // registerEndpoint(server, 'insurer-portal', 'applications');
-    // registerEndpoint(server, 'insurer-portal', 'reports');
-    // registerEndpoint(server, 'insurer-portal', 'users');
+    registerEndpoint(server, 'insurer-portal', 'dashboard-rt');
 
 
     // Server.AddGet('Uptime Check', '/', GetUptime);
