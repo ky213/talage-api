@@ -10,8 +10,6 @@ const axios = require('axios');
 const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
-//const get_questions = global.requireShared('./helpers/getQuestions.js');
-const questionsSvc = global.requireShared('./services/questionsvc.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const emailTemplateProceSvc = global.requireShared('./services/emailtemplatesvc.js');
 
@@ -162,7 +160,6 @@ module.exports = class Application {
                 throw new Error("Data Error: Application may not be updated due to age.");
             }
         }
-        //log.debug("applicationBO: " + JSON.stringify(applicationBO));
 
         // Load the business information
         this.business = new Business();
@@ -254,6 +251,8 @@ module.exports = class Application {
         if(this.applicationDocData.ein){
             this.applicationDocData.ein = stringFunctions.santizeNumber(this.applicationDocData.ein);
         }
+
+        let applicationBO = new ApplicationBO();
 
         /************** BUSINESS DATA TRANSLATION ***************/
 
@@ -487,8 +486,6 @@ module.exports = class Application {
         this.insurers = await this.get_insurers();
 
         // Get a list of all questions the user may need to answer. These top-level questions are "general" questions.
-        const insurer_ids = this.get_insurer_ids();
-        const wc_codes = this.get_wc_codes();
         const industryCodeStringArray = [];
         if(this.applicationDocData.industryCode){
             industryCodeStringArray.push(this.applicationDocData.industryCode);
@@ -509,11 +506,12 @@ module.exports = class Application {
                 }
             }
 
-            //TODO change to pull from AppBO so logic is maintained in one place
-            // const applicationBO = new ApplicationBO();
-            // getQuestionsResult = await applicationBO.GetQuestions(appId, agencies, questionSubjectArea, locationId, stateList, skipAgencyCheck, activityCodeList, policyType);
             log.info(`Quoting Application Model loading questions for ${this.id} ` + __location)
-            talageQuestionDefList = await questionsSvc.GetQuestionsForBackend(wc_codes, industryCodeStringArray, zipCodeArray, policyList, insurer_ids, "general", true, stateList);
+            const skipAgencyCheck = true;
+            const returnHidden = true;
+            const keepPossibleAnswers = true;
+            const questionsObject = await applicationBO.GetQuestions(this.applicationDocData.applicationId, [this.applicationDocData.agencyId], "general", null,[] , skipAgencyCheck, [], null, returnHidden, keepPossibleAnswers)
+            talageQuestionDefList = questionsObject.questionList;
             log.info(`Got questions Quoting Application Model loading questions for  ` + __location)
         }
         catch (e) {
@@ -535,9 +533,8 @@ module.exports = class Application {
                 if (this.applicationDocData.questions) {
                     const appQuestionJSON = this.applicationDocData.questions.find((appQ) => appQ.questionId === questionDef.talageQuestionId)
                     if (appQuestionJSON) {
-                        //log.debug(`setting answer for ${questionDef.talageQuestionId}`)
-                        //TODO refactor to so question has appId;
                         try {
+                            //log.debug(`setting answer for \nQuestionDef:\n ${JSON.stringify(questionDef)}\n QUESTION:\n ${JSON.stringify(q)}\nAPpQuestionJSON:\n ${JSON.stringify(appQuestionJSON)}\n`)
                             q.set_answer(appQuestionJSON);
                         }
                         catch (e) {
@@ -585,7 +582,6 @@ module.exports = class Application {
 
         /************** AGENCY LOCATION SELECTION ***************/
         // fix bad selection.
-        let applicationBO = new ApplicationBO();
         const resp = await applicationBO.setAgencyLocation(this.applicationDocData.applicationId)
         if(resp !== true){
             if (resp && resp.includes('Agency does not cover application territory')){
@@ -596,17 +592,6 @@ module.exports = class Application {
             }
             throw new Error(`Data Error: setAgencyLocation: ${resp}`);
         }
-    }
-
-    /**
-	 * Returns an array of IDs that represent the active insurance carriers (limited by the selections in the API request)
-	 *
-	 * @returns {array} - An array of integers that are insurer IDs
-	 */
-    get_insurer_ids() {
-        return this.insurers.map(function(insurer) {
-            return insurer.id;
-        });
     }
 
     /**
@@ -762,29 +747,6 @@ module.exports = class Application {
 
     }
 
-
-    /**
-	 * Returns an array of the Talage WC Codes that were included in this application
-	 *
-	 * @returns {array} - An array of integers that are the IDs of Talage WC Codes
-	 */
-    get_wc_codes() {
-        const ids = [];
-        this.business.locations.forEach(function(location) {
-            location.activity_codes.forEach(function(activity_code) {
-                ids.push(activity_code.id);
-            });
-        });
-        //Ghost policy support get included owners.
-        for(const owner of this.applicationDocData.owners){
-            if((owner.include || ids.length === 0) && owner.activityCodeId){
-                if(ids.indexOf(owner.activityCodeId) === -1){
-                    ids.push(owner.activityCodeId);
-                }
-            }
-        }
-        return ids;
-    }
 
     /**
 	 * Checks whether or not the incoming request includes the specified policy type

@@ -129,8 +129,8 @@ module.exports = class Question{
         if(!appQuestionJSON){
             return;
         }
-        let answer = null;
-        answer = appQuestionJSON.answerValue
+        let answerTest = null;
+        answerTest = appQuestionJSON.answerValue
         // Make sure the question is loaded before continuing
         if (!this.id) {
             log.error('You must load the question before attempting to set an answer' + __location);
@@ -140,15 +140,15 @@ module.exports = class Question{
         // For Checkbox questions, there may be more than one possible answer, process each
         if (this.type === 'Checkboxes') {
             let answerArray = [];
-            if(answer === "||"){
-                answer = "";
+            if(answerTest === "||"){
+                answerTest = "";
             }
 
-            if (typeof answer === 'string' && answer.indexOf("|") > -1) {
-                if (answer.indexOf("|") === 0) {
-                    answer = answer.substring(1);
+            if (typeof answerTest === 'string' && answerTest.indexOf("|") > -1) {
+                if (answerTest.indexOf("|") === 0) {
+                    answerTest = answerTest.substring(1);
                 }
-                answerArray = answer.split('|');
+                answerArray = answerTest.split('|');
                 try {
                     for (let i = 0; i < answerArray.length; i++) {
                         if (typeof answerArray[i] === 'string') {
@@ -160,14 +160,14 @@ module.exports = class Question{
                     log.warn(`Answer array conversion problem for ${answerArray}: ${e}. ` + __location);
                 }
             }
-            else if (typeof answer === 'number') {
+            else if (typeof answerTest === 'number') {
                 // Only 1 checkbox was selected and it is number in the JSON
-                answerArray = [answer];
+                answerArray = [answerTest];
             }
-            else if (answer && typeof answer === 'string') {
+            else if (answerTest && typeof answerTest === 'string') {
                 // Only 1 checkbox was selected and it is string in the JSON
                 //convert to number
-                const answerInt = parseInt(answer, 10);
+                const answerInt = parseInt(answerTest, 10);
                 if(answerArray){
                     answerArray = [answerInt]
                 }
@@ -196,47 +196,62 @@ module.exports = class Question{
             // For boolean and select questions, set the answer ID or find the equivalent
         }
         else if (this.type === 'Yes/No' || this.type === 'Select List') {
-            answer = appQuestionJSON.answerId
-            //issues are logged in calling methods.  It has the applicationId
-            // If the answer wasn't numeric, it is wrong
-            if (!this.parent && typeof answer !== 'number') {
-                const errorMessage = `AppId ${this.applicationId} Invalid answer provided - non number -  for Question ${this.id}. (${htmlentities.decode(this.text)}) answerId ${answer} typeof answerId ${typeof answer}`
-                log.error(errorMessage + __location);
-                //throw new Error(`Invalid answer provided - non number - for Question ${this.id}. (${htmlentities.decode(this.text)})`);
+            let foundAnswer = false;
+            answerTest = appQuestionJSON.answerValue
+            this.answer_id = appQuestionJSON.answerId;
+            if(this.answer_id && typeof this.answer_id === 'string'){
+                this.answer_id = parseInt(this.answer_id,10);
             }
+            if(typeof this.answer_id === 'number'){
+                if(this.possible_answers[this.answer_id]){
+                    this.answer = this.possible_answers[this.answer_id].answer;
+                    foundAnswer = true;
+                }
+            }
+            if(!foundAnswer) {
+                //issues are logged in calling methods.  It has the applicationId
+                // If the answer wasn't numeric, it is wrong
+                if (!this.parent && typeof answerTest !== 'number') {
+                    const errorMessage = `AppId ${this.applicationId} Invalid answer provided - non number -  for Question ${this.id}. (${htmlentities.decode(this.text)}) answerId ${answerTest} typeof answerId ${typeof answerTest} appQuestionJSON  ${JSON.stringify(appQuestionJSON)}`
+                    log.error(errorMessage + __location);
+                    //throw new Error(`Invalid answer provided - non number - for Question ${this.id}. (${htmlentities.decode(this.text)})`);
+                }
 
-            // If the answer isn't one of those that are possible
-            //possible answers is suspect....
-            if(!Object.prototype.hasOwnProperty.call(this.possible_answers, answer)){
-                //check answertext
-                let found = false;
-                // eslint-disable-next-line guard-for-in
-                for(const propertyIndex in this.possible_answers){
-                    if(Object.prototype.hasOwnProperty.call(this.possible_answers,propertyIndex)){
-                        if(appQuestionJSON.answerValue === this.possible_answers[propertyIndex].answer){
-                            found = true;
-                            appQuestionJSON.answerId = this.possible_answers[propertyIndex].answerId;
-                            answer = this.possible_answers[propertyIndex].answerId;
+                // If the answer isn't one of those that are possible
+                //possible answers is suspect....
+                if(!Object.prototype.hasOwnProperty.call(this.possible_answers, answerTest)){
+                    //check answertext
+                    let found = false;
+                    // eslint-disable-next-line guard-for-in
+                    for(const propertyIndex in this.possible_answers){
+                        if(Object.prototype.hasOwnProperty.call(this.possible_answers,propertyIndex)){
+                            if(appQuestionJSON.answerValue === this.possible_answers[propertyIndex].answer){
+                                found = true;
+                                this.answer_id = this.possible_answers[propertyIndex].answerId;
+                            }
                         }
                     }
+                    if(!this.parent && found === false){
+                        const errorMessage = `AppId ${this.applicationId} Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)}) anwser ${answerTest} not in ${JSON.stringify(this.possible_answers)}`
+                        log.error(errorMessage + __location);
+                        //throw new Error(`Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)}) anwser ${answer} not in ${JSON.stringify(this.possible_answers)}`);
+                    }
+                    // Set the answer ID and determine and set the answer text
+                    if(this.possible_answers[this.answer_id]){
+                        this.answer = this.possible_answers[this.answer_id].answer;
+                    }
+                    else {
+                        this.answer = appQuestionJSON.answerValue;
+                    }
                 }
-                if(!this.parent && found === false){
-                    const errorMessage = `AppId ${this.applicationId} Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)}) anwser ${answer} not in ${JSON.stringify(this.possible_answers)}`
-                    log.error(errorMessage + __location);
-                    //throw new Error(`Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)}) anwser ${answer} not in ${JSON.stringify(this.possible_answers)}`);
-                }
+
             }
 
-            // Set the answer ID and determine and set the answer text
-            this.answer_id = answer;
-            if(this.possible_answers[answer]){
-                this.answer = this.possible_answers[answer].answer;
-            }
         }
         else{
             // For text answer questions
             this.answer_id = 0;
-            this.answer = answer;
+            this.answer = answerTest;
         }
     }
 };

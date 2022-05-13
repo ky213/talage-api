@@ -47,7 +47,7 @@ function validateJWT(options) {
         }
 
         // Validate the JWT and user permissions - for Agency Portal
-        if (options.agencyPortal === true) {
+        if (options.agencyPortal) {
             const errorMessage = await agencyportalAuth.validateJWT(req, options.permission, options.permissionType);
             if (errorMessage) {
                 // There was an error. Return a Forbidden error (403)

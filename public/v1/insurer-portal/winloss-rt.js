@@ -7,6 +7,7 @@ const ApplicationMongooseModel = global.mongoose.Application;
 const QuoteMongooseModel = global.mongoose.Quote;
 //const Quote =global.mongoose.Quote;
 const ActivityCode = global.mongoose.ActivityCode;
+const IndustryCodeModel = global.mongoose.IndustryCode;
 
 const InsurerIndustryCodeModel = global.mongoose.InsurerIndustryCode;
 
@@ -52,25 +53,22 @@ async function winloss(req, res, next) {
  * @returns {void}
  */
 async function winlossWC(req, res, next) {
-
-    // TODO get insurerId from User's auth.
-    const insurerId = 19; // 19 = Amtrust
-    const policyType = "WC"
-
+    const insurerId = req.authentication.insurerId;
+    const policyType = 'WC';
 
     let startPeriod = moment().tz("America/Los_Angeles").subtract(3,'month').startOf('month');
-    if(req.query.startdate){
+    if(req.query.startDate){
         try{
-            startPeriod = moment(req.query.startdate).tz("America/Los_Angeles").startOf('day');
+            startPeriod = moment(req.query.startDate, 'YYYY/MM/DD').tz("America/Los_Angeles").startOf('day');
         }
         catch(err){
             log.error(`StartPeriod error ${err}` + __location)
         }
     }
     let endPeriod = moment();
-    if(req.query.enddate){
+    if(req.query.endDate){
         try{
-            endPeriod = moment(req.query.enddate).tz("America/Los_Angeles").endOf('day');
+            endPeriod = moment(req.query.endDate, 'YYYY/MM/DD').tz("America/Los_Angeles").endOf('day');
         }
         catch(err){
             log.error(`EndPeriod error ${err}` + __location)
@@ -276,26 +274,22 @@ async function winlossWC(req, res, next) {
  * @returns {void}
  */
 async function winlossBOP(req, res, next) {
-    const IndustryCodeModel = global.mongoose.IndustryCode;
-
-    // TODO get insurerId from User's auth.
-    const insurerId = 14; // 14 = Liberty mutual has both GL and BOP
-    const policyType = req.query.policytype
-
+    const insurerId = req.authentication.insurerId;
+    const policyType = 'BOP';
 
     let startPeriod = moment().tz("America/Los_Angeles").subtract(3,'month').startOf('month');
-    if(req.query.startdate){
+    if(req.query.startDate){
         try{
-            startPeriod = moment(req.query.startdate).tz("America/Los_Angeles").startOf('day');
+            startPeriod = moment(req.query.startDate, 'YYYY/MM/DD').tz("America/Los_Angeles").startOf('day');
         }
         catch(err){
             log.error(`StartPeriod error ${err}` + __location)
         }
     }
     let endPeriod = moment();
-    if(req.query.enddate){
+    if(req.query.endDate){
         try{
-            endPeriod = moment(req.query.enddate).tz("America/Los_Angeles").endOf('day');
+            endPeriod = moment(req.query.endDate, 'YYYY/MM/DD').tz("America/Los_Angeles").endOf('day');
         }
         catch(err){
             log.error(`EndPeriod error ${err}` + __location)
@@ -500,7 +494,6 @@ async function winlossBOP(req, res, next) {
     return next();
 }
 
-// eslint-disable-next-line require-jsdoc
 async function getAmtrustClassCode(appDoc, rateState, insurerId){
     const InsurerActivityCode = global.mongoose.InsurerActivityCode;
     const officeActivityCode = 2869;
@@ -564,7 +557,6 @@ async function getAmtrustClassCode(appDoc, rateState, insurerId){
 
 }
 
-// eslint-disable-next-line require-jsdoc
 async function getTalageActivityCode(appDoc, activityCodeList){
     const officeActivityCode = 2869;
     let activityCodeId = 0;
@@ -593,7 +585,6 @@ async function getTalageActivityCode(appDoc, activityCodeList){
 }
 
 
-// eslint-disable-next-line require-jsdoc
 function QuoteStatusDesc(quoteStatusId){
     // eslint-disable-next-line default-case
     switch(quoteStatusId){
@@ -634,5 +625,5 @@ function QuoteStatusDesc(quoteStatusId){
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
     //TODO add proper auth
-    server.addGet('Get All Industry Codes', `${basePath}/winloss`, winloss);
+    server.addGetAuth('Get All Industry Codes', `${basePath}/winloss`, winloss, 'agencies', 'view', {insurerPortal: true});
 };
