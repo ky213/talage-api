@@ -205,12 +205,23 @@ module.exports = class InsurerPortalUserBO{
     }
 
 
-    async getMongoDocbyUserId(insurerPortalUserId, returnMongooseModel = false, skipActiveCheck = false) {
+    async getMongoDocbyUserId(insurerPortalUserId, options = null, returnMongooseModel = false, skipActiveCheck = false) {
         if (insurerPortalUserId) {
             const query = {
                 insurerPortalUserId: insurerPortalUserId,
                 active: true
             };
+            if(options) {
+                if(options.mongoId) {
+                    query._id = options.mongoId;
+                }
+                if(options.insurerId) {
+                    query.insurerId = options.insurerId;
+                }
+                if(options.insurerPortalUserId) {
+                    query.insurerPortalUserId = options.insurerPortalUserId;
+                }
+            }
             if(skipActiveCheck){
                 delete query.active;
             }
@@ -248,8 +259,8 @@ module.exports = class InsurerPortalUserBO{
         }
     }
 
-    getById(id) {
-        return this.getMongoDocbyUserId(id);
+    getById(id, options = null) {
+        return this.getMongoDocbyUserId(id, options);
     }
 
 
@@ -272,6 +283,8 @@ module.exports = class InsurerPortalUserBO{
             if(!userDoc){
                 return null;
             }
+
+            userDoc.id = userDoc._id;
 
             return mongoUtils.objCleanup(userDoc);
 

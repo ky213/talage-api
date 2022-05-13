@@ -58,6 +58,5 @@ async function getAgencies(req, res, next){
 }
 
 exports.registerEndpoint = (server, basePath) => {
-    server.addGetAuth('Get Agency list', `${basePath}/agency`, getAgencies, 'agencies', 'view', {insurerPortal: true});
-    // server.addGetAuth('Get Agency', `${basePath}/agency/:id`, getAgencies, 'agencies', 'view', {insurerPortal: true});
+    server.addGetInsurerPortalAuth('Get Agency list', `${basePath}/agency`, getAgencies, 'agencies', 'view');
 };

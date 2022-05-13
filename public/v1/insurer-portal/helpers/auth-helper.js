@@ -31,6 +31,7 @@ async function createToken(email, insurerId) {
     try{
         const insurerPortalUserGroupBO = new InsurerPortalUserGroupBO();
         const insurerPortalUserGroupDB = await insurerPortalUserGroupBO.getById(insurerPortalUserDBJson.insurerPortalUserGroupId);
+        insurerPortalUserDBJson.insurerPortalUserGroupId = insurerPortalUserGroupDB.id;
         insurerPortalUserDBJson.permissions = insurerPortalUserGroupDB.permissions;
     }
     catch(err){
@@ -60,11 +61,13 @@ async function createToken(email, insurerId) {
         insurerId: insurerPortalUserDBJson.insurerId,
         permissions: insurerPortalUserDBJson.permissions,
         resetRequired: Boolean(insurerPortalUserDBJson.resetRequired),
-        userID: insurerPortalUserDBJson.insurerPortalUserId,
+        userId: insurerPortalUserDBJson.insurerPortalUserId,
+        userMongoId: insurerPortalUserDBJson.id,
         firstName: insurerPortalUserDBJson.firstName,
         lastName: insurerPortalUserDBJson.lastName,
         email: insurerPortalUserDBJson.email,
-        insurerLogo: insurerPortalUserDBJson.insurerLogo
+        insurerLogo: insurerPortalUserDBJson.insurerLogo,
+        insurerPortalUserGroupId: insurerPortalUserDBJson.insurerPortalUserGroupId
     };
 
     return jwt.sign(payload, global.settings.AUTH_SECRET_KEY, {expiresIn: global.settings.JWT_TOKEN_EXPIRATION});
@@ -73,7 +76,7 @@ async function createToken(email, insurerId) {
 /**
  * Creates a JWT token for MFA validation
  *
- * @param {*} insurerPortalUserDBJson user's agencyPortalUser Doc
+ * @param {*} insurerPortalUserDBJson user's insurerPortalUser Doc
  * @param {*} sessionUuid tracks user's sesssion to accessCode
  *    for.
  * @returns {JWT} Newly generated JWT token for MFA validation

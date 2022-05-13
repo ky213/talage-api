@@ -55,14 +55,6 @@ function validateJWT(options) {
             }
             return options.handler(req, res, next);
         }
-        else if (options.insurerPortalAuth === true) {
-            const errorMessage = await insurerPortalAuth.validateJWT(req, options.permission, options.permissionType);
-            if (errorMessage) {
-                // There was an error. Return a Forbidden error (403)
-                return next(new RestifyError.ForbiddenError(errorMessage));
-            }
-            return options.handler(req, res, next);
-        }
         else {
             return options.handler(req, res, next);
         }
@@ -168,6 +160,27 @@ function validateCognitoJWT(options) {
             return next(new RestifyError.ForbiddenError("access denied"));
         }
     }
+}
+
+/**
+ * Middleware for authenticated endpoints which validates the JWT for Insurer Portal
+ *
+ * @param {Object} options - Contains properties handler (next function call), and options permission and permissionType.
+ * @returns {void}
+ */
+function validateInsurerPortalJWT(options) {
+    return async(req, res, next) => {
+        if (!Object.prototype.hasOwnProperty.call(req, 'authentication') || !req.authentication) {
+            log.info('Forbidden: User is not authenticated' + __location);
+            return next(new RestifyError.ForbiddenError('User is not authenticated'));
+        }
+
+        const errorMessage = await insurerPortalAuth.validateJWT(req, options.permission, options.permissionType);
+        if (errorMessage) {
+            return next(new RestifyError.ForbiddenError(errorMessage));
+        }
+        return options.handler(req, res, next);
+    };
 }
 
 
@@ -557,6 +570,65 @@ class AbstractedHTTPServer {
         },
         processJWT(),
         validateCognitoJWT({
+            handler: handlerWrapper(path, handler),
+            permission: permission,
+            permissionType: permissionType
+        }));
+    }
+
+
+    //******* administration Auth **********************
+
+    addGetInsurerPortalAuth(name, path, handler, permission = null, permissionType = null) {
+        name += ' (insurerPortalAuth)';
+        this.server.get({
+            name: name,
+            path: path
+        },
+        processJWT(),
+        validateInsurerPortalJWT({
+            handler: handlerWrapper(path, handler),
+            permission: permission,
+            permissionType: permissionType
+        }));
+    }
+
+    addPostInsurerPortalAuth(name, path, handler, permission = null, permissionType = null) {
+        name += ' (insurerPortalAuth)';
+        this.server.post({
+            name: name,
+            path: path
+        },
+        processJWT(),
+        validateInsurerPortalJWT({
+            handler: handlerWrapper(path, handler),
+            permission: permission,
+            permissionType: permissionType
+        }));
+    }
+
+    addPutInsurerPortalAuth(name, path, handler, permission = null, permissionType = null) {
+        name += ' (insurerPortalAuth)';
+        this.server.put({
+            name: name,
+            path: path
+        },
+        processJWT(),
+        validateInsurerPortalJWT({
+            handler: handlerWrapper(path, handler),
+            permission: permission,
+            permissionType: permissionType
+        }));
+    }
+
+    addDeleteInsurerPortalAuth(name, path, handler, permission = null, permissionType = null) {
+        name += ' (insurerPortalAuth)';
+        this.server.del({
+            name: name,
+            path: path
+        },
+        processJWT(),
+        validateInsurerPortalJWT({
             handler: handlerWrapper(path, handler),
             permission: permission,
             permissionType: permissionType
