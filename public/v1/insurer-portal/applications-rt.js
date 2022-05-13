@@ -1,5 +1,3 @@
-const { forEach } = require("lodash");
-
 const serverHelper = global.requireRootPath('server.js');
 
 const ApplicationMongooseModel = global.mongoose.Application;
@@ -21,13 +19,11 @@ const AgencyBO = global.requireShared('./models/Agency-BO.js');
  *
  * @returns {void}
  */
- async function getApplications(req, res, next){
-     const query = {
-            agencyNetworkId: req.params.insurerId,
-        }
-        
+async function getApplications(req, res, next){
+    const query = {agencyNetworkId: req.params.insurerId}
+
     if(req.params.alt) {
-            
+
         // basic lookup
         log.debug('application lookup --' + req.params.insurerId);
         try {
@@ -36,59 +32,54 @@ const AgencyBO = global.requireShared('./models/Agency-BO.js');
         }
         catch (err) {
             log.error(`Application Docs error ` + err + __location);
-        }      
+            return next(serverHelper.requestError('Bad Request: No data received'));
+        }
     }
     else{
-        // traditional lookup
-        log.debug('trad lookup --' + req.params.insurerId);
-        
-        const applicationBO = new ApplicationBO;
 
-        const appDocs = await applicationBO.getAppListForAgencyPortalSearch(query).catch(err=>{
+        const applicationBO = new ApplicationBO();
+        const appDocs = await applicationBO.getAppListForAgencyPortalSearch(query).catch(err => {
             log.error('Application Docs-2 error lookup' + err + __location);
+            return next(serverHelper.requestError('Bad Request: Invalid Query'));
         });
 
         try {
-            let appList = [];
+            const appList = [];
             let appDoc = {};
-            const agencyBO = new AgencyBO;
-
+            const agencyBO = new AgencyBO();
             for(const app in appDocs){
-                appDoc  = appDocs[app]
-                if(appDoc.applicationId){
-                    let appx = await agencyBO.getById(appDoc.agencyId)
-                    // log.debug('agency id ' + JSON.stringify(appx, '', 4));
-                    appDoc.agencyOwnerName = appx.firstName + ' ' + appx.lastName;
-                    appDoc.agencyOwnerEmail = appx.email;
-                    if(appx.phone){
-                        appDoc.agencyPhone = appx.phone;
+                if(app){
+                    appDoc = appDocs[app];
+                    if(appDoc.applicationId){
+                        const appx = await agencyBO.getById(appDoc.agencyId)
+                        appDoc.agencyOwnerName = appx.firstName + ' ' + appx.lastName;
+                        appDoc.agencyOwnerEmail = appx.email;
+                        if(appx.phone){
+                            appDoc.agencyPhone = appx.phone;
+                        }
+                        else{
+                            appDoc.agencyPhone = '';
+                        }
+                        if(appDoc.metrics && appDoc.metrics.appValue){
+                            appDoc.appValue = appDoc.metrics.appValue;
+                        }
+                        else {
+                            appDoc.appValue = 0;
+                        }
+                        appList.push(appDoc);
                     }
-                    else{
-                        appDoc.agencyPhone = '';
-                    }
-                    if(appDoc.metrics && appDoc.metrics.appValue){
-                        appDoc.appValue = appDoc.metrics.appValue;
-                    }
-                    else {
-                        appDoc.appValue = 0;
-                    }
-
-                    appList.push(appDoc);
                 }
             }
-
             res.send(200, appList)
         }
         catch (err){
             log.error('Application finding Agency ' + err + __location);
         }
     }
-
     return next();
- }
+}
 
- /* -----==== Endpoints ====-----*/
+/* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
-    //TODO add proper auth
     server.addPost('Get Applications by InsurerId', `${basePath}/applications`, getApplications);
 };
