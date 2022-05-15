@@ -8,6 +8,7 @@ const _ = require('lodash');
 const moment = require('moment');
 
 const Application = global.mongoose.Application;
+const Quote = global.mongoose.Quote;
 const AgencyBO = global.requireShared(`./models/Agency-BO.js`)
 const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
 //const Quote = global.mongoose.Quote;
@@ -70,7 +71,9 @@ const getGeography = async(where) => {
 }
 //default report to America/Los_Angeles (Talage HQ)
 // TODO get user's timezone.
-const getMonthlyTrends = async(where) => {
+
+// ***** App Count  ******
+const getMonthlyTrendsAppcount = async(where) => {
     const monthlyTrends = await Application.aggregate([
         {$match: where},
         {$project: {
@@ -96,7 +99,7 @@ const getMonthlyTrends = async(where) => {
 }
 
 
-const getDailyTrends = async(where) => {
+const getDailyTrendsAppCount = async(where) => {
     const monthlyTrends = await Application.aggregate([
         {$match: where},
         {$project: {
@@ -123,6 +126,124 @@ const getDailyTrends = async(where) => {
         moment(`${t._id.year}-${t._id.month}-${t._id.day}`, 'Y-M-D').format('M-D'), t.count
     ]);
 }
+// ***** END AppCount **********
+
+///*****  Quoted Premium *******/
+const getMonthlyTrendsQuotedPremium = async(where) => {
+
+    const monthlyTrends = await Application.aggregate([
+        {$match: where},
+        {$project: {
+            creationMonth: {$month: {date: '$createdAt', timezone: "America/Los_Angeles"}},
+            creationYear: {$year: {date: '$createdAt', timezone: "America/Los_Angeles"}},
+            "metrics.appValue": 1
+        }},
+        {$group: {
+            _id: {
+                month: '$creationMonth',
+                year: '$creationYear'
+            },
+            premium: {$sum: '$metrics.appValue'}
+        }},
+        {$sort: {
+            '_id.year': 1,
+            '_id.month': 1
+        }}
+    ]);
+    return monthlyTrends.map(t => [
+        moment(t._id.month, 'M').format('MMMM'), t.premium
+    ]);
+}
+
+
+const getDailyTrendsQuotedPremium = async(where) => {
+    const monthlyTrends = await Application.aggregate([
+        {$match: where},
+        {$project: {
+            creationDay: {$dayOfMonth: {date: '$createdAt', timezone: "America/Los_Angeles"}},
+            creationMonth: {$month: {date: '$createdAt', timezone: "America/Los_Angeles"}},
+            creationYear: {$year: {date: '$createdAt', timezone: "America/Los_Angeles"}},
+            "metrics.appValue": 1
+        }},
+        {$group: {
+            _id: {
+                day: '$creationDay',
+                month: '$creationMonth',
+                year: '$creationYear'
+            },
+            premium: {$sum: '$metrics.appValue'}
+        }},
+        {$sort: {
+            '_id.year': 1,
+            '_id.month': 1,
+            '_id.day': 1
+        }}
+    ]);
+
+    return monthlyTrends.map(t => [
+        moment(`${t._id.year}-${t._id.month}-${t._id.day}`, 'Y-M-D').format('M-D'), t.premium
+    ]);
+}
+///*****  END Quoted Premium *******/
+
+///*****  Bind Premium from Quotes *******/
+const getMonthlyTrendsBoundPremium = async(where) => {
+    const monthlyTrends = await Quote.aggregate([
+        {$match: where},
+        {$project: {
+            creationMonth: {$month: {date: '$createdAt', timezone: "America/Los_Angeles"}},
+            creationYear: {$year: {date: '$createdAt', timezone: "America/Los_Angeles"}},
+            "amount": 1
+        }},
+        {$group: {
+            _id: {
+                month: '$creationMonth',
+                year: '$creationYear'
+            },
+            premium: {$sum: '$amount'}
+        }},
+        {$sort: {
+            '_id.year': 1,
+            '_id.month': 1
+        }}
+    ]);
+
+    return monthlyTrends.map(t => [
+        moment(t._id.month, 'M').format('MMMM'), t.premium
+    ]);
+}
+
+
+const getDailyTrendsBoundPremium = async(where) => {
+    const monthlyTrends = await Quote.aggregate([
+        {$match: where},
+        {$project: {
+            creationDay: {$dayOfMonth: {date: '$createdAt', timezone: "America/Los_Angeles"}},
+            creationMonth: {$month: {date: '$createdAt', timezone: "America/Los_Angeles"}},
+            creationYear: {$year: {date: '$createdAt', timezone: "America/Los_Angeles"}},
+            "amount": 1
+        }},
+        {$group: {
+            _id: {
+                day: '$creationDay',
+                month: '$creationMonth',
+                year: '$creationYear'
+            },
+            premium: {$sum: '$amount'}
+        }},
+        {$sort: {
+            '_id.year': 1,
+            '_id.month': 1,
+            '_id.day': 1
+        }}
+    ]);
+
+    return monthlyTrends.map(t => [
+        moment(`${t._id.year}-${t._id.month}-${t._id.day}`, 'Y-M-D').format('M-D'), t.premium
+    ]);
+}
+///*****  END Quoted Premium *******/
+
 
 // eslint-disable-next-line valid-jsdoc
 /** Get the earliest application created date */
@@ -602,8 +723,8 @@ async function getReports(req) {
         log.debug(`Report where ${JSON.stringify(where)}` + __location);
         //trend monthly or daily ?
         const startedCount = await Application.countDocuments(where);
-        const trendData = monthlyTrend ? await getMonthlyTrends(where) : await getDailyTrends(where);
-        return {
+        const trendDataAppCount = monthlyTrend ? await getMonthlyTrendsAppcount(where) : await getDailyTrendsAppCount(where);
+        const returnDataJson = {
             funnel: {
                 started: startedCount,
                 completed: await Application.countDocuments(Object.assign({}, where, {appStatusId: {$gt:  applicationStatus.questionsDone.appStatusId}})),
@@ -612,9 +733,30 @@ async function getReports(req) {
             },
             geography: await getGeography(where),
             industries: await getIndustries(where,startedCount),
-            monthlyTrends: trendData,
+            monthlyTrends: trendDataAppCount,
             premium: await getPremium(where)
         }
+        // Advanced Graphs - quoted, requested premium and bound.
+        // Agency Network feature  -  Initial only Talage Super users.
+        if(req.authentication.agencyNetworkId === 1
+            && req.authentication.permissions.talageStaff === true){
+            //TODO check agencyNetwork feature for user when enable for other agencyNetworkss
+
+            //Quote Trend
+            where.appStatusId = {$gte: 40}
+            returnDataJson.trendDataQuotedPremium = monthlyTrend ? await getMonthlyTrendsQuotedPremium(where) : await getDailyTrendsQuotedPremium(where);
+            delete where.appStatusId
+
+            //requested premium
+            where.quoteStatusId = {$gte: 60}
+            returnDataJson.trendDataRequestedPremium = monthlyTrend ? await getMonthlyTrendsBoundPremium(where) : await getDailyTrendsBoundPremium(where);
+
+            //Confirmed Bound
+            where.quoteStatusId = {$gte: 100}
+            returnDataJson.trendDataBoundPremium = monthlyTrend ? await getMonthlyTrendsBoundPremium(where) : await getDailyTrendsBoundPremium(where);
+
+        }
+        return returnDataJson
     }
 }
 
@@ -627,14 +769,14 @@ async function getReports(req) {
  *
  * @returns {void}
  */
-async function wrapAroundExpress(req, res, next) {
+async function reportWrapAround(req, res, next) {
     try {
         const out = await getReports(req);
         res.send(200, out);
         return next();
     }
     catch (err) {
-        log.error("wrapAroundExpress error: " + err + __location);
+        log.error("reportWrapAround error: " + err + __location);
         return next(err);
     }
 }
@@ -693,6 +835,6 @@ async function getAgencyLocationAndReferrList(req, res, next){
 }
 
 exports.registerEndpoint = (server, basePath) => {
-    server.addGetAuth('Get reports', `${basePath}/reports`, wrapAroundExpress, 'dashboard', 'view');
+    server.addGetAuth('Get reports', `${basePath}/reports`, reportWrapAround, 'dashboard', 'view');
     server.addGetAuth('Get reports', `${basePath}/reports/agency-locations-referrers`, getAgencyLocationAndReferrList, 'dashboard', 'view');
 };
