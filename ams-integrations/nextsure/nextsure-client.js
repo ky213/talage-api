@@ -508,11 +508,12 @@ async function getPoliciesByClientId(agencyId, clientId, appDoc, processBound = 
  * @returns {string} clientId of new Nextsure policy records
  */
 async function createClientFromAppDoc(agencyId, appDoc, quoteDoc){
+    const newClientJSON = {};
     if(!appDoc){
-        return null;
+        return {message: "no application doc found"};
     }
     if(appDoc.amsInfo?.clientId){
-        return appDoc.amsInfo.clientId
+        return {clientId: appDoc.amsInfo.clientId}
     }
     if(appDoc.primaryState || appDoc.mailingState){
         const appStateCd = appDoc.primaryState ? appDoc.primaryState : appDoc.mailingState
@@ -534,7 +535,6 @@ async function createClientFromAppDoc(agencyId, appDoc, quoteDoc){
         }
     }
 
-    let newClientId = null
     const authToken = await auth(agencyId).catch(function(err){
         log.error(`error getting Nextsure Auth Token ${err}` + __location)
     });
@@ -592,14 +592,14 @@ async function createClientFromAppDoc(agencyId, appDoc, quoteDoc){
                     {
                         "AddressType": {"$t": "Physical"},
                         "StreetAddress1": {"$t": `${primarylocation.address ? primarylocation.address : ""}`},
-                        "StreetAddress2": {"$t": `${primarylocation.address2 ? primarylocation.address2 : ""}`},
+                        //"StreetAddress2": {"$t": `${primarylocation.address2 ? primarylocation.address2 : ""}`},
                         "City": {"$t": `${primarylocation.city ? primarylocation.city : ""}`},
                         "State": {"$t": `${primarylocation.state ? primarylocation.state : ""}`},
                         "ZipCode": {"$t": `${primarylocation.zipcode ? primarylocation.zipcode : ""}`}
                     }, {
                         "AddressType": {"$t": "Mailing"},
                         "StreetAddress1": {"$t": `${appDoc.mailingAddress ? appDoc.mailingAddress : ""}`},
-                        "StreetAddress2": {"$t": `${appDoc.mailingAddress2 ? appDoc.mailingAddress2 : ""}`},
+                        //"StreetAddress2": {"$t": `${appDoc.mailingAddress2 ? appDoc.mailingAddress2 : ""}`},
                         "City": {"$t": `${appDoc.mailingCity ? appDoc.mailingCity : ""}`},
                         "State": {"$t": `${appDoc.mailingState ? appDoc.mailingState : ""}`},
                         "ZipCode": {"$t": `${appDoc.mailingZipcode ? appDoc.mailingZipcode : ""}`}
@@ -620,6 +620,7 @@ async function createClientFromAppDoc(agencyId, appDoc, quoteDoc){
             }
         }};
         const clientXML = parser.toXml(jsonClient);
+        log.debug(`client XML to Nextsure` + __location);
         log.debug(clientXML);
         //Send to Nextsure
         const path = "/clients/addnewclient";
@@ -635,26 +636,29 @@ async function createClientFromAppDoc(agencyId, appDoc, quoteDoc){
         const params = new url.URLSearchParams(body);
         const response = await httpRequest("POST",path, authToken, null, params.toString(), requestOptions);
         if (response.error) {
-            log.error(`Nextsure createClientFromAppDoc error ${response.error}` + __location)
-            return null;
+            log.error(`Nextsure createClientFromAppDoc error ${response.error} - ${JSON.stringify(response.data)} ` + __location)
+            newClientJSON.message = response.error
+            return newClientJSON;
         }
         if (response.data.error) {
-            log.error(`Nextsure createClientFromAppDoc error ${response.data.error}` + __location)
-            return null;
+            log.error(`Nextsure createClientFromAppDoc error ${response.data.error} - ${JSON.stringify(response.data)}` + __location)
+            newClientJSON.message = response.data.error
+            return newClientJSON;
         }
         if (!response.data.Client) {
             log.error(`Nextsure createClientFromAppDoc no response.data.Client in response ` + __location)
             log.error(`ClientSearch NextSure no Client response ${JSON.stringify(response.data)}` + __location)
-            return null;
+            newClientJSON.message = "No Client Id returned"
+            return newClientJSON;
         }
         const returnedJSON = response.data;
         if(returnedJSON.Client.ClientID){
-            newClientId = returnedJSON.Client.ClientID
+            newClientJSON.newClientId = returnedJSON.Client.ClientID
             try{
                 const applicationBO = new ApplicationBO();
                 const amsJSON = {amsInfo : {
                     "amsType" : "Nextsure",
-                    clientId: newClientId
+                    clientId: newClientJSON.newClientId
                 }};
                 await applicationBO.updateMongo(appDoc.applicationId, amsJSON);
             }
@@ -674,9 +678,15 @@ async function createClientFromAppDoc(agencyId, appDoc, quoteDoc){
 
 
         }
+        else if(returnedJSON.message) {
+            newClientJSON.message = returnedJSON.message
+        }
 
     }
-    return newClientId;
+    else {
+        newClientJSON.message = "Nextsure Auth failed."
+    }
+    return newClientJSON;
 }
 
 /**
