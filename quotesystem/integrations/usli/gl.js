@@ -596,7 +596,6 @@ module.exports = class USLIGL extends Integration {
         // remove taxes from premium if quote is not admitted and taxes exist
         if (!admitted && premium) {
             const taxesAdditionalInfo = [];
-            premium = parseFloat(premium);
             const taxCoverages = get(response, "CommlPkgPolicyQuoteInqRs[0].CommlPolicy[0].CommlCoverage");
 
             if (Array.isArray(taxCoverages)) {
@@ -606,6 +605,7 @@ module.exports = class USLIGL extends Integration {
                     const taxDescription = tax.CoverageDesc[0];
 
                     if (taxAmount) {
+                        premium = parseFloat(premium);
                         taxAmount = parseFloat(taxAmount);
 
                         if (!isNaN(premium) && !isNaN(taxAmount)) {
@@ -614,6 +614,8 @@ module.exports = class USLIGL extends Integration {
                         else {
                             log.warn(`${logPrefix}Unable to remove tax ${taxDescription} from non-admitted quote premium. Reference quote additionalInfo for tax information. ` + __location);
                         }
+
+                        premium = this.toFixed(premium, 2);
                     }
 
                     taxesAdditionalInfo.push({
@@ -622,14 +624,14 @@ module.exports = class USLIGL extends Integration {
                         amount: taxAmount
                     });
                 });
+            }
 
-                if (premium < 0) {
-                    log.warn(`${logPrefix}Tax and fee deductions resulted in a premium value below 0. ` + __location);
-                    premium = 0;
-                }
-                else {
-                    premium = `${premium}`.substring(0, `${premium}`.indexOf(".") + 3);
-                }
+            if (parseInt(premium, 10) <= 0) {
+                log.warn(`${logPrefix}Tax and fee deductions resulted in a premium value at or below 0. ` + __location);
+                premium = "0";
+            }
+            else {
+                premium = this.toFixed(premium, 2);
             }
 
             // add tax and fees to quote additional info
@@ -726,6 +728,11 @@ module.exports = class USLIGL extends Integration {
             firstName: firstName,
             lastName: lastName
         };
+    }
+
+    // https://stackoverflow.com/questions/10015027/javascript-tofixed-not-rounding
+    toFixed(num, precision) {
+        return Number(Math.round(Number(num + 'e' + precision)) + 'e' + -precision).toFixed(precision);
     }
 
     getExposure(location) {
