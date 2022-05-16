@@ -562,7 +562,10 @@ module.exports = class AcuityBOP extends Integration {
             'AcuityRoofConstruction',
             'AcuityBOPRoofGeometry',
             'AcuityBOPOccupiedByOthersSqft',
-            'AcuityBOPUnoccupiedSqft'
+            'AcuityBOPUnoccupiedSqft',
+            'OccupancyDesc',
+            'AcuityBOPDistanceFireStation',
+            'AcuityBOPDistanceHydrant'
         ]
         appDoc.locations.forEach((location, index) => {
             // <CommlCoverage>
@@ -729,6 +732,10 @@ module.exports = class AcuityBOP extends Integration {
                         const DistanceToHydrant = BldgProtection.ele('DistanceToHydrant');
                         DistanceToHydrant.ele('UnitMeasurementCd', 'FT');
                         DistanceToHydrant.ele('NumUnits', question.answerValue);
+                        break;
+                    case 'OccupancyDesc':
+                        BldgOccupancy.ele('OccupancyDesc', question.answerValue);
+                        break;
                     default:
                         continue;
                 }
