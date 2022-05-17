@@ -148,14 +148,18 @@ async function clientSearch(agencyId, companyName, territory){
             log.error(`Nextsure clientSearch error ${response.error}` + __location)
             return null;
         }
+        if (!response.data) {
+            log.info(`Nextsure clientSearch no response.data in response ${response} ` + __location)
+            return null;
+        }
         if (response.data.error) {
             log.error(`Nextsure clientSearch error ${response.data.error}` + __location)
             return null;
         }
+
         if (!response.data.Clients) {
-            log.error(`Nextsure clientSearch no response.data.Clients in response ` + __location)
-            log.error(`ClientSearch NextSure no Clients response ${JSON.stringify(response.data)}` + __location)
-            return null;
+            //not found case
+            return [];
         }
         //log.debug(`ClientSearch NextSure response ${JSON.stringify(response.data)}` + __location)
         //deterimine if more than one client returned
@@ -517,9 +521,12 @@ async function createClientFromAppDoc(agencyId, appDoc, quoteDoc){
     }
     if(appDoc.primaryState || appDoc.mailingState){
         const appStateCd = appDoc.primaryState ? appDoc.primaryState : appDoc.mailingState
+        log.info(`calling Nextsure create client client search check for appId ${appDoc.applicationId}` + __location)
         const oldClientList = await clientSearch(agencyId, appDoc.businessName, appStateCd);
-        if(oldClientList?.length === 1){
+        if(oldClientList?.length > 0){
             const clientId = oldClientList[0].clientId;
+            newClientJSON.clientId = clientId;
+            log.info(`calling Nextsure create client found existing client ${clientId} for appId ${appDoc.applicationId}` + __location)
             try{
                 const applicationBO = new ApplicationBO();
                 const amsJSON = {amsInfo : {
@@ -531,7 +538,7 @@ async function createClientFromAppDoc(agencyId, appDoc, quoteDoc){
             catch(err){
                 log.error(`Nextsure createClientFromAppDoc updating App Doc error ${err}` + __location)
             }
-            return clientId;
+            return newClientJSON;
         }
     }
 
@@ -620,8 +627,9 @@ async function createClientFromAppDoc(agencyId, appDoc, quoteDoc){
             }
         }};
         const clientXML = parser.toXml(jsonClient);
-        log.debug(`client XML to Nextsure` + __location);
-        log.debug(clientXML);
+        //log.debug(`client XML to Nextsure` + __location);
+        //log.debug(clientXML);
+        log.info(`calling Nextsure create client for appId ${appDoc.applicationId}` + __location)
         //Send to Nextsure
         const path = "/clients/addnewclient";
 
@@ -652,8 +660,9 @@ async function createClientFromAppDoc(agencyId, appDoc, quoteDoc){
             return newClientJSON;
         }
         const returnedJSON = response.data;
+        log.info(`Nextsure response ${JSON.stringify(returnedJSON)}` + __location)
         if(returnedJSON.Client.ClientID){
-            newClientJSON.newClientId = returnedJSON.Client.ClientID
+            newClientJSON.clientId = returnedJSON.Client.ClientID
             try{
                 const applicationBO = new ApplicationBO();
                 const amsJSON = {amsInfo : {
