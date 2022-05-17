@@ -653,7 +653,7 @@ async function createClientFromAppDoc(agencyId, appDoc, quoteDoc){
         }
         const returnedJSON = response.data;
         if(returnedJSON.Client.ClientID){
-            newClientJSON.newClientId = returnedJSON.Client.ClientID
+            newClientJSON.clientId = returnedJSON.Client.ClientID
             try{
                 const applicationBO = new ApplicationBO();
                 const amsJSON = {amsInfo : {
