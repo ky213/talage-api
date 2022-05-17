@@ -12,6 +12,7 @@ var FastJsonParse = require('fast-json-parse')
 var AgencyEmail = global.mongoose.AgencyEmail;
 
 var AgencyModel = global.mongoose.Agency;
+var AgencyAmsCredModel = global.mongoose.AgencyAmsCred;
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
@@ -1314,7 +1315,6 @@ module.exports = class AgencyBO {
         return false;
     }
 
-
     async getListByInsurerId(requestQueryJSON, insurerId) {
         let agencyNetworkList = null;
         const agencyNetworkBO = new AgencyNetworkBO();
@@ -1364,5 +1364,19 @@ module.exports = class AgencyBO {
             log.error("Error getting Agency List " + err + __location);
             throw err;
         }
+    }
+
+    async getAmsCredentials(agencyId){
+        let amsCreds = null;
+        try{
+            amsCreds = await AgencyAmsCredModel.findOne({agencyId: agencyId}).lean();
+
+        }
+        catch(err){
+            log.error(`AgencyBO: Error getting AmsCredentials agencyId ${agencyId} error: ` + err + __location);
+        }
+
+
+        return amsCreds;
     }
 }

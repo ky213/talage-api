@@ -532,6 +532,7 @@ module.exports = class AcuityGL extends Integration {
             }
             else {
                 log.error(`Acuity GL (application ${this.app.id}): application issue no payroll. Application will fail at Acuity` + __location);
+                return this.client_error('At least one location payroll is required.')
             }
         }
 
@@ -626,7 +627,7 @@ module.exports = class AcuityGL extends Integration {
         switch (policyStatusCode) {
             case 'com.acuity_Incomplete':
                 log.error(`Acuity GL (appId ${this.app.id}): Reporting incomplete information for quoting.` + __location);
-                return this.client_declined("incomplete information to quote");
+                return this.client_declined(`Incomplete information to quote. ${extendedStatusDescription}`);
             case "com.acuity_BindableQuote":
             case "com.acuity_BindableModifiedQuote":
             case 'com.acuity_BindableReferredQuote':

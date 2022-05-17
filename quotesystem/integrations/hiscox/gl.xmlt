@@ -46,15 +46,15 @@
         <BusinessInfo>
             <CommercialName>{{>app.business.name.substring(0, 100)}}</CommercialName>
             <PersonName>
-                <FirstName>{{>app.business.contacts[0].first_name.substring(0, 75)}}</FirstName>
-                <LastName>{{>app.business.contacts[0].last_name.substring(0, 75)}}</LastName>
+                <FirstName>{{>first_name.substring(0, 75)}}</FirstName>
+                <LastName>{{>last_name.substring(0, 75)}}</LastName>
             </PersonName>
             <CommunicationsInfo>
                 <PhoneInfo>
-                    <PhoneNumber>{{>app.business.contacts[0].phone.toString().substring(0,10)}}</PhoneNumber>
+                    <PhoneNumber>{{>agencyPhone.toString().substring(0,10)}}</PhoneNumber>
                 </PhoneInfo>
                 <EmailInfo>
-                    <EmailAddr>{{>app.business.contacts[0].email.substring(0,60)}}</EmailAddr>
+                    <EmailAddr>{{>agencyEmail.substring(0,60)}}</EmailAddr>
                 </EmailInfo>
             </CommunicationsInfo>
             <Locations>

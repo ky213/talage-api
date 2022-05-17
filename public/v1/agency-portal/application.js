@@ -117,7 +117,6 @@ async function getApplication(req, res, next) {
         return next(serverHelper.notFoundError('Application Not Found'));
     }
     
-    await setupReturnedApplicationJSON(applicationJSON)
 
     // Get the quotes from the database
     const quoteBO = new QuoteBO()
@@ -133,6 +132,9 @@ async function getApplication(req, res, next) {
     catch(err){
         log.error("Error getting quotes for Application GET " + err + __location);
     }
+
+    await setupReturnedApplicationJSON(applicationJSON, quoteList)
+
 
     // Add the quotes to the return object and determine the application status
     applicationJSON.quotes = [];
@@ -361,7 +363,7 @@ async function getApplicationDoc(req, res ,next){
 }
 
 
-async function setupReturnedApplicationJSON(applicationJSON){
+async function setupReturnedApplicationJSON(applicationJSON, quoteList){
     const mapDoc2OldPropName = {
         agencyLocationId: "agency_location",
         lastStep: "last_step",
@@ -498,6 +500,28 @@ async function setupReturnedApplicationJSON(applicationJSON){
         applicationJSON.agencyPhone = agencyJSON.phone;
         applicationJSON.agencyOwnerName = `${agencyJSON.firstName} ${agencyJSON.lastName}`;
         applicationJSON.agencyOwnerEmail = agencyJSON.email;
+        applicationJSON.showAmsButton = false;
+        applicationJSON.AmsButtonText = "Push to AMS";
+        applicationJSON.AmsName = "AMS";
+        //check for AMS connection
+        let amsCred = await agencyBO.getAmsCredentials(applicationJSON.agencyId);
+        
+        if(!amsCred && quoteList?.length > 0){
+            // check for TalageWhole - (TODO wholesale agency)
+            const talageWholeQuote = quoteList.find((q) => q.handledByTalage);
+            if(talageWholeQuote){
+                amsCred = await agencyBO.getAmsCredentials(1);
+            }
+        }
+
+        if(amsCred?.amsType){
+            applicationJSON.showAmsButton = true;
+            //TODO Switch when more AMS's added
+            if(amsCred?.amsType === "Nextsure"){
+                applicationJSON.AmsButtonText = "Push to Nextsure";
+                applicationJSON.AmsName = "Nextsure";
+            }
+        }
     }
     catch(err){
         log.error("Error getting agencyBO " + err + __location);
@@ -2541,7 +2565,7 @@ async function amsCreateClient(req, res, next){
     
     log.debug(`Getting app id  ${applicationId} from mongo` + __location)
     const applicationDB = await applicationBO.getfromMongoByAppId(applicationId).catch(function(err) {
-        log.error(`Error getting application Doc for bound ${applicationId} ` + err + __location);
+        log.error(`Error getting application Doc for amsCreateClient ${applicationId} ` + err + __location);
         log.error('Bad Request: Invalid id ' + __location);
         error = err;
     });
@@ -2552,7 +2576,7 @@ async function amsCreateClient(req, res, next){
         applicationId = applicationDB.applicationId;
     }
     else {
-        log.error(`Did not find application Doc for mark as dead ${applicationId}` + __location);
+        log.error(`Did not find application Doc for  amsCreateClient ${applicationId}` + __location);
         return next(serverHelper.requestError('Invalid id'));
     }
 
@@ -2583,10 +2607,10 @@ async function amsCreateClient(req, res, next){
     const agencyAmsCredJson = await AgencyAmsCredModel.findOne(query, '-__v').lean();
     if(!agencyAmsCredJson && talageWholesaleUser){
         ///TODO check agencyLocation has talageWholes setup
-
+        log.debug(`Nextsure using Talage Agency ` + __location)
         amsAgencyId = 1;
     }
-    else {
+    else if(!amsCreateClient) {
         log.error(`AP: amsCreateClient No AMS configured for agencyId ${applicationDB.agencyId} appId: ${applicationId} ` + __location);
         return next(serverHelper.requestError('No AMS connect has been configured for the Agency.'));
     }
@@ -2594,14 +2618,19 @@ async function amsCreateClient(req, res, next){
 
     const nextsureClient = global.requireRootPath('ams-integrations/nextsure/nextsure-client.js')
 
-    const newClientId = await nextsureClient.createClientFromAppDoc(amsAgencyId,applicationDB);
+    log.debug(`calling Nextsure to create client` + __location);
+    const newClientJSON = await nextsureClient.createClientFromAppDoc(amsAgencyId,applicationDB);
 
 
     // Send back mark status.
-    if(newClientId){
-        res.send(200, {"done": true, newClientId: newClientId});
+    if(newClientJSON?.clientId){
+        res.send(200, {"done": true, newClientId: newClientJSON.clientId});
+    }
+    else if(newClientJSON?.message){
+        res.send({'message': `Failed to create client record in AMS. resonse: ${newClientJSON.message}`});
     }
     else {
+        log.debug(`unexpected response from nextsureClient.createClientFromAppDoc ${JSON.stringify(newClientJSON)}`)
         res.send({'message': 'Failed to create client record in AMS.'});
     }
     return next();
@@ -2645,7 +2674,7 @@ async function amsGetPolicies(req, res, next){
     }
     else {
         log.error(`Did not find application Doc for mark as dead ${applicationId}` + __location);
-        return next(serverHelper.requestError('Invalid id'));
+        return next(serverHelper.requestError('Invalid app id'));
     }
 
     const passedAgencyCheck = await auth.authorizedForAgency(req, applicationDB?.agencyId, applicationDB?.agencyNetworkId)
@@ -2676,7 +2705,7 @@ async function amsGetPolicies(req, res, next){
     const agencyAmsCredJson = await AgencyAmsCredModel.findOne(query, '-__v').lean();
     if(!agencyAmsCredJson && talageWholesaleUser){
         ///TODO check agencyLocation has talageWholes setup
-
+        log.debug(`Nextsure using Talage Agency ` + __location)
         amsAgencyId = 1;
     }
     else {
