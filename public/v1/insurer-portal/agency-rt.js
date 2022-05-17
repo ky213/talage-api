@@ -1,6 +1,7 @@
 const serverHelper = global.requireRootPath('server.js');
 const AgencyBO = global.requireShared('./models/Agency-BO.js');
 const QuoteMongooseModel = global.mongoose.Quote;
+const ApplicationMongooseModel = global.mongoose.Application;
 
 /**
  * Responds to get requests for the applications endpoint
@@ -25,12 +26,28 @@ async function getAgencies(req, res, next){
         log.error("getAgencies load error " + err + __location);
         return next(serverHelper.internalError('Unable to retrieve Agency List'));
     }
-    const agenciesWithApps = agenciesList.filter(a => a.appCount > 0);
     let quoteList = [];
+    let appsList = [];
     try {
-        const quotesQuery = {agencyId: {$in: agenciesWithApps.map(a => a.systemId)}};
-        // TODO: transfer to BO
-        quoteList = await QuoteMongooseModel.find(quotesQuery).lean();
+        const quotesQuery = {
+            agencyId: {$in: agenciesList.map(a => a.systemId)},
+            insurerId: insurerId,
+            apiResult: 'quoted'
+        };
+        const quotesQueryProjection = {
+            agencyId: 1,
+            insurerId: 1,
+            quoteStatusId: 1,
+            amount: 1
+        };
+        const appsQuery = {agencyId: {$in: agenciesList.map(a => a.systemId)}};
+        const appsQueryProjection = {
+            agencyId: 1,
+            appStatusId: 1,
+            applicationId: 1
+        };
+        quoteList = await QuoteMongooseModel.find(quotesQuery, quotesQueryProjection).lean();
+        appsList = await ApplicationMongooseModel.find(appsQuery, appsQueryProjection).lean();
     }
     catch(err){
         log.error("getAgencies load error " + err + __location);
@@ -38,16 +55,24 @@ async function getAgencies(req, res, next){
     }
     // TODO: Enhance to Aggregation or Denormalizing (to be discussed with Brian & Roger)
     agenciesList = agenciesList.map(agency => {
-        const quotesAgencyList = quoteList.filter(quote => quote.agencyId === agency.systemId);
-        const quotesAgencyInsurerList = quotesAgencyList.filter(quote => quote.insurerId === insurerId);
-        const quotesAgencyInsurerBoundList = quotesAgencyInsurerList.filter(quote => quote.bound);
+        const agencyAppList = appsList.filter(app => app.agencyId === agency.systemId);
+        const insurerAgencyQuotesQuoted = quoteList.filter((quote) => quote.agencyId === agency.systemId).
+            reduce((prev, curr) => {
+                const dup = prev.find(a => a.applicationId === curr.applicationId);
+                if(!dup || dup.quoteStatusId < curr.quoteStatusId) {
+                    prev.push(curr);
+                }
+                return prev;
+            }, []);
+        const insurerAgencyQuotesBound = insurerAgencyQuotesQuoted.filter(quote => quote.quoteStatusId === 100);
         return {
             ...agency,
-            premiumBound: quotesAgencyInsurerBoundList.filter(quote => quote.amount).reduce((prev, curr) => prev + curr.amount, 0),
-            boundApps: quotesAgencyInsurerBoundList.length,
-            quotedApps: quotesAgencyInsurerList.filter(quote => quote.quoteStatusId === 50).length,
-            totalBoundApps: quotesAgencyList.filter(quote => quote.bound).length,
-            totalQuotedApps: quotesAgencyList.filter(quote => quote.quoteStatusId === 50).length
+            premiumBound: insurerAgencyQuotesBound.reduce((prev, curr) => prev + (curr.amount || 0), 0),
+            boundApps: insurerAgencyQuotesBound.length,
+            totalBoundApps: agencyAppList.filter(agencyApp => agencyApp.appStatusId === 90).length,
+            premiumQuoted: insurerAgencyQuotesQuoted.reduce((prev, curr) => prev + (curr.amount || 0), 0),
+            quotedApps: insurerAgencyQuotesQuoted.length,
+            totalQuotedApps: agencyAppList.filter(agencyApp => agencyApp.appStatusId === 60).length
         }
     });
     res.send(200, {
