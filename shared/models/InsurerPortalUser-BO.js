@@ -27,7 +27,7 @@ module.exports = class InsurerPortalUserBO{
         if(newObjectJSON.id){
             try {
                 const skipActiveCheck = true;
-                dbDocJSON = await this.getMongoDocbyUserId(newObjectJSON.id,false,skipActiveCheck);
+                dbDocJSON = await this.getMongoDocbyUserId(newObjectJSON.id, null, false, skipActiveCheck);
             }
             catch(err) {
                 log.error(`Error getting ${collectionName} from Database ` + err + __location);
@@ -84,7 +84,11 @@ module.exports = class InsurerPortalUserBO{
         }
 
         var queryOptions = {};
-        queryOptions.sort = {insurerPortalUserId: 1};
+        queryOptions.sort = {};
+        if(includeDisabled) {
+            queryOptions.sort.active = -1;
+        }
+        queryOptions.sort.insurerPortalUserId = 1;
         if (queryJSON.sort) {
             var acs = 1;
             if (queryJSON.desc) {
@@ -165,7 +169,7 @@ module.exports = class InsurerPortalUserBO{
             let docList = null;
             // eslint-disable-next-line prefer-const
             try {
-                docList = await InsurerPortalUserModel.find(query,queryProjection, queryOptions)
+                docList = await InsurerPortalUserModel.find(query,queryProjection, queryOptions).lean();
             }
             catch (err) {
                 log.error(err + __location);
@@ -421,12 +425,34 @@ module.exports = class InsurerPortalUserBO{
         }
     }
 
+    async activateById(id) {
+        //validate
+        if (id) {
+            try {
+                const getDoc = true;
+                const insurerPortalUserDoc = await this.getMongoDocbyUserId(id, null, getDoc, true);
+                insurerPortalUserDoc.active = true;
+                await insurerPortalUserDoc.save();
+            }
+            catch (err) {
+                log.error(`Error marking insurerPortalUserDoc from id ${id} ` + err + __location);
+                throw err;
+            }
+            return true;
+
+        }
+        else {
+            log.info(`no id supplied` + __location);
+            throw new Error('no id supplied');
+        }
+    }
+
     async deleteSoftById(id) {
         //validate
         if (id) {
             try {
                 const getDoc = true;
-                const insurerPortalUserDoc = await this.getMongoDocbyUserId(id, getDoc);
+                const insurerPortalUserDoc = await this.getMongoDocbyUserId(id, null, getDoc);
                 insurerPortalUserDoc.active = false;
                 await insurerPortalUserDoc.save();
             }
@@ -534,7 +560,7 @@ module.exports = class InsurerPortalUserBO{
             let insurerPortalUserDoc = null;
             try {
                 const getDoc = true;
-                insurerPortalUserDoc = await this.getMongoDocbyUserId(id, getDoc);
+                insurerPortalUserDoc = await this.getMongoDocbyUserId(id, null, getDoc);
                 if(insurerPortalUserDoc){
                     insurerPortalUserDoc.password = newHashedPassword;
                     insurerPortalUserDoc.resetRequired = false;
