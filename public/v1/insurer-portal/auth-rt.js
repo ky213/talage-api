@@ -115,28 +115,12 @@ async function login(req, res, next){
  * @returns {object} Returns an updated authorization token
  */
 async function refresh(req, res, next) {
-    // Ensure we have the proper parameters
-    if (!req.body || !req.body.token) {
-        log.info('Bad Request: Missing "token" parameter when trying to refresh the token ' + __location);
-        return next(serverHelper.requestError('A parameter is missing when trying to refresh the token.'));
-    }
-
-    // Ensure it is a valid JWT and that it hasn't expired.
-    let token = null;
-    try {
-        token = jwt.verify(req.body.token, global.settings.AUTH_SECRET_KEY);
-    }
-    catch (error) {
-        log.error("JWT: " + error + __location);
-        return next(serverHelper.forbiddenError('Invalid token'));
-    }
-
-    // Valid JWT. Preserve the content except for the issued at and expiration timestamps
-    delete token.iat;
-    delete token.exp;
+    const authData = req.authentication;
+    delete authData.iat;
+    delete authData.exp;
 
     // Sign the JWT with new timestamps
-    token = `Bearer ${jwt.sign(token, global.settings.AUTH_SECRET_KEY, {expiresIn: global.settings.JWT_TOKEN_EXPIRATION})}`;
+    const token = `Bearer ${jwt.sign(authData, global.settings.AUTH_SECRET_KEY, {expiresIn: global.settings.JWT_TOKEN_EXPIRATION})}`;
 
     // Send it back
     res.send(201, token);
@@ -220,6 +204,6 @@ async function verify(req, res, next) {
 
 exports.registerEndpoint = (server, basePath) => {
     server.addPost('Create Token', `${basePath}/auth`, login);
-    server.addPut('Refresh Token', `${basePath}/auth`, refresh);
+    server.addPutInsurerPortalAuth('Refresh Token', `${basePath}/auth`, refresh);
     server.addPostMFA('MFA Check', `${basePath}/auth/verify`, verify);
 };

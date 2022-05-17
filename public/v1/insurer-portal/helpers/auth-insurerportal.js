@@ -13,7 +13,7 @@
  */
 async function validateJWT(req, permission, permissionType) {
     // Check and validate JWT Content
-    if(!req.authentication.insurerId ||
+    if (!req.authentication.insurerId ||
         !req.authentication.userId ||
         !req.authentication.userMongoId ||
         !req.authentication.insurerPortalUserGroupId) {
@@ -48,11 +48,16 @@ async function validateJWT(req, permission, permissionType) {
     catch (e) {
         return 'Server Error'
     }
-    if(!userGroupDoc) {
+    if (!userGroupDoc) {
         return 'Access Denied';
     }
     if (permission && !userGroupDoc.permissions[permission][permissionType]) {
         return 'User does not have the correct permissions';
+    }
+    const tokenExpiresAt = new Date(req.authentication.exp * 1000);
+    const today = new Date();
+    if (tokenExpiresAt.getTime() < today.getTime()) {
+        return 'Token Expired';
     }
     return null;
 }
