@@ -321,7 +321,7 @@ module.exports = class AcuityBOP extends Integration {
 
         // Losses
         this.app.policies.forEach((policy) => {
-            if (policy.type !== "GL") {
+            if (policy.type !== "BOP") {
                 return;
             }
             const totalClaimCount = this.get_num_claims(3);
@@ -534,25 +534,72 @@ module.exports = class AcuityBOP extends Integration {
         // </CommlCoverage>
 
         // Exposures
+        if (this.insurerIndustryCode?.attributes?.premiumBasis?.code) {
+            const premiumBasisCode = this.insurerIndustryCode.attributes.premiumBasis.code;
+            appDoc.locations.forEach( async (location, index) => {
+                const GeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification');
 
-        // </GeneralLiabilityClassifciation LocationRef="L1">
-        const GeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification');
-        GeneralLiabilityClassification.att('LocationRef', `L1`);
-        if (this.insurerIndustryCode?.attributes?.cgl) {
-            GeneralLiabilityClassification.ele('ClassCd', this.insurerIndustryCode.attributes.cgl);
+                GeneralLiabilityClassification.att('LocationRef', `L${index + 1}`);
+                GeneralLiabilityClassification.att('SubLocationRef', `L${index + 1}S1`);
+                GeneralLiabilityClassification.ele('PremiumBasisCd', premiumBasisCode);
+
+                if (this.insurerIndustryCode?.attributes?.cgl) {
+                    GeneralLiabilityClassification.ele('ClassCd', this.insurerIndustryCode.attributes.cgl);
+                }
+                else {
+                    log.error(`${logPrefix}: Insurer Industry Code "${this.insurerIndustryCode.code}" did not have Class in attributes.cgl`)
+                }
+
+                switch (premiumBasisCode) {
+                    case 'PAYRL':
+                        const locationPayroll = location.activityPayrollList.reduce((totalPayroll, ele) => {
+                            return totalPayroll + ele.payroll;
+                        }, 0)
+                        GeneralLiabilityClassification.ele('Exposure', locationPayroll);
+                        break;
+                    case 'GrSales':
+                        const locationGrossSales = location.questions.find(question => question.insurerQuestionIdentifier === 'AcuityBOPLocationGrossSales');
+                        log.debug(`Location Gross Sales ${locationGrossSales.answerValue}`);
+
+                        if (locationGrossSales) {
+                            GeneralLiabilityClassification.ele('Exposure', locationGrossSales.answerValue);
+                        }
+                        else {
+                            log.error(`${logPrefix}: Missing Gross Sales Amount`);
+                        }
+                        break;
+                    case 'Gallons':
+                        break;
+                    case 'ADMIS':
+                        break;
+                    case 'AREA':
+                        break;
+                    case 'Boat':
+                        break;
+                    case 'Dwelling':
+                        break;
+                    case 'Each':
+                        break;
+                    case 'GrSales':
+                        break;
+                    case 'PAYRL':
+                        break;
+                    case 'TotCost':
+                        break;
+                    case 'Unit':
+                        break;
+                    case 'com.acuity_Gallons':
+                        break;
+                    default:
+                }
+            })
         }
         else {
-            log.error(`${logPrefix}: Insurer Industry Code "${this.insurerIndustryCode.code}" did not have Class in attributes.cgl`)
+            log.error(`${logPrefix}: Missing Premium Basis information for insurer industry code ${this.insurerIndustryCode.code}. Cannot send proper exposure to Acuity`);
+            return this.client_declined(`Missing Premium Basis information`);
         }
 
-        if (appDoc.grossSalesAmt) {
-            GeneralLiabilityClassification.ele('Exposure', appDoc.grossSalesAmt);
-        }
-        else {
-            log.error(`${logPrefix}: Missing Gross Sales Amount`);
-        }
 
-        GeneralLiabilityClassification.ele('PremiumBasisCd', 'GrSales');
         // </GeneralLiabilityClassification>
 
         const PropertyInfo = BOPLineBusiness.ele('PropertyInfo');
