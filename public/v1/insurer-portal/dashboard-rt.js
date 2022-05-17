@@ -1,7 +1,3 @@
-const crypt = global.requireShared('services/crypt.js');
-const jwt = require('jsonwebtoken');
-const serverHelper = global.requireRootPath('server.js');
-
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
@@ -19,51 +15,6 @@ const ROGER_HARD_CODED_CARRIER = 19;
  * @returns {object} res - Returns an authorization token using username/password credentials
  */
 async function getDashboard(req, res, next){
-    const error = false;
-
-    const insurerMetric = await Quote.aggregate([
-        {$match: {
-            insurerId: ROGER_HARD_CODED_CARRIER,
-            createdAt: {$gte: new Date("2022-01-01T00:08:00.000Z")}
-        }},
-        {$project: {
-            creationMonth: {$month: {
-                date: '$createdAt',
-                timezone: "America/Los_Angeles"
-            }},
-            creationYear: {$year: {
-                date: '$createdAt',
-                timezone: "America/Los_Angeles"
-            }},
-            quoteStatusId: 1,
-            quoteStatusDescription: 1,
-            insurerId: 1,
-            amount: 1
-        }},
-        {$group: {
-            _id: {
-                month: '$creationMonth',
-                year: '$creationYear',
-                quoteStatusId: '$quoteStatusId',
-                quoteStatusDescription: '$quoteStatusDescription',
-                insurerId: '$insurerId'
-            },
-            count: {$sum: 1},
-            premium: {$sum: '$amount'}
-        }},
-        {$sort: {
-            '_id.insurerId': 1,
-            '_id.year': 1,
-            '_id.month': 1,
-            '_id.quoteStatusId': 1,
-            '_id.quoteStatusDescription': 1
-        }},
-        {"$replaceRoot": {"newRoot": {"$mergeObjects": ["$_id", {
-            "count": "$count" ,
-            "Premium": "$premium"
-        }]}}}
-    ]);
-
     const monthlyCount = await Quote.aggregate([
         {$match: {
             insurerId: ROGER_HARD_CODED_CARRIER,
@@ -97,37 +48,103 @@ async function getDashboard(req, res, next){
                     [{"count": "$count"}, "$_id"]}}}
     ]);
 
-    const statNumbers = await Quote.aggregate([
+    const appsByState = await Quote.aggregate([
         {$match: {
             insurerId: ROGER_HARD_CODED_CARRIER,
             createdAt: {$gte: new Date("2021-01-01T00:08:00.000Z")}
         }},
-        {$group: {
-            _id: {
-                aggregatedStatus: '$aggregatedStatus',
-                apiResult: '$apiResult'
-            },
-            count: {$sum: '$amount'}
+        {$lookup:
+        {
+            from: "applications",
+            localField: "applicationId",
+            foreignField: "applicationId",
+            as: "application"
         }},
-        {$sort: {'_id.aggregatedStatus': 1}},
-        {$replaceRoot: {newRoot: {$mergeObjects: [{"count": "$count"}, "$_id"]}}}
+        {$group: {
+            _id: {state: '$application.mailingState'},
+            amount: {$sum: '$amount'}
+        }}
     ]);
 
+    const classCodes = await Quote.aggregate([
+        {$match: {
+            insurerId: ROGER_HARD_CODED_CARRIER,
+            createdAt: {$gte: new Date("2021-01-01T00:08:00.000Z")}
+        }},
+        {$lookup:
+        {
+            from: "applications",
+            localField: "applicationId",
+            foreignField: "applicationId",
+            as: "application"
+        }},
+        {$group: {
+            _id: {industryCode: '$application.industryCode'},
+            amount: {$sum: '$amount'}
+        }},
+        {$replaceRoot: {newRoot: {$mergeObjects: [{"amount": "$amount"}, "$_id"]}}}
+    ]);
+
+    const totalApplications = await Quote.aggregate([
+        {$match: {
+            insurerId: ROGER_HARD_CODED_CARRIER,
+            createdAt: {$gte: new Date("2021-01-01T00:08:00.000Z")}
+        }},
+        {$lookup:
+        {
+            from: "applications",
+            localField: "applicationId",
+            foreignField: "applicationId",
+            as: "application"
+        }},
+        {$count: 'count'},
+        {$replaceRoot: {newRoot: {$mergeObjects: [{"amount": "$count"}, "$_id"]}}}
+    ]);
+
+    const getQuoteAmount = (quoteStatusId) => Quote.aggregate([
+        {$match: {
+            quoteStatusId: quoteStatusId,
+            insurerId: ROGER_HARD_CODED_CARRIER,
+            createdAt: {$gte: new Date("2021-01-01T00:08:00.000Z")}
+        }},
+        {$lookup:
+        {
+            from: "applications",
+            localField: "applicationId",
+            foreignField: "applicationId",
+            as: "application"
+        }},
+        {$group: {
+            _id: null,
+            totalAmount: {$sum: '$amount'}
+        }}
+    ]);
+
+    const premiumQuoted = await getQuoteAmount(50); //status === quoted
+    const premiumRequestBound = await getQuoteAmount(60); //status === quoted
+
+
     res.send({
-        insurerMetric: insurerMetric,
         monthlyCount: monthlyCount,
-        statNumbers: statNumbers
+        appsByState: appsByState.
+            filter(t => t.amount !== 0).
+            map(t => ({
+                state: t?._id?.state?.[0],
+                amount: t.amount
+            })),
+        classCodes: classCodes.
+            filter(t => t.amount !== 0).
+            map(t => ({
+                industryCode: t?.industryCode?.[0],
+                amount: t.amount
+            })),
+        totalApplications: totalApplications?.[0]?.amount,
+        premiumQuoted: premiumQuoted?.[0]?.totalAmount,
+        premiumRequestBound: premiumRequestBound?.[0]?.totalAmount
     });
     next();
 }
 
 exports.registerEndpoint = (server, basePath) => {
-    server.addGetInsurerPortalAuth('Insurer Portal Dashboard', `${basePath}/dashboard`, async(req, res, next) => {
-        try {
-            return await getDashboard(req, res, next);
-        }
-        catch (ex) {
-            console.log(ex);
-        }
-    }, 'dashboard', 'view');
+    server.addGetInsurerPortalAuth('Insurer Portal Dashboard', `${basePath}/dashboard`, getDashboard, 'dashboard', 'view');
 };
