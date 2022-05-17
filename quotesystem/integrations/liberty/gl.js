@@ -11,6 +11,7 @@
 const builder = require('xmlbuilder');
 const moment_timezone = require('moment-timezone');
 const {get} = require("lodash")
+
 const Integration = require('../Integration.js');
 const paymentPlanSVC = global.requireShared('./services/paymentplansvc');
 global.requireShared('./helpers/tracker.js');
@@ -630,21 +631,22 @@ module.exports = class LibertyGL extends Integration{
 
         // If the status wasn't success, stop here
         if(res.MsgStatus[0].MsgStatusCd[0] !== 'SuccessWithInfo'){
+            const extendedStatusDesc = get(res, "MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0]")
+
             // Check if this was an outage
-            if(res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0].indexOf('services being unavailable') >= 0){
-                this.reasons.push(`${res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0]}`);
+            if(extendedStatusDesc?.indexOf('services being unavailable') >= 0){
+                this.reasons.push(`${extendedStatusDesc}`);
                 return this.return_result('outage');
             }
 
             // Check if quote was declined because there was a pre-existing application for this customer
-            const existingAppErrorMsg = "We are unable to provide a quote at this time due to an existing application for this customer.";
-            if(res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0].toLowerCase().includes(existingAppErrorMsg.toLowerCase())) {
-                this.reasons.push(`blocked - ${res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0]}`);
+            if(extendedStatusDesc?.includes('existing application for this customer')) {
+                this.reasons.push(`blocked - ${extendedStatusDesc}`);
                 return this.return_result('declined');
             }
 
             // This was some other sort of error
-            this.reasons.push(`${res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusCd[0]}: ${res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0]}`);
+            this.reasons.push(`${res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusCd[0]}: ${extendedStatusDesc}`);
             return this.return_result('error');
         }
 
