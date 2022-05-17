@@ -610,7 +610,7 @@ module.exports = class AcuityBOP extends Integration {
             'AcuityBOPRoofGeometry',
             'AcuityBOPOccupiedByOthersSqft',
             'AcuityBOPUnoccupiedSqft',
-            'OccupancyDesc',
+            'AcuityBOPOccupancyDesc',
             'AcuityBOPDistanceFireStation',
             'AcuityBOPDistanceHydrant'
         ]
@@ -780,7 +780,7 @@ module.exports = class AcuityBOP extends Integration {
                         DistanceToHydrant.ele('UnitMeasurementCd', 'FT');
                         DistanceToHydrant.ele('NumUnits', question.answerValue);
                         break;
-                    case 'OccupancyDesc':
+                    case 'AcuityBOPOccupancyDesc':
                         BldgOccupancy.ele('OccupancyDesc', question.answerValue);
                         break;
                     default:
