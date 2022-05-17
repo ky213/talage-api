@@ -117,7 +117,6 @@ async function getApplication(req, res, next) {
         return next(serverHelper.notFoundError('Application Not Found'));
     }
     
-    await setupReturnedApplicationJSON(applicationJSON)
 
     // Get the quotes from the database
     const quoteBO = new QuoteBO()
@@ -133,6 +132,9 @@ async function getApplication(req, res, next) {
     catch(err){
         log.error("Error getting quotes for Application GET " + err + __location);
     }
+
+    await setupReturnedApplicationJSON(applicationJSON, quoteList)
+
 
     // Add the quotes to the return object and determine the application status
     applicationJSON.quotes = [];
@@ -361,7 +363,7 @@ async function getApplicationDoc(req, res ,next){
 }
 
 
-async function setupReturnedApplicationJSON(applicationJSON){
+async function setupReturnedApplicationJSON(applicationJSON, quoteList){
     const mapDoc2OldPropName = {
         agencyLocationId: "agency_location",
         lastStep: "last_step",
@@ -502,8 +504,16 @@ async function setupReturnedApplicationJSON(applicationJSON){
         applicationJSON.AmsButtonText = "Push to AMS";
         applicationJSON.AmsName = "AMS";
         //check for AMS connection
-        const amsCred = await agencyBO.getAmsCredentials(applicationJSON.agencyId);
+        let amsCred = await agencyBO.getAmsCredentials(applicationJSON.agencyId);
         
+        if(!amsCred && quoteList?.length > 0){
+            // check for TalageWhole - (TODO wholesale agency)
+            const talageWholeQuote = quoteList.find((q) => q.handledByTalage);
+            if(talageWholeQuote){
+                amsCred = await agencyBO.getAmsCredentials(1);
+            }
+        }
+
         if(amsCred?.amsType){
             applicationJSON.showAmsButton = true;
             //TODO Switch when more AMS's added
