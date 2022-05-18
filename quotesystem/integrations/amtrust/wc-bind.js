@@ -7,20 +7,28 @@ const moment = require('moment');
 
 class AmTrustBind extends Bind {
     async getAuthToken(){
-        let credentials = null;
-        try {
-            credentials = JSON.parse(await this.insurer.get_password());
-        }
-        catch (err) {
-            log.error(`AMTrust Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind request Error: Could not load AmTrust API credentials ${err} ${__location}`);
-            throw new Error("Could not load AmTrust API credentials");
-        }
+
         const alInsurer = this.agencyLocation.insurers.find((ali) => ali.insurerId === this.insurer.insurerId)
         if(!alInsurer){
             log.error(`AMTrust Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind request Error: Could not find AmTrust info for AgencyLocation ${__location}`);
             throw new Error("Could not find AmTrust info for AgencyLocation ");
         }
-        log.debug()
+
+        let credentials = null;
+        try {
+            credentials = JSON.parse(await this.insurer.get_password());
+            if(alInsurer.agencyCred3?.trim().indexOf(",") > 20){
+                const clientInfo = alInsurer.agencyCred3.split(',')
+                if(clientInfo.length > 1){
+                    credentials.clientId = clientInfo[0].trim();
+                    credentials.clientSecret = clientInfo[1].trim();
+                }
+            }
+        }
+        catch (err) {
+            log.error(`AMTrust Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind request Error: Could not load AmTrust API credentials ${err} ${__location}`);
+            throw new Error("Could not load AmTrust API credentials");
+        }
 
         const agentUserNamePassword = alInsurer.agentId.trim();
 

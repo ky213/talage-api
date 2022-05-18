@@ -88,6 +88,13 @@ module.exports = class AMTrustBOP extends Integration {
 
         try {
             this.credentials = JSON.parse(this.password);
+            if(this.app.agencyLocation.insurers[this.insurer.id].agencyCred3?.trim().indexOf(",") > 20){
+                const clientInfo = this.app.agencyLocation.insurers[this.insurer.id].agencyCred3.split(',')
+                if(clientInfo.length > 1){
+                    this.credentials.clientId = clientInfo[0].trim();
+                    this.credentials.clientSecret = clientInfo[1].trim();
+                }
+            }
         }
         catch (error) {
             log.error(`${logPrefix} Could not load AmTrust API credentials ${error}` + __location);
