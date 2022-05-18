@@ -32,10 +32,10 @@ async function winloss(req, res, next) {
         return next(serverHelper.requestError('Bad Request: No policytype'));
     }
     if(req.query.policytype === "WC"){
-        winlossWC(req, res, next)
+        await winlossWC(req, res, next)
     }
     else if(req.query.policytype === "GL" || req.query.policytype === "BOP"){
-        winlossBOP(req, res, next)
+        await winlossBOP(req, res, next)
     }
     else {
         log.error(`Bad Request: Not supported policy type ${req.query.policytype} received ` + __location);
@@ -249,7 +249,7 @@ async function winlossWC(req, res, next) {
         }
         const csvData = csvjson.toCSV(metricsList, options);
         res.writeHead(200, {
-            'Content-Disposition': 'attachment; filename=applications.csv',
+            'Content-Disposition': 'attachment; filename=winLossReport.csv',
             'Content-Length': csvData?.length,
             'Content-Type': 'text-csv'
         });
@@ -479,7 +479,7 @@ async function winlossBOP(req, res, next) {
         }
         const csvData = csvjson.toCSV(metricsList, options);
         res.writeHead(200, {
-            'Content-Disposition': 'attachment; filename=applications.csv',
+            'Content-Disposition': 'attachment; filename=winLossReport.csv',
             'Content-Length': csvData?.length,
             'Content-Type': 'text-csv'
         });
