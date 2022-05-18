@@ -4,9 +4,10 @@ const uuid = require('uuid');
 const crypto = require('crypto');
 const moment = require('moment');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
-const jwt = require('jsonwebtoken');
+//const jwt = require('jsonwebtoken');
 const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 const AgencyPortalUserBO = global.requireShared('./models/AgencyPortalUser-BO.js');
+const tokenSvc = global.requireShared('./services/tokensvc.js');
 
 module.exports = class ApiKeyBO{
 
@@ -72,28 +73,65 @@ module.exports = class ApiKeyBO{
      */
     async authenticate(keyId, keySecret) {
         const curApiKey = await ApiKey.findOne({keyId: keyId});
-        const secretFields = curApiKey.keySecret.split('$');
-        const salt = secretFields[0];
+        if(curApiKey){
+            const secretFields = curApiKey.keySecret.split('$');
+            const salt = secretFields[0];
 
-        const hash = crypto.createHmac('sha512', salt).update(keySecret).digest('base64');
-        if (hash !== secretFields[1]) {
+            const hash = crypto.createHmac('sha512', salt).update(keySecret).digest('base64');
+            if (hash !== secretFields[1]) {
+                return {isSuccess: false};
+            }
+
+            // Make sure API key is not expired.
+            if (moment().isAfter(moment(curApiKey.expirationDate))) {
+                return {isSuccess: false};
+            }
+
+            // Update the Last Used date
+            curApiKey.lastUsedDate = moment();
+            curApiKey.save();
+
+            // Double check the user is active and not been deleted and agencynetwork still allows api key access
+            const accessEnabled = await this.isApiKeysEnabled(curApiKey.agencyPortalUser)
+            if(accessEnabled){
+                const payload = {
+                    userId: curApiKey.agencyPortalUser,
+                    apiToken: true
+                };
+                const additionalPayload = {};
+                try{
+                    //refactor to avoid the double hit to AgencyPortalUserBO
+                    const agencyPortalUserBO = new AgencyPortalUserBO();
+                    const agencyPortalUserJSON = await agencyPortalUserBO.getById(curApiKey.agencyPortalUser);
+                    const AgencyPortalUserGroupBO = global.requireShared('models/AgencyPortalUserGroup-BO.js');
+                    const agencyPortalUserGroupBO = new AgencyPortalUserGroupBO();
+                    const agencyPortalUserGroupDB = await agencyPortalUserGroupBO.getById(agencyPortalUserJSON.agencyPortalUserGroupId);
+                    additionalPayload.agencyId = agencyPortalUserJSON.agencyId
+                    additionalPayload.agencyNetworkId = agencyPortalUserJSON.agencyNetworkId
+                    additionalPayload.isAgencyNetworkUser = agencyPortalUserJSON.isAgencyNetworkUser
+                    additionalPayload.agencyPortalUserGroupId = agencyPortalUserJSON.agencyPortalUserGroupId
+                    additionalPayload.permissions = agencyPortalUserGroupDB?.permissions ? agencyPortalUserGroupDB.permissions : null;
+                }
+                catch(err){
+                    log.error("Error get permissions from Mongo " + err + __location);
+                }
+
+
+                const rawJwt = await tokenSvc.createNewToken(payload, additionalPayload);
+                const token = `Bearer ${rawJwt}`;
+
+                return {
+                    token: token,
+                    isSuccess: true
+                };
+            }
+            else {
+                return {isSuccess: false};
+            }
+        }
+        else {
             return {isSuccess: false};
         }
-
-        // Make sure API key is not expired.
-        if (moment().isAfter(moment(curApiKey.expirationDate))) {
-            return {isSuccess: false};
-        }
-
-        // Update the Last Used date
-        curApiKey.lastUsedDate = moment();
-        curApiKey.save();
-
-        const token = `Bearer ${jwt.sign({userID: curApiKey.agencyPortalUser}, global.settings.AUTH_SECRET_KEY, {expiresIn: '1h'})}`;
-        return {
-            token: token,
-            isSuccess: true
-        };
     }
 
     async isApiKeysEnabled(agencyPortalUserId, keyId = null) {
