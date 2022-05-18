@@ -380,7 +380,7 @@ module.exports = class AcuityBOP extends Integration {
                     answer = this.determine_question_answer(question);
                 }
                 catch (error) {
-                    log.error(`Acuity (application ${this.app.id}): Could not determine question ${question_id} answer: ${error} ${__location}`);
+                    log.error(`Acuity (application ${this.app.id}): Could not determine question ${question.id} answer: ${error} ${__location}`);
                     //return this.return_result('autodeclined');
                 }
 
@@ -406,7 +406,7 @@ module.exports = class AcuityBOP extends Integration {
 
                 switch (insurerQuestion.identifier) {
                     case 'com.acuity_999990064':
-                        let licenseNumber = this.getAnswerForQuestionIdentifier('AcuityBOPContractorLicenseNumber');
+                        const licenseNumber = this.getAnswerForQuestionIdentifier('AcuityBOPContractorLicenseNumber');
                         if (licenseNumber) {
                             QuestionAnswer.ele('Explanation', licenseNumber);
                         }
@@ -536,7 +536,7 @@ module.exports = class AcuityBOP extends Integration {
         // Exposures
         if (this.insurerIndustryCode?.attributes?.premiumBasis?.code) {
             const premiumBasisCode = this.insurerIndustryCode.attributes.premiumBasis.code;
-            appDoc.locations.forEach( async (location, index) => {
+            appDoc.locations.forEach(async(location, index) => {
                 const GeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification');
 
                 GeneralLiabilityClassification.att('LocationRef', `L${index + 1}`);
@@ -552,9 +552,7 @@ module.exports = class AcuityBOP extends Integration {
 
                 switch (premiumBasisCode) {
                     case 'PAYRL':
-                        const locationPayroll = location.activityPayrollList.reduce((totalPayroll, ele) => {
-                            return totalPayroll + ele.payroll;
-                        }, 0)
+                        const locationPayroll = location.activityPayrollList.reduce((totalPayroll, ele) => totalPayroll + ele.payroll, 0)
                         GeneralLiabilityClassification.ele('Exposure', locationPayroll);
                         break;
                     case 'GrSales':
@@ -579,10 +577,6 @@ module.exports = class AcuityBOP extends Integration {
                     case 'Dwelling':
                         break;
                     case 'Each':
-                        break;
-                    case 'GrSales':
-                        break;
-                    case 'PAYRL':
                         break;
                     case 'TotCost':
                         break;
@@ -618,15 +612,15 @@ module.exports = class AcuityBOP extends Integration {
             // <CommlCoverage>
             if (location.businessPersonalPropertyLimit) {
                 const CommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo');
-                CommlPropertyInfo.att('LocationRef', `L${index+1}`);
-                CommlPropertyInfo.att('SubLocationRef', `L${index+1}S1`);
+                CommlPropertyInfo.att('LocationRef', `L${index + 1}`);
+                CommlPropertyInfo.att('SubLocationRef', `L${index + 1}S1`);
                 CommlPropertyInfo.ele('SubjectInsuranceCd', `BPP`);
                 CommlCoverage = CommlPropertyInfo.ele('CommlCoverage');
                 CommlCoverage.ele('CoverageCd', 'BPP');
                 CommlCoverage.ele('CoverageDesc', 'Business Personal Property');
-                Limit = CommlCoverage.ele('Limit'); 
+                Limit = CommlCoverage.ele('Limit');
                 Limit.ele('FormatInteger', location.businessPersonalPropertyLimit);
-                let Deductible = CommlCoverage.ele('Deductible');
+                const Deductible = CommlCoverage.ele('Deductible');
                 Deductible.ele('FormatInteger', 0);
             }
             else {
@@ -635,15 +629,15 @@ module.exports = class AcuityBOP extends Integration {
 
             if (location.buildingLimit) {
                 const CommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo');
-                CommlPropertyInfo.att('LocationRef', `L${index+1}`);
-                CommlPropertyInfo.att('SubLocationRef', `L${index+1}S1`);
+                CommlPropertyInfo.att('LocationRef', `L${index + 1}`);
+                CommlPropertyInfo.att('SubLocationRef', `L${index + 1}S1`);
                 CommlPropertyInfo.ele('SubjectInsuranceCd', `BLDG`);
                 CommlCoverage = CommlPropertyInfo.ele('CommlCoverage');
                 CommlCoverage.ele('CoverageCd', 'BLDG');
                 CommlCoverage.ele('CoverageDesc', 'Building');
-                Limit = CommlCoverage.ele('Limit'); 
+                Limit = CommlCoverage.ele('Limit');
                 Limit.ele('FormatInteger', location.buildingLimit);
-                let Deductible = CommlCoverage.ele('Deductible');
+                const Deductible = CommlCoverage.ele('Deductible');
                 Deductible.ele('FormatInteger', 0);
             }
             else {
@@ -651,9 +645,9 @@ module.exports = class AcuityBOP extends Integration {
             }
 
             // For assigning question elements in question loop
-            let CommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo');
-            CommlPropertyInfo.att('LocationRef', `L${index+1}`);
-            CommlPropertyInfo.att('SubLocationRef', `L${index+1}S1`);
+            const CommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo');
+            CommlPropertyInfo.att('LocationRef', `L${index + 1}`);
+            CommlPropertyInfo.att('SubLocationRef', `L${index + 1}S1`);
             CommlCoverage = CommlPropertyInfo.ele('CommlCoverage');
             const CommlCoverageSupplement = CommlCoverage.ele('CommlCoverageSupplement');
             for (const question of location.questions) {
@@ -688,7 +682,7 @@ module.exports = class AcuityBOP extends Integration {
         // log.debug(`Appdoc.location[0]: ${JSON.stringify(appDoc.locations[0], null, 4)}`);
 
         // <CommlSubLocation>
-        const constructionTypeMatrix =  {
+        const constructionTypeMatrix = {
             'Frame': 'F',
             'Joisted Masonry': 'JM',
             'Fire Resistive': 'MFR',
@@ -698,17 +692,17 @@ module.exports = class AcuityBOP extends Integration {
             'Masonry Veneer': 'V'
         };
 
-        appDoc.locations.forEach((location, index) => { 
+        appDoc.locations.forEach((location, index) => {
             // <CommlSubLocation>
             const CommlSubLocation = BOPPolicyQuoteInqRq.ele('CommlSubLocation');
-            CommlSubLocation.att('LocationRef', `L${index+1}`);
-            CommlSubLocation.att('SubLocationRef', `L${index+1}S1`); // Only supports one sublocation per location
+            CommlSubLocation.att('LocationRef', `L${index + 1}`);
+            CommlSubLocation.att('SubLocationRef', `L${index + 1}S1`); // Only supports one sublocation per location
 
             CommlSubLocation.ele('InterestCd', location.own ? 'OWNER' : 'TENANT');
             // <Construction>
             const Construction = CommlSubLocation.ele('Construction');
             Construction.ele('YearBuilt', location.yearBuilt);
-            
+
             if (location.constructionType && Object.keys(constructionTypeMatrix).includes(location.constructionType)) {
                 Construction.ele('ConstructionCd', constructionTypeMatrix[location.constructionType]);
             }
@@ -736,7 +730,7 @@ module.exports = class AcuityBOP extends Integration {
             let areaUnoccupied = 0;
 
             const BldgProtection = CommlSubLocation.ele('BldgProtection');
-            
+
             if (location.bop.hasOwnProperty('sprinklerEquipped')) {
                 BldgProtection.ele('SprinkleredPct', location.bop.sprinklerEquipped ? 100 : 0);
             }
@@ -906,7 +900,7 @@ module.exports = class AcuityBOP extends Integration {
                 const quoteCoverages = [];
                 let foundLimitsCount = 0;
                 let sortIndex = 0;
-                const commlCoverage = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.BOPPolicyQuoteInqRs.BOPLineBusiness.LiabilityInfo.CommlCoverage', true);
+                let commlCoverage = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.BOPPolicyQuoteInqRs.BOPLineBusiness.LiabilityInfo.CommlCoverage', true);
                 if (!commlCoverage) {
                     this.reasons.push(`Could not find CommlCoverage node  with Limit information in response.`);
                     log.error(`Acuity BOP (application ${this.app.id}): Could not find the CommlCoverage with Limit information node. ${__location}`);
@@ -925,7 +919,6 @@ module.exports = class AcuityBOP extends Integration {
                             category: `General Limits`,
                             insurerIdentifier: coverage.CoverageCd[0]
                         }
-                        let description = '';
                         switch (coverage.CoverageCd[0]) {
                             case "EAOCC":
                                 quoteCoverage.description = 'Each Occurrence';
@@ -959,7 +952,7 @@ module.exports = class AcuityBOP extends Integration {
                     if (!coverage?.CommlCoverage?.length) {
                         continue;
                     }
-                    const commlCoverage = coverage.CommlCoverage[0];
+                    commlCoverage = coverage.CommlCoverage[0];
                     if (commlCoverage.CoverageCd) {
                         let description = '';
                         switch (commlCoverage.CoverageCd[0]) {
@@ -971,7 +964,6 @@ module.exports = class AcuityBOP extends Integration {
                                 break;
                             default:
                                 continue;
-                                break;
                         }
 
                         if (commlCoverage.Limit && commlCoverage.Limit.length) {
@@ -980,7 +972,7 @@ module.exports = class AcuityBOP extends Integration {
                                 description: description + ' Limit',
                                 value: convertToDollarFormat(limitAmt, true),
                                 sort: sortIndex++,
-                                category: `Location ${coverage['$'].LocationRef}`,
+                                category: `Location ${coverage.$.LocationRef}`,
                                 insurerIdentifier: commlCoverage.CoverageCd[0]
                             }
                             foundLimitsCount++;
@@ -992,7 +984,7 @@ module.exports = class AcuityBOP extends Integration {
                                 description: description + ' Deductible',
                                 value: convertToDollarFormat(deductibleAmt, true),
                                 sort: sortIndex++,
-                                category: `Location ${coverage['$'].LocationRef}`,
+                                category: `Location ${coverage.$.LocationRef}`,
                                 insurerIdentifier: commlCoverage.CoverageCd[0]
                             }
                             foundLimitsCount++;
@@ -1126,13 +1118,13 @@ module.exports = class AcuityBOP extends Integration {
                 try {
                     answer = this.determine_question_answer(question);
                     return answer;
-                }        
+                }
                 catch (err) {
-                    log.error(`Acuity application ${this.app.id}): Could not determine question ${licenseNumberQuestion.talageQuestionId} answer: ${error} ${__location}`);
+                    log.error(`Acuity application ${this.app.id}): Could not determine question ${question.talageQuestionId} answer: ${err} ${__location}`);
                 }
             }
             else {
-                log.debug(`Acuity question processing ${insurerQuestion?.attributes?.elementName} no TalageQuestion`)
+                log.debug(`Acuity question processing ${question?.attributes?.elementName} no TalageQuestion`)
             }
         }
         else {
