@@ -1,3 +1,4 @@
+const moment = require('moment');
 const serverHelper = global.requireRootPath('server.js');
 const AgencyBO = global.requireShared('./models/Agency-BO.js');
 const QuoteMongooseModel = global.mongoose.Quote;
@@ -13,26 +14,52 @@ const ApplicationMongooseModel = global.mongoose.Application;
  * @returns {void}
  */
 async function getAgencies(req, res, next){
+    let startPeriod = moment().tz("America/Los_Angeles").subtract(3,'month').startOf('day');
+    if(req.query.startDate){
+        try{
+            startPeriod = moment(req.query.startDate, 'YYYY/MM/DD').tz("America/Los_Angeles").startOf('day');
+        }
+        catch(err){
+            log.error(`StartPeriod error ${err}` + __location)
+        }
+    }
+    let endPeriod = moment().tz("America/Los_Angeles").endOf('day');
+    if(req.query.endDate){
+        try{
+            endPeriod = moment(req.query.endDate, 'YYYY/MM/DD').tz("America/Los_Angeles").endOf('day');
+        }
+        catch(err){
+            log.error(`EndPeriod error ${err}` + __location)
+        }
+    }
     const insurerId = req.authentication.insurerId;
-    const agencyBO = new AgencyBO();
     let agenciesList = [];
     let agenciesCount = 0;
-    try {
-        const agencyListResponse = await agencyBO.getListByInsurerId({}, insurerId);
-        agenciesList = agencyListResponse.rows;
-        agenciesCount = agencyListResponse.count;
-    }
-    catch(err){
-        log.error("getAgencies load error " + err + __location);
-        return next(serverHelper.internalError('Unable to retrieve Agency List'));
-    }
     let quoteList = [];
     let appsList = [];
     try {
+        const agencyBO = new AgencyBO();
+        const agencyListResponse = await agencyBO.getListByInsurerId({}, insurerId);
+        agenciesList = agencyListResponse.rows;
+        agenciesCount = agencyListResponse.count;
+        const appsQuery = {
+            agencyId: {$in: agenciesList.map(a => a.systemId)},
+            createdAt: {
+                $gte: startPeriod,
+                $lte: endPeriod
+            }
+        };
+        const appsQueryProjection = {
+            agencyId: 1,
+            appStatusId: 1,
+            applicationId: 1
+        };
+        appsList = await ApplicationMongooseModel.find(appsQuery, appsQueryProjection).lean();
         const quotesQuery = {
             agencyId: {$in: agenciesList.map(a => a.systemId)},
             insurerId: insurerId,
-            apiResult: 'quoted'
+            apiResult: 'quoted',
+            applicationId: {$in: appsList.map(a => a.applicationId)}
         };
         const quotesQueryProjection = {
             agencyId: 1,
@@ -40,20 +67,12 @@ async function getAgencies(req, res, next){
             quoteStatusId: 1,
             amount: 1
         };
-        const appsQuery = {agencyId: {$in: agenciesList.map(a => a.systemId)}};
-        const appsQueryProjection = {
-            agencyId: 1,
-            appStatusId: 1,
-            applicationId: 1
-        };
         quoteList = await QuoteMongooseModel.find(quotesQuery, quotesQueryProjection).lean();
-        appsList = await ApplicationMongooseModel.find(appsQuery, appsQueryProjection).lean();
     }
     catch(err){
         log.error("getAgencies load error " + err + __location);
         return next(serverHelper.internalError('Unable to retrieve Agency List'));
     }
-    // TODO: Enhance to Aggregation or Denormalizing (to be discussed with Brian & Roger)
     agenciesList = agenciesList.map(agency => {
         const agencyAppList = appsList.filter(app => app.agencyId === agency.systemId);
         const insurerAgencyQuotesQuoted = quoteList.filter((quote) => quote.agencyId === agency.systemId).

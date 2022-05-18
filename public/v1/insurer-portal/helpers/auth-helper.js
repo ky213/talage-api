@@ -42,6 +42,7 @@ async function createToken(email, insurerId) {
         const insurerBO = new InsurerBO();
         const insurerDB = await insurerBO.getById(insurerPortalUserDBJson.insurerId);
         insurerPortalUserDBJson.insurerLogo = insurerDB.logo;
+        insurerPortalUserDBJson.insurerName = insurerDB.name;
     }
     catch(err){
         log.error("Error get permissions from Mongo " + err + __location);
@@ -67,6 +68,7 @@ async function createToken(email, insurerId) {
         lastName: insurerPortalUserDBJson.lastName,
         email: insurerPortalUserDBJson.email,
         insurerLogo: insurerPortalUserDBJson.insurerLogo,
+        insurerName: insurerPortalUserDBJson.insurerName,
         insurerPortalUserGroupId: insurerPortalUserDBJson.insurerPortalUserGroupId
     };
 
