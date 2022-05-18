@@ -75,47 +75,6 @@ async function deleteApiKey(req) {
     return ApiKey.deleteApiKey(userId, req.query.apiKey);
 }
 
-/**
- * POST /authenticate route do use wrapper.
- * @param {*} req req
- * @param {*} res res - Returns 401 if no auth
- * @returns {*}
- */
-async function authenticateUser(req, res, next) {
-    const responseJSON = {status: 'failed'}
-    let error = null
-    try{
-        const keyId = req.body.apiKey ? req.body.apiKey : req.query.apiKey;
-
-        if(keyId){
-            // If API Keys feature is not enabled, block user authentication
-            const isApiKeysEnabled = await ApiKey.isApiKeysEnabled(null, keyId);
-            if(isApiKeysEnabled) {
-                const auth = await ApiKey.authenticate(keyId, req.body.apiSecret);
-                if (auth.isSuccess) {
-                    responseJSON.status = 'Created'
-                    responseJSON.token = auth.token
-                }
-            }
-        }
-    }
-    catch(err){
-        error = err;
-        log.error(`ApiKey Error ${err}` + __location)
-        responseJSON.status = "Server 500 during auth"
-    }
-    if(error){
-        res.send(500, responseJSON);
-    }
-    else if(responseJSON.status === "Created"){
-        res.send(200, responseJSON);
-    }
-    else {
-        res.send(401, responseJSON);
-    }
-    next();
-}
-
 const wrapper = (func) => async(req, res, next) => {
     try {
         const out = await func(req);
@@ -135,8 +94,8 @@ const wrapper = (func) => async(req, res, next) => {
 };
 
 exports.registerEndpoint = (server, basePath) => {
-    // need to return 401 on bad auth not 200.
-    server.addPost('API Key Login', `${basePath}/authenticate`, authenticateUser);
+    // move to api/auth/keys
+    // server.addPost('API Key Login', `${basePath}/authenticate`, authenticateUser);
     server.addPostAuth('Create API Key List', basePath, wrapper(createApiKeySet));
     server.addGetAuth('API Key List', basePath, wrapper(getApiKeysForUser));
     server.addDeleteAuth('Delete API Key', basePath, wrapper(deleteApiKey));
