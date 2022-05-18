@@ -479,7 +479,7 @@ async function winlossBOP(req, res, next) {
         }
         const csvData = csvjson.toCSV(metricsList, options);
         res.writeHead(200, {
-            'Content-Disposition': 'attachment; filename=applications.csv',
+            'Content-Disposition': 'attachment; filename=winLossReport.csv',
             'Content-Length': csvData?.length,
             'Content-Type': 'text-csv'
         });
