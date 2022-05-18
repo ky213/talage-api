@@ -37,6 +37,7 @@ const PermissionSchema = new Schema({
     settings: PermissionRightsSchema,
     signingAuthority: PermissionRightsSchema,
     users: PermissionRightsSchema,
+    api: PermissionRightsSchema,
     talageStaff: {type: Boolean, required: true, default: false}
 },{_id : false})
 
