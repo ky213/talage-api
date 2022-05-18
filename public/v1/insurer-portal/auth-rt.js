@@ -1,10 +1,5 @@
-/* eslint-disable require-jsdoc */
 const crypt = global.requireShared('services/crypt.js');
-const jwt = require('jsonwebtoken');
 const serverHelper = global.requireRootPath('server.js');
-
-// eslint-disable-next-line no-unused-vars
-const tracker = global.requireShared('./helpers/tracker.js');
 
 const InsurerPortalUserBO = global.requireShared('models/InsurerPortalUser-BO.js');
 const AuthHelper = require('./helpers/auth-helper');
@@ -14,15 +9,6 @@ const mfaCodesvc = global.requireShared('./services/mfaCodeSvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 var uuid = require('uuid');
 
-/**
- * Responds to get requests for an authorization token
- *
- * @param {object} req - Request object
- * @param {object} res - Response object
- * @param {function} next - The next function to execute
- *
- * @returns {object} res - Returns an authorization token using username/password credentials
- */
 async function login(req, res, next){
     // Check for data
     if (!req.body || typeof req.body !== 'object' || Object.keys(req.body).length <= 0) {
@@ -33,15 +19,13 @@ async function login(req, res, next){
     // Make sure an email was provided
     if (!req.body.email) {
         log.info('Missing email' + __location);
-        res.send(400, serverHelper.requestError('Email address is required'));
-        return next();
+        return next(serverHelper.requestError('Email address is required'));
     }
 
     // Makes sure a password was provided
     if (!req.body.password) {
         log.info('Missing password' + __location);
-        res.send(400, serverHelper.requestError('Password is required'));
-        return next();
+        return next(serverHelper.requestError('Password is required'));
     }
 
     // This is a complete hack. Plus signs in email addresses are valid, but the Restify queryParser removes plus signs. Add them back in
@@ -105,37 +89,6 @@ async function login(req, res, next){
     return next();
 }
 
-/**
- * Updates (refreshes) an existing token
- *
- * @param {object} req - Request object
- * @param {object} res - Response object
- * @param {function} next - The next function to execute
- *
- * @returns {object} Returns an updated authorization token
- */
-async function refresh(req, res, next) {
-    const authData = req.authentication;
-    delete authData.iat;
-    delete authData.exp;
-
-    // Sign the JWT with new timestamps
-    const token = `Bearer ${jwt.sign(authData, global.settings.AUTH_SECRET_KEY, {expiresIn: global.settings.JWT_TOKEN_EXPIRATION})}`;
-
-    // Send it back
-    res.send(201, token);
-    return next();
-}
-
-/**
- * Updates (refreshes) an existing token
- *
- * @param {object} req - Request object
- * @param {object} res - Response object
- * @param {function} next - The next function to execute
- *
- * @returns {object} Returns an updated authorization token
- */
 async function verify(req, res, next) {
     // Ensure we have the proper parameters
     if (!req.body || !req.body.code) {
@@ -175,8 +128,7 @@ async function verify(req, res, next) {
         // Make sure we found the user
         if (!insurerPortalUserDBJson) {
             log.info('Insurer Portal - Authentication failed - Account not found ' + req.body.email);
-            res.send(401, serverHelper.invalidCredentialsError('Invalid API Credentials'));
-            return next();
+            return next(serverHelper.invalidCredentialsError('Invalid API Credentials'));
         }
 
         //Setup and return JWT
@@ -191,8 +143,7 @@ async function verify(req, res, next) {
         }
         catch (ex) {
             log.error(`Internal error when authenticating ${ex}` + __location);
-            res.send(500, serverHelper.internalError('Internal error when authenticating. Check logs.'));
-            return next(false);
+            return next(serverHelper.internalError('Internal error when authenticating. Check logs.'));
         }
 
     }
@@ -202,8 +153,38 @@ async function verify(req, res, next) {
     }
 }
 
+async function refresh(req, res, next) {
+    try {
+        const jwtToken = await AuthHelper.createToken(req.authentication.email);
+        const token = `Bearer ${jwtToken}`;
+        res.send(201, token);
+        return next();
+    }
+    catch (ex) {
+        log.error(`Internal error when authenticating ${ex}` + __location);
+        return next(serverHelper.internalError('Internal error when authenticating. Check logs.'));
+    }
+}
+
+async function changeInsurer(req, res, next) {
+    if(!req.params.insurerId) {
+        return next(serverHelper.requestError('Missing New Insurer ID'));
+    }
+    try {
+        const jwtToken = await AuthHelper.createToken(req.authentication.email, req.params.insurerId);
+        const token = `Bearer ${jwtToken}`;
+        res.send(201, token);
+        return next();
+    }
+    catch (ex) {
+        log.error(`Internal error when authenticating ${ex}` + __location);
+        return next(serverHelper.internalError('Internal error when authenticating. Check logs.'));
+    }
+}
+
 exports.registerEndpoint = (server, basePath) => {
     server.addPost('Create Token', `${basePath}/auth`, login);
-    server.addPutInsurerPortalAuth('Refresh Token', `${basePath}/auth`, refresh);
     server.addPostMFA('MFA Check', `${basePath}/auth/verify`, verify);
+    server.addPutInsurerPortalAuth('Refresh Token', `${basePath}/auth`, refresh);
+    server.addPutInsurerPortalAuth('Change Insurer', `${basePath}/auth/:insurerId`, changeInsurer, 'globalUser', null)
 };

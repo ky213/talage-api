@@ -625,5 +625,5 @@ function QuoteStatusDesc(quoteStatusId){
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
     //TODO add proper auth
-    server.addGetInsurerPortalAuth('Get All Industry Codes', `${basePath}/winloss`, winloss, 'agencies', 'view');
+    server.addGetInsurerPortalAuth('Get All Industry Codes', `${basePath}/winloss`, winloss, 'winlossReport', 'view');
 };
