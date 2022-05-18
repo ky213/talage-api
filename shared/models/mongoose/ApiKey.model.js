@@ -19,7 +19,7 @@ const ApiKey = new Schema({
     keySecret: {type: String, required: true},
     expirationDate: {type: Date, required: true},
     lastUsedDate: {type: Date, required: false},
-    agencyPortalUser: {type: String, required: true}
+    agencyPortalUserId: {type: Number, required: true}
 }, opts);
 
 ApiKey.plugin(timestamps);
