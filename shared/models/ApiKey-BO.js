@@ -13,10 +13,10 @@ module.exports = class ApiKeyBO{
 
     /**
      * Creates a new API key and secret for the specified user.
-     * @param {*} agencyPortalUser Agency portal user ID
+     * @param {*} agencyPortalUserId Agency portal user ID
      * @returns {*} New key
      */
-    async createApiKeySet(agencyPortalUser) {
+    async createApiKeySet(agencyPortalUserId) {
         const keyId = uuid.v4();
         const keySecret = crypto.randomBytes(256).toString('base64');
 
@@ -24,7 +24,7 @@ module.exports = class ApiKeyBO{
         const hash = crypto.createHmac('sha512', salt).update(keySecret).digest('base64');
 
         const newApiKey = await ApiKey.create({
-            agencyPortalUser: agencyPortalUser,
+            agencyPortalUserId: agencyPortalUserId,
             keyId: keyId,
             keySecret: salt + '$' + hash,
             expirationDate: moment().add(90, 'days')
@@ -40,11 +40,11 @@ module.exports = class ApiKeyBO{
 
     /**
      * Return all API keys for the specified Agency Portal user.
-     * @param {*} agencyPortalUser Agency portal user ID
+     * @param {*} agencyPortalUserId Agency portal user ID
      * @returns {*} List of API keys
      */
-    async getApiKeysForUser(agencyPortalUser) {
-        return mongoUtils.objListCleanup(await ApiKey.find({agencyPortalUser: agencyPortalUser})).map(t => {
+    async getApiKeysForUser(agencyPortalUserId) {
+        return mongoUtils.objListCleanup(await ApiKey.find({agencyPortalUserId: agencyPortalUserId})).map(t => {
             delete t.id;
             delete t.keySecret;
             return t;
@@ -59,7 +59,7 @@ module.exports = class ApiKeyBO{
      */
     async deleteApiKey(userId, keyId) {
         await ApiKey.deleteOne({
-            agencyPortalUser: userId,
+            agencyPortalUserId: userId,
             keyId: keyId
         });
     }
@@ -92,17 +92,17 @@ module.exports = class ApiKeyBO{
             curApiKey.save();
 
             // Double check the user is active and not been deleted and agencynetwork still allows api key access
-            const accessEnabled = await this.isApiKeysEnabled(curApiKey.agencyPortalUser)
+            const accessEnabled = await this.isApiKeysEnabled(curApiKey.agencyPortalUserId)
             if(accessEnabled){
                 const payload = {
-                    userId: curApiKey.agencyPortalUser,
+                    userId: curApiKey.agencyPortalUserId,
                     apiToken: true
                 };
                 const additionalPayload = {};
                 try{
                     //refactor to avoid the double hit to AgencyPortalUserBO
                     const agencyPortalUserBO = new AgencyPortalUserBO();
-                    const agencyPortalUserJSON = await agencyPortalUserBO.getById(curApiKey.agencyPortalUser);
+                    const agencyPortalUserJSON = await agencyPortalUserBO.getById(curApiKey.agencyPortalUserId);
                     const AgencyPortalUserGroupBO = global.requireShared('models/AgencyPortalUserGroup-BO.js');
                     const agencyPortalUserGroupBO = new AgencyPortalUserGroupBO();
                     const agencyPortalUserGroupDB = await agencyPortalUserGroupBO.getById(agencyPortalUserJSON.agencyPortalUserGroupId);
@@ -138,7 +138,7 @@ module.exports = class ApiKeyBO{
         // If Agency Portal User ID is not provided
         if(!agencyPortalUserId && keyId){
             const curApiKey = await ApiKey.findOne({keyId: keyId});
-            agencyPortalUserId = curApiKey.agencyPortalUser;
+            agencyPortalUserId = curApiKey.agencyPortalUserId;
         }
 
         // Get Agency Portal User Doc based on Agency Portal User Id from API Key Doc
@@ -155,7 +155,7 @@ module.exports = class ApiKeyBO{
 
     getActiveKeysCount(userId){
         const query = {
-            agencyPortalUser: userId,
+            agencyPortalUserId: userId,
             expirationDate: {$gte: moment()}
         }
         return ApiKey.countDocuments(query);
