@@ -1,8 +1,11 @@
+/* eslint-disable valid-jsdoc */
 const serverHelper = global.requireRootPath('server.js');
 // const {'v4': uuidv4} = require('uuid');
 // const moment = require('moment');
 const crypt = global.requireShared('./services/crypt.js');
 const tokenSvc = global.requireShared('./services/tokensvc.js');
+const ApiKeyBO = global.requireShared('models/ApiKey-BO.js');
+const ApiKey = new ApiKeyBO();
 
 /**
  * Responds to get requests for an API authorization token
@@ -109,9 +112,52 @@ async function getToken(req, res, next) {
     return next();
 }
 
+
+/**
+ * POST /authenticate route do use wrapper.
+ * @param {*} req req
+ * @param {*} res res - Returns 401 if no auth
+ * @returns {*}
+ */
+async function authenticateApiKeys(req, res, next) {
+    const responseJSON = {status: 'failed'}
+    let error = null
+    try{
+        const keyId = req.body.apiKey ? req.body.apiKey : req.query.apiKey;
+
+        if(keyId){
+            // If API Keys feature is not enabled, block user authentication
+            const isApiKeysEnabled = await ApiKey.isApiKeysEnabled(null, keyId);
+            if(isApiKeysEnabled) {
+                const auth = await ApiKey.authenticate(keyId, req.body.apiSecret);
+                if (auth.isSuccess) {
+                    responseJSON.status = 'Created'
+                    responseJSON.token = auth.token
+                }
+            }
+        }
+    }
+    catch(err){
+        error = err;
+        log.error(`ApiKey Error ${err}` + __location)
+        responseJSON.status = "Server 500 during auth"
+    }
+    if(error){
+        res.send(500, responseJSON);
+    }
+    else if(responseJSON.status === "Created"){
+        res.send(200, responseJSON);
+    }
+    else {
+        res.send(401, responseJSON);
+    }
+    next();
+}
+
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
     server.addGet('Get Token', `${basePath}/auth`, getToken);
     server.addPut('PUT getToken', `${basePath}/auth`, getToken);
     server.addPost('POST getToken', `${basePath}/auth`, getToken);
+    server.addPost('POST getToken', `${basePath}/auth/keys`, authenticateApiKeys);
 };

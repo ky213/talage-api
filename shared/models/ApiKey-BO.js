@@ -4,18 +4,19 @@ const uuid = require('uuid');
 const crypto = require('crypto');
 const moment = require('moment');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
-const jwt = require('jsonwebtoken');
+//const jwt = require('jsonwebtoken');
 const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 const AgencyPortalUserBO = global.requireShared('./models/AgencyPortalUser-BO.js');
+const tokenSvc = global.requireShared('./services/tokensvc.js');
 
 module.exports = class ApiKeyBO{
 
     /**
      * Creates a new API key and secret for the specified user.
-     * @param {*} agencyPortalUser Agency portal user ID
+     * @param {*} agencyPortalUserId Agency portal user ID
      * @returns {*} New key
      */
-    async createApiKeySet(agencyPortalUser) {
+    async createApiKeySet(agencyPortalUserId) {
         const keyId = uuid.v4();
         const keySecret = crypto.randomBytes(256).toString('base64');
 
@@ -23,7 +24,7 @@ module.exports = class ApiKeyBO{
         const hash = crypto.createHmac('sha512', salt).update(keySecret).digest('base64');
 
         const newApiKey = await ApiKey.create({
-            agencyPortalUser: agencyPortalUser,
+            agencyPortalUserId: agencyPortalUserId,
             keyId: keyId,
             keySecret: salt + '$' + hash,
             expirationDate: moment().add(90, 'days')
@@ -39,11 +40,11 @@ module.exports = class ApiKeyBO{
 
     /**
      * Return all API keys for the specified Agency Portal user.
-     * @param {*} agencyPortalUser Agency portal user ID
+     * @param {*} agencyPortalUserId Agency portal user ID
      * @returns {*} List of API keys
      */
-    async getApiKeysForUser(agencyPortalUser) {
-        return mongoUtils.objListCleanup(await ApiKey.find({agencyPortalUser: agencyPortalUser})).map(t => {
+    async getApiKeysForUser(agencyPortalUserId) {
+        return mongoUtils.objListCleanup(await ApiKey.find({agencyPortalUserId: agencyPortalUserId})).map(t => {
             delete t.id;
             delete t.keySecret;
             return t;
@@ -58,7 +59,7 @@ module.exports = class ApiKeyBO{
      */
     async deleteApiKey(userId, keyId) {
         await ApiKey.deleteOne({
-            agencyPortalUser: userId,
+            agencyPortalUserId: userId,
             keyId: keyId
         });
     }
@@ -72,35 +73,72 @@ module.exports = class ApiKeyBO{
      */
     async authenticate(keyId, keySecret) {
         const curApiKey = await ApiKey.findOne({keyId: keyId});
-        const secretFields = curApiKey.keySecret.split('$');
-        const salt = secretFields[0];
+        if(curApiKey){
+            const secretFields = curApiKey.keySecret.split('$');
+            const salt = secretFields[0];
 
-        const hash = crypto.createHmac('sha512', salt).update(keySecret).digest('base64');
-        if (hash !== secretFields[1]) {
+            const hash = crypto.createHmac('sha512', salt).update(keySecret).digest('base64');
+            if (hash !== secretFields[1]) {
+                return {isSuccess: false};
+            }
+
+            // Make sure API key is not expired.
+            if (moment().isAfter(moment(curApiKey.expirationDate))) {
+                return {isSuccess: false};
+            }
+
+            // Update the Last Used date
+            curApiKey.lastUsedDate = moment();
+            curApiKey.save();
+
+            // Double check the user is active and not been deleted and agencynetwork still allows api key access
+            const accessEnabled = await this.isApiKeysEnabled(curApiKey.agencyPortalUserId)
+            if(accessEnabled){
+                const payload = {
+                    userId: curApiKey.agencyPortalUserId,
+                    apiToken: true
+                };
+                const additionalPayload = {};
+                try{
+                    //refactor to avoid the double hit to AgencyPortalUserBO
+                    const agencyPortalUserBO = new AgencyPortalUserBO();
+                    const agencyPortalUserJSON = await agencyPortalUserBO.getById(curApiKey.agencyPortalUserId);
+                    const AgencyPortalUserGroupBO = global.requireShared('models/AgencyPortalUserGroup-BO.js');
+                    const agencyPortalUserGroupBO = new AgencyPortalUserGroupBO();
+                    const agencyPortalUserGroupDB = await agencyPortalUserGroupBO.getById(agencyPortalUserJSON.agencyPortalUserGroupId);
+                    additionalPayload.agencyId = agencyPortalUserJSON.agencyId
+                    additionalPayload.agencyNetworkId = agencyPortalUserJSON.agencyNetworkId
+                    additionalPayload.isAgencyNetworkUser = agencyPortalUserJSON.isAgencyNetworkUser
+                    additionalPayload.agencyPortalUserGroupId = agencyPortalUserJSON.agencyPortalUserGroupId
+                    additionalPayload.permissions = agencyPortalUserGroupDB?.permissions ? agencyPortalUserGroupDB.permissions : null;
+                }
+                catch(err){
+                    log.error("Error get permissions from Mongo " + err + __location);
+                }
+
+
+                const rawJwt = await tokenSvc.createNewToken(payload, additionalPayload);
+                const token = `Bearer ${rawJwt}`;
+
+                return {
+                    token: token,
+                    isSuccess: true
+                };
+            }
+            else {
+                return {isSuccess: false};
+            }
+        }
+        else {
             return {isSuccess: false};
         }
-
-        // Make sure API key is not expired.
-        if (moment().isAfter(moment(curApiKey.expirationDate))) {
-            return {isSuccess: false};
-        }
-
-        // Update the Last Used date
-        curApiKey.lastUsedDate = moment();
-        curApiKey.save();
-
-        const token = `Bearer ${jwt.sign({userID: curApiKey.agencyPortalUser}, global.settings.AUTH_SECRET_KEY, {expiresIn: '1h'})}`;
-        return {
-            token: token,
-            isSuccess: true
-        };
     }
 
     async isApiKeysEnabled(agencyPortalUserId, keyId = null) {
         // If Agency Portal User ID is not provided
         if(!agencyPortalUserId && keyId){
             const curApiKey = await ApiKey.findOne({keyId: keyId});
-            agencyPortalUserId = curApiKey.agencyPortalUser;
+            agencyPortalUserId = curApiKey.agencyPortalUserId;
         }
 
         // Get Agency Portal User Doc based on Agency Portal User Id from API Key Doc
@@ -117,7 +155,7 @@ module.exports = class ApiKeyBO{
 
     getActiveKeysCount(userId){
         const query = {
-            agencyPortalUser: userId,
+            agencyPortalUserId: userId,
             expirationDate: {$gte: moment()}
         }
         return ApiKey.countDocuments(query);
