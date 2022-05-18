@@ -1,5 +1,5 @@
 /**
- * General Liability for Acuity
+ * BOP for Acuity
  */
 
 'use strict';
@@ -9,8 +9,9 @@ const moment_timezone = require('moment-timezone');
 const Integration = require('../Integration.js');
 const InsurerBO = global.requireShared('./models/Insurer-BO.js');
 global.requireShared('./helpers/tracker.js');
+const {convertToDollarFormat} = global.requireShared('./helpers/stringFunctions.js');
 
-module.exports = class AcuityGL extends Integration {
+module.exports = class AcuityBOP extends Integration {
 
     /**
      * Initializes this integration.
@@ -28,12 +29,8 @@ module.exports = class AcuityGL extends Integration {
 	 */
     async _insurer_quote() {
         const appDoc = this.applicationDocData
-        const bopPolicy = this.applicationDocData.policies.find((appPolicy) => appPolicy.policyType === "BOP")
-        if(!bopPolicy){
-            log.error(`Acuity (application ${this.app.id}): Does not have policy ${this.policy.type}  ${__location}`);
-            this.reasons.push(`Application does not have BOP policy`);
-            return this.return_result('autodeclined');
-        }
+
+        const logPrefix = `Appid: ${this.app.id} Acuity BOP `
         const insurerBO = new InsurerBO();
         const insurerSlug = 'acuity';
         const insurer = await insurerBO.getBySlug(insurerSlug);
@@ -41,11 +38,6 @@ module.exports = class AcuityGL extends Integration {
             log.error(`Acuity not found by slug ${__location}`);
             return this.return_result('error');
         }
-
-        // Don't report certain activities in the payroll exposure
-        const unreportedPayrollActivityCodes = [
-            2869 // Office Employees
-        ];
 
         // These are the limits supported by Acuity
         const carrierLimits = [
@@ -68,6 +60,7 @@ module.exports = class AcuityGL extends Integration {
         // They are likely that they are hard-coded in below somewhere
         const skipQuestions = [1036, 1037];
 
+
         // Prepare limits
         const limits = this.getBestLimits(carrierLimits);
         if (!limits) {
@@ -84,9 +77,17 @@ module.exports = class AcuityGL extends Integration {
 
         // for EIN
         if (!appDoc.ein) {
-            return this.client_error("Acuity GL requires FEIN.", __location);
+            return this.client_error("Acuity BOP requires FEIN.", __location);
         }
 
+        if (!this.industry_code.attributes.acuityNAICSCode) {
+            log.error(`Acuity (application ${this.app.id}): Could not find ACUITYNAICSCode for industry code ${this.industry_code.id} ${__location}`);
+            return this.return_result('autodeclined');
+        }
+        let quickQuote = false;
+        if (this.industry_code.attributes.acuityNAICSCode.split('-')[1] === '000') {
+            quickQuote = true;
+        }
 
         // Acuity has us define our own Request ID
         this.request_id = this.generate_uuid();
@@ -120,7 +121,8 @@ module.exports = class AcuityGL extends Integration {
         const ClientApp = SignonRq.ele('ClientApp');
         ClientApp.ele('Org', 'Talage Insurance');
         ClientApp.ele('Name', 'Talage');
-        ClientApp.ele('Version', '2.0');
+        // ClientApp.ele('Version', '2.0');
+        ClientApp.ele('Version', '6.0');
         // </ClientApp>
 
         // </SignonRq>
@@ -129,10 +131,10 @@ module.exports = class AcuityGL extends Integration {
         const InsuranceSvcRq = ACORD.ele('InsuranceSvcRq');
         InsuranceSvcRq.ele('RqUID', this.request_id);
 
-        // <GeneralLiabilityPolicyQuoteInqRq>
+        // <BOPPolicyQuoteInqRq>
         const BOPPolicyQuoteInqRq = InsuranceSvcRq.ele('BOPPolicyQuoteInqRq');
         BOPPolicyQuoteInqRq.ele('RqUID', this.request_id);
-        BOPPolicyQuoteInqRq.ele('BusinessPurposeTypeCd', "com.acuity_NBQ_RC1");
+        BOPPolicyQuoteInqRq.ele('BusinessPurposeTypeCd', quickQuote ? 'com.acuity_NBQ_RC1' : 'com.acuity_NBQ_RC2');
         BOPPolicyQuoteInqRq.ele('TransactionRequestDt', now.format('YYYY-MM-DDTHH:mm:ss'));
         BOPPolicyQuoteInqRq.ele('TransactionEffectiveDt', now.format('YYYY-MM-DD'));
         BOPPolicyQuoteInqRq.ele('CurCd', 'USD');
@@ -258,11 +260,6 @@ module.exports = class AcuityGL extends Integration {
         // <InsuredOrPrincipalInfo>
         const InsuredOrPrincipalInfo = InsuredOrPrincipal.ele('InsuredOrPrincipalInfo');
         InsuredOrPrincipalInfo.ele('InsuredOrPrincipalRoleCd', 'Insured');
-
-        if (!this.industry_code.attributes.acuityNAICSCode) {
-            log.error(`Acuity (application ${this.app.id}): Could not find ACUITYNAICSCode for industry code ${this.industry_code.id} ${__location}`);
-            return this.return_result('autodeclined');
-        }
         // <BusinessInfo>
         const BusinessInfo = InsuredOrPrincipalInfo.ele('BusinessInfo');
         BusinessInfo.ele('NAICSCd', this.industry_code.attributes.acuityNAICSCode);
@@ -281,6 +278,7 @@ module.exports = class AcuityGL extends Integration {
         // </InsuredOrPrincipalInfo>
         // </InsuredOrPrincipal>
 
+        //<BOPPolicyQuoteInqRq>
         // <CommlPolicy>
         const CommlPolicy = BOPPolicyQuoteInqRq.ele('CommlPolicy');
         CommlPolicy.ele('LOBCd', 'BOP');
@@ -291,6 +289,16 @@ module.exports = class AcuityGL extends Integration {
         ContractTerm.ele('EffectiveDt', this.policy.effective_date.format('YYYY-MM-DD'));
         ContractTerm.ele('ExpirationDt', this.policy.expiration_date.format('YYYY-MM-DD'));
         // </ContractTerm>
+
+        // <CommlPolicySupplement>
+        const CommlPolicySupplement = CommlPolicy.ele('CommlPolicySupplement');
+        if (appDoc.grossSalesAmt) {
+            CommlPolicySupplement.ele('AnnualSalesAmt').ele('Amt', appDoc.grossSalesAmt);
+        }
+        else {
+            log.error(`${logPrefix}: Missing Gross Sales Amount`)
+        }
+        // </CommlPolicySupplement>
 
         // <MiscParty>
         const MiscParty = CommlPolicy.ele('MiscParty');
@@ -337,15 +345,28 @@ module.exports = class AcuityGL extends Integration {
             question_identifiers = await this.get_question_identifiers();
         }
         catch (error) {
-            log.error(`${this.insurer.name} ${this.policy.type} is unable to get question identifiers.${error}` + __location);
+            log.error(`${this.insurer.name} BOP is unable to get question identifiers.${error}` + __location);
             return this.return_result('autodeclined');
         }
         const questionCodes = Object.values(question_identifiers);
 
-        // Loop through each question
-        for (const question_id in this.questions) {
-            if (Object.prototype.hasOwnProperty.call(this.questions, question_id)) {
-                const question = this.questions[question_id];
+        const generalQuestionsToIgnore = [
+            'AcuityBOPContractorLicenseNumber'
+        ];
+
+        // Insurer Question Loop
+        for (const insurerQuestion of this.insurerQuestionList) {
+            if (generalQuestionsToIgnore.includes(insurerQuestion.identifier)) {
+                continue;
+            }
+
+            if (Object.prototype.hasOwnProperty.call(this.questions, insurerQuestion.talageQuestionId)) {
+                const question = this.questions[insurerQuestion.talageQuestionId];
+                if(!question){
+                    log.debug(`Acuity question processing ${insurerQuestion?.attributes?.elementName} no TalageQuestion`)
+                    continue;
+                }
+
                 const QuestionCd = question_identifiers[question.id];
 
                 // Don't process questions without a code (not for this insurer) or ones that we have marked to skip
@@ -359,7 +380,7 @@ module.exports = class AcuityGL extends Integration {
                     answer = this.determine_question_answer(question);
                 }
                 catch (error) {
-                    log.error(`Acuity (application ${this.app.id}): Could not determine question ${question_id} answer: ${error} ${__location}`);
+                    log.error(`Acuity (application ${this.app.id}): Could not determine question ${question.id} answer: ${error} ${__location}`);
                     //return this.return_result('autodeclined');
                 }
 
@@ -381,6 +402,19 @@ module.exports = class AcuityGL extends Integration {
                 }
                 else {
                     QuestionAnswer.ele('Explanation', answer);
+                }
+
+                switch (insurerQuestion.identifier) {
+                    case 'com.acuity_999990064':
+                        const licenseNumber = this.getAnswerForQuestionIdentifier('AcuityBOPContractorLicenseNumber');
+                        if (licenseNumber) {
+                            QuestionAnswer.ele('Explanation', licenseNumber);
+                        }
+                        else {
+                            QuestionAnswer.ele('Explanation', '');
+                        }
+                        break;
+                    default:
                 }
             }
         }
@@ -429,9 +463,10 @@ module.exports = class AcuityGL extends Integration {
         // </CommlPolicy>
 
         // <Location>
-        appDoc.locations.forEach((location, index) => {
+        this.app.business.locations.forEach((location, index) => {
             const Location = BOPPolicyQuoteInqRq.ele('Location');
             Location.att('id', `L${index + 1}`);
+
             // <Addr>
             Addr = Location.ele('Addr');
             Addr.ele('Addr1', location.address);
@@ -439,16 +474,30 @@ module.exports = class AcuityGL extends Integration {
                 Addr.ele('Addr2', location.address2);
             }
             Addr.ele('City', location.city);
-            Addr.ele('StateProvCd', location.state);
-            Addr.ele('PostalCode', location.zipcode);
+            Addr.ele('StateProvCd', location.territory);
+            Addr.ele('PostalCode', location.zip);
             // </Addr>
 
-
+            // <Sublocation>
+            const Sublocation = Location.ele('SubLocation');
+            Sublocation.att('id', `L${index + 1}S1`); // Only supports one sublocation per location right now
+            // <Addr>
+            Addr = Sublocation.ele('Addr');
+            Addr.ele('Addr1', location.address);
+            if (location.address2) {
+                Addr.ele('Addr2', location.address2);
+            }
+            Addr.ele('City', location.city);
+            Addr.ele('StateProvCd', location.territory);
+            Addr.ele('PostalCode', location.zip);
+            // </Addr>
+            // </Sublocation>
         });
 
         // <BOPLineBusiness>
         const BOPLineBusiness = BOPPolicyQuoteInqRq.ele('BOPLineBusiness');
         BOPLineBusiness.ele('LOBCd', 'BOP');
+
         // <LiabilityInfo>
         const LiabilityInfo = BOPLineBusiness.ele('LiabilityInfo');
         // <CommlCoverage>
@@ -457,6 +506,7 @@ module.exports = class AcuityGL extends Integration {
         CommlCoverage.ele('CoverageDesc', 'Liability - Each Occurrence');
         // <Limit>
         let Limit = CommlCoverage.ele('Limit');
+        Limit.ele('LimitAppliesToCd', 'EAOCC');
         Limit.ele('FormatInteger', limits[0]);
         // </Limit>
         // </CommlCoverage>
@@ -467,117 +517,290 @@ module.exports = class AcuityGL extends Integration {
         CommlCoverage.ele('CoverageDesc', 'Liability - General Aggregate');
         // <Limit>
         Limit = CommlCoverage.ele('Limit');
+        Limit.ele('LimitAppliesToCd', 'GENAG');
         Limit.ele('FormatInteger', limits[1]);
         // </Limit>
         // </CommlCoverage>
 
         // <CommlCoverage>
-        // CommlCoverage = LiabilityInfo.ele('CommlCoverage');
-        // CommlCoverage.ele('CoverageCd', 'PRDCO');
-        // CommlCoverage.ele('CoverageDesc', 'Products&Completed Operations');
+        CommlCoverage = LiabilityInfo.ele('CommlCoverage');
+        CommlCoverage.ele('CoverageCd', 'PRDCO');
+        CommlCoverage.ele('CoverageDesc', 'Products&Completed Operations');
         // <Limit>
         Limit = CommlCoverage.ele('Limit');
+        Limit.ele('LimitAppliesToCd', 'PRDCO');
         Limit.ele('FormatInteger', limits[2]);
         // </Limit>
         // </CommlCoverage>
+
         // Exposures
+        if (this.insurerIndustryCode?.attributes?.premiumBasis?.code) {
+            const premiumBasisCode = this.insurerIndustryCode.attributes.premiumBasis.code;
+            appDoc.locations.forEach(async(location, index) => {
+                const GeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification');
 
-        //PropertyInfo
-        //const PropertyInfo = BOPLineBusiness.ele('PropertyInfo');
+                GeneralLiabilityClassification.att('LocationRef', `L${index + 1}`);
+                GeneralLiabilityClassification.att('SubLocationRef', `L${index + 1}S1`);
+                GeneralLiabilityClassification.ele('PremiumBasisCd', premiumBasisCode);
 
-        for (let i = 0; i < appDoc.locations.length; i++) {
-            const location = appDoc.locations[i];
-            //blding limit
-            // if(location.buildingLimit){
-
-            //     const CommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo');
-            //     CommlPropertyInfo.att('LocationRef', `L${i + 1}`);
-            //     CommlPropertyInfo.ele('SubjectInsuranceCd', 'BLDG');
-            //     const bopCommlCoverage = CommlPropertyInfo.ele('CommlCoverage');
-            //     bopCommlCoverage.ele('CoverageCd', 'BLDG');
-            //     bopCommlCoverage.ele('ValuationCd', 'RC');
-
-            //     const bopLimit = bopCommlCoverage.ele('Limit');
-            //     bopLimit.ele('FormatInteger', location.buildingLimit);
-            //     const bopDeductible = bopCommlCoverage.ele('Deductible');
-            //     bopDeductible.ele('FormatInteger', bopPolicy.deductible);
-
-            // }
-            //bpp
-            // if(location.businessPersonalPropertyLimit){
-            //     const CommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo');
-            //     CommlPropertyInfo.att('LocationRef', `L${i + 1}`);
-            //     CommlPropertyInfo.ele('SubjectInsuranceCd', 'BPP');
-            //     const bopCommlCoverage = CommlPropertyInfo.ele('CommlCoverage');
-            //     bopCommlCoverage.ele('CoverageCd', 'BPP');
-            //     bopCommlCoverage.ele('ValuationCd', 'RC');
-
-            //     const bopLimit = bopCommlCoverage.ele('Limit');
-            //     bopLimit.ele('FormatInteger', location.businessPersonalPropertyLimit);
-            //     const bopDeductible = bopCommlCoverage.ele('Deductible');
-            //     bopDeductible.ele('FormatInteger', bopPolicy.deductible);
-            // }
-            const cobPayrollList = [];
-            // eslint-disable-next-line prefer-const
-            for (let activityCode of location.activityPayrollList){
-                //check for new application doc
-                if(!activityCode.activityCodeId){
-                    activityCode.activityCodeId = activityCode.ncciCode;
-                }
-                // Skip activity codes we shouldn't include in payroll
-                if (unreportedPayrollActivityCodes.includes(activityCode.activityCodeId)) {
-                    continue;
-                }
-                const acuityActivityCode = await this.get_insurer_code_for_activity_code(insurer.id, location.state, activityCode.activityCodeId);
-                if (acuityActivityCode && acuityActivityCode.attributes && acuityActivityCode.attributes.hasOwnProperty("assocGLClass")) {
-                    const cglCode = acuityActivityCode.attributes.assocGLClass;
-                    let cobPayroll = cobPayrollList.find((cp) => cp.cglCode === cglCode);
-                    if (!cobPayroll) {
-                        cobPayroll = {
-                            cglCode: cglCode,
-                            payroll: 0
-                        };
-                        cobPayrollList.push(cobPayroll);
-                    }
-                    //loop through EmployeeType payroll
-                    if(activityCode.employeeTypeList && activityCode.employeeTypeList.length > 0){
-                        activityCode.employeeTypeList.forEach((employeTypePayroll) => {
-                            cobPayroll.payroll += employeTypePayroll.employeeTypePayroll;
-                        });
-                    }
-                    else {
-                        cobPayroll.payroll += activityCode.payroll;
-                    }
+                if (this.insurerIndustryCode?.attributes?.cgl) {
+                    GeneralLiabilityClassification.ele('ClassCd', this.insurerIndustryCode.attributes.cgl);
                 }
                 else {
-                    log.error(`Acuity GL (application ${this.app.id}): ActivityCode ${activityCode.activityCodeId}  had no assocGLClass. Application may fail at Acuit, acuityActivityCode ${JSON.stringify(acuityActivityCode)}` + __location);
+                    log.error(`${logPrefix}: Insurer Industry Code "${this.insurerIndustryCode.code}" did not have Class in attributes.cgl`)
                 }
-            }
-            // Fill in the exposure. The Acuity CGL spreadsheet does not specify exposures per class code so we send PAYROLL for now until we get clarity.
-            if(cobPayrollList.length > 0){
-                for (const cobPayroll of cobPayrollList) {
-                    const GeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification');
-                    GeneralLiabilityClassification.att('LocationRef', `L${i + 1}`);
-                    GeneralLiabilityClassification.ele('ClassCd', cobPayroll.cglCode);
-                    // GeneralLiabilityClassification.ele('ClassCdDesc', this.industry_code.description);
-                    GeneralLiabilityClassification.ele('PremiumBasisCd', 'PAYRL');
-                    GeneralLiabilityClassification.ele('Exposure', cobPayroll.payroll);
+
+                switch (premiumBasisCode) {
+                    case 'PAYRL':
+                        const locationPayroll = location.activityPayrollList.reduce((totalPayroll, ele) => totalPayroll + ele.payroll, 0)
+                        GeneralLiabilityClassification.ele('Exposure', locationPayroll);
+                        break;
+                    case 'GrSales':
+                        const locationGrossSales = location.questions.find(question => question.insurerQuestionIdentifier === 'AcuityBOPLocationGrossSales');
+                        log.debug(`Location Gross Sales ${locationGrossSales.answerValue}`);
+
+                        if (locationGrossSales) {
+                            GeneralLiabilityClassification.ele('Exposure', locationGrossSales.answerValue);
+                        }
+                        else {
+                            log.error(`${logPrefix}: Missing Gross Sales Amount`);
+                        }
+                        break;
+                    case 'Gallons':
+                        break;
+                    case 'ADMIS':
+                        break;
+                    case 'AREA':
+                        break;
+                    case 'Boat':
+                        break;
+                    case 'Dwelling':
+                        break;
+                    case 'Each':
+                        break;
+                    case 'TotCost':
+                        break;
+                    case 'Unit':
+                        break;
+                    case 'com.acuity_Gallons':
+                        break;
+                    default:
                 }
-            }
-            else {
-                log.error(`Acuity GL (application ${this.app.id}): application issue no payroll. Application will fail at Acuity` + __location);
-            }
+            })
+        }
+        else {
+            log.error(`${logPrefix}: Missing Premium Basis information for insurer industry code ${this.insurerIndustryCode.code}. Cannot send proper exposure to Acuity`);
+            return this.client_declined(`Missing Premium Basis information`);
         }
 
+
+        // </GeneralLiabilityClassification>
+
+        const PropertyInfo = BOPLineBusiness.ele('PropertyInfo');
+
+
+        const locationQuestionsToIgnore = [
+            'AcuityRoofConstruction',
+            'AcuityBOPRoofGeometry',
+            'AcuityBOPOccupiedByOthersSqft',
+            'AcuityBOPUnoccupiedSqft',
+            'AcuityBOPOccupancyDesc',
+            'AcuityBOPDistanceFireStation',
+            'AcuityBOPDistanceHydrant'
+        ]
+        appDoc.locations.forEach((location, index) => {
+            // <CommlCoverage>
+            if (location.businessPersonalPropertyLimit) {
+                const CommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo');
+                CommlPropertyInfo.att('LocationRef', `L${index + 1}`);
+                CommlPropertyInfo.att('SubLocationRef', `L${index + 1}S1`);
+                CommlPropertyInfo.ele('SubjectInsuranceCd', `BPP`);
+                CommlCoverage = CommlPropertyInfo.ele('CommlCoverage');
+                CommlCoverage.ele('CoverageCd', 'BPP');
+                CommlCoverage.ele('CoverageDesc', 'Business Personal Property');
+                Limit = CommlCoverage.ele('Limit');
+                Limit.ele('FormatInteger', location.businessPersonalPropertyLimit);
+                const Deductible = CommlCoverage.ele('Deductible');
+                Deductible.ele('FormatInteger', 0);
+            }
+            else {
+                log.error(`${logPrefix}: No Business Personal Property Limit present on application`);
+            }
+
+            if (location.buildingLimit) {
+                const CommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo');
+                CommlPropertyInfo.att('LocationRef', `L${index + 1}`);
+                CommlPropertyInfo.att('SubLocationRef', `L${index + 1}S1`);
+                CommlPropertyInfo.ele('SubjectInsuranceCd', `BLDG`);
+                CommlCoverage = CommlPropertyInfo.ele('CommlCoverage');
+                CommlCoverage.ele('CoverageCd', 'BLDG');
+                CommlCoverage.ele('CoverageDesc', 'Building');
+                Limit = CommlCoverage.ele('Limit');
+                Limit.ele('FormatInteger', location.buildingLimit);
+                const Deductible = CommlCoverage.ele('Deductible');
+                Deductible.ele('FormatInteger', 0);
+            }
+            else {
+                log.error(`${logPrefix}: No Building Limit present on application`)
+            }
+
+            // For assigning question elements in question loop
+            const CommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo');
+            CommlPropertyInfo.att('LocationRef', `L${index + 1}`);
+            CommlPropertyInfo.att('SubLocationRef', `L${index + 1}S1`);
+            CommlCoverage = CommlPropertyInfo.ele('CommlCoverage');
+            const CommlCoverageSupplement = CommlCoverage.ele('CommlCoverageSupplement');
+            for (const question of location.questions) {
+                if (locationQuestionsToIgnore.includes(question.insurerQuestionIdentifier)) {
+                    continue;
+                }
+                // This question was not answered
+                if (!question.answerValue) {
+                    continue;
+                }
+
+                const QuestionCd = question.insurerQuestionIdentifier;
+
+                // Build out the question structure
+                QuestionAnswer = CommlCoverageSupplement.ele('QuestionAnswer');
+                QuestionAnswer.ele('QuestionCd', QuestionCd);
+
+                // Determine how to send the answer
+                if (question.questionType === 'Yes/No') {
+                    QuestionAnswer.ele('YesNoCd', question.answerValue.toUpperCase());
+                }
+                else if (/^\d+$/.test(question.answerValue)) {
+                    QuestionAnswer.ele('Num', question.answerValue);
+                }
+                else {
+                    QuestionAnswer.ele('Explanation', question.answerValue);
+                }
+            }
+            // </CommlCoverage>
+        })
         // </BOPLineBusiness>
+        // log.debug(`Appdoc.location[0]: ${JSON.stringify(appDoc.locations[0], null, 4)}`);
+
+        // <CommlSubLocation>
+        const constructionTypeMatrix = {
+            'Frame': 'F',
+            'Joisted Masonry': 'JM',
+            'Fire Resistive': 'MFR',
+            'Non Combustible': 'NC',
+            'Rail': 'R',
+            'Masonry Non Combustible': 'SMNC',
+            'Masonry Veneer': 'V'
+        };
+
+        appDoc.locations.forEach((location, index) => {
+            // <CommlSubLocation>
+            const CommlSubLocation = BOPPolicyQuoteInqRq.ele('CommlSubLocation');
+            CommlSubLocation.att('LocationRef', `L${index + 1}`);
+            CommlSubLocation.att('SubLocationRef', `L${index + 1}S1`); // Only supports one sublocation per location
+
+            CommlSubLocation.ele('InterestCd', location.own ? 'OWNER' : 'TENANT');
+            // <Construction>
+            const Construction = CommlSubLocation.ele('Construction');
+            Construction.ele('YearBuilt', location.yearBuilt);
+
+            if (location.constructionType && Object.keys(constructionTypeMatrix).includes(location.constructionType)) {
+                Construction.ele('ConstructionCd', constructionTypeMatrix[location.constructionType]);
+            }
+            else {
+                log.error(`${logPrefix}: Unrecognized construction type for location ${index}: ${location.constructionType}`);
+            }
+
+            if (location.numStories) {
+                Construction.ele('NumStories', location.numStories);
+            }
+            else {
+                log.error(`${logPrefix}: Missing Number of Stories for location ${index}`);
+            }
+
+            Construction.ele('BldgArea').ele('NumUnits', location.square_footage);
+            // </Construction>
+
+            // <BldgOccupancy>
+            const BldgOccupancy = CommlSubLocation.ele('BldgOccupancy');
+
+            const AreaOccupied = BldgOccupancy.ele('AreaOccupied');
+            const AreaOccupiedByOthers = BldgOccupancy.ele('AreaOccupiedByOthers');
+            const AreaUnoccupied = BldgOccupancy.ele('AreaUnoccupied');
+            let areaOccupiedByOthers = 0;
+            let areaUnoccupied = 0;
+
+            const BldgProtection = CommlSubLocation.ele('BldgProtection');
+
+            if (location.bop.hasOwnProperty('sprinklerEquipped')) {
+                BldgProtection.ele('SprinkleredPct', location.bop.sprinklerEquipped ? 100 : 0);
+            }
+            else {
+                log.error(`${logPrefix}: Missing sprinkler information for location ${index}`);
+            }
+
+            for (const question of location.questions) {
+                if (!question.answerValue && question.answer !== 0) {
+                    continue;
+                }
+
+                switch (question.insurerQuestionIdentifier) {
+                    case 'AcuityRoofConstruction':
+                        let materialCode = 'OT';
+                        if (question.insurerQuestionAttributes.hasOwnProperty(question.answerValue)) {
+                            materialCode = question.insurerQuestionAttributes[question.answerValue];
+                        }
+                        Construction.ele('RoofingMaterial').ele('RoofMaterialCd', materialCode);
+                        break;
+                    case 'AcuityBOPRoofGeometry':
+                        Construction.ele('RoofGeometryTypeCd', question.answerValue.toUpperCase());
+                        break;
+                    case 'AcuityBOPOccupiedByOthersSqft':
+                        areaOccupiedByOthers = question.answerValue;
+                        AreaOccupiedByOthers.ele(`NumUnits`, areaOccupiedByOthers);
+                        AreaOccupiedByOthers.ele(`UnitMeasurementCd`, 'SQFT');
+                        break;
+                    case 'AcuityBOPUnoccupiedSqft':
+                        areaUnoccupied = question.answerValue
+                        AreaUnoccupied.ele(`NumUnits`, areaUnoccupied);
+                        AreaUnoccupied.ele(`UnitMeasurementCd`, 'SQFT');
+                        break;
+                    case 'AcuityBOPDistanceFireStation':
+                        const DistanceToFireStation = BldgProtection.ele('DistanceToFireStation');
+                        DistanceToFireStation.ele('NumUnits', question.answerValue);
+                        DistanceToFireStation.ele('UnitMeasurementCd', 'SMI');
+                        break;
+                    case 'AcuityBOPDistanceHydrant':
+                        const DistanceToHydrant = BldgProtection.ele('DistanceToHydrant');
+                        DistanceToHydrant.ele('UnitMeasurementCd', 'FT');
+                        DistanceToHydrant.ele('NumUnits', question.answerValue);
+                        break;
+                    case 'AcuityBOPOccupancyDesc':
+                        BldgOccupancy.ele('OccupancyDesc', question.answerValue);
+                        break;
+                    default:
+                        continue;
+                }
+            }
+
+            const totalArea = location.square_footage;
+            const areaOccupied = totalArea - areaUnoccupied - areaOccupiedByOthers;
+            AreaOccupied.ele(`NumUnits`, areaOccupied);
+            AreaOccupied.ele(`UnitMeasurementCd`, 'SQFT');
+
+            // </BldgOccupancy>
+            // <CommlSubLocation>
+        })
+        // </CommlSubLocation>
+
         // </BOPPolicyQuoteInqRq>
         // </InsuranceSvcRq>
         // </ACORD>
 
+
         // Get the XML structure as a string
         const xml = ACORD.end({pretty: true});
 
-        // console.log('request', xml);
+        // console.log(`XML Request`, xml);
 
         // Determine which URL to use
         let host = '';
@@ -649,9 +872,24 @@ module.exports = class AcuityGL extends Integration {
             return this.return_result('autodeclined');
         }
 
+        // get quote number (optional)
+        let quoteNumber = null;
+        const CompanysQuoteNumber = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.BOPPolicyQuoteInqRs.CommlPolicy.QuoteInfo.CompanysQuoteNumber');
+        if (CompanysQuoteNumber) {
+            quoteNumber = CompanysQuoteNumber[0];
+        }
+        else {
+            log.warn(`${logPrefix}Couldn't parse quote number` + __location);
+        }
+
         switch (policyStatusCode) {
+            case 'com.acuity_Incomplete':
+                log.error(`Acuity BOP (appId ${this.app.id}): Reporting incomplete information for quoting.` + __location);
+                return this.client_declined("incomplete information to quote");
             case "com.acuity_BindableQuote":
             case "com.acuity_BindableModifiedQuote":
+            case 'com.acuity_BindableReferredQuote':
+            case 'com.acuity_BindableModifiedReferredQuote':
             case "com.acuity_NonBindableQuote":
                 let policyAmount = 0;
                 const policyAmountNode = this.get_xml_child(policySummaryInfo, 'FullTermAmt.Amt');
@@ -659,45 +897,109 @@ module.exports = class AcuityGL extends Integration {
                     policyAmount = parseFloat(policyAmountNode);
                 }
                 // Get the returned limits
+                const quoteCoverages = [];
                 let foundLimitsCount = 0;
-                const commlCoverage = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.BOPPolicyQuoteInqRs.BOPLineBusiness.LiabilityInfo.CommlCoverage', true);
+                let sortIndex = 0;
+                let commlCoverage = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.BOPPolicyQuoteInqRs.BOPLineBusiness.LiabilityInfo.CommlCoverage', true);
                 if (!commlCoverage) {
-                    this.reasons.push(`Could not find CommlCoverage node in response.`);
-                    log.error(`Acuity (application ${this.app.id}): Could not find the CommlCoverage node. ${__location}`);
-                    return this.return_error('error', 'Acuity returned an unexpected reply');
+                    this.reasons.push(`Could not find CommlCoverage node  with Limit information in response.`);
+                    log.error(`Acuity BOP (application ${this.app.id}): Could not find the CommlCoverage with Limit information node. ${__location}`);
+                    //return this.return_error('error', 'Acuity returned an unexpected reply');
                 }
-                commlCoverage.forEach((coverage) => {
-                    if (!coverage.Limit || !coverage.Limit.length) {
-                        return;
+
+                if(commlCoverage){
+                    commlCoverage.forEach((coverage) => {
+                        if (!coverage.Limit || !coverage.Limit.length) {
+                            return;
+                        }
+                        const limitAmt = parseInt(coverage.Limit[0].FormatInteger[0], 10);
+                        const quoteCoverage = {
+                            value: convertToDollarFormat(limitAmt, true),
+                            sort: sortIndex++,
+                            category: `General Limits`,
+                            insurerIdentifier: coverage.CoverageCd[0]
+                        }
+                        switch (coverage.CoverageCd[0]) {
+                            case "EAOCC":
+                                quoteCoverage.description = 'Each Occurrence';
+                                foundLimitsCount++;
+                                quoteCoverages.push(quoteCoverage);
+                                break;
+                            case "GENAG":
+                                quoteCoverage.description = 'General Aggregate';
+                                foundLimitsCount++;
+                                quoteCoverages.push(quoteCoverage);
+                                break;
+                            case "PRDCO":
+                                quoteCoverage.description = 'Products & Completed Operations';
+                                foundLimitsCount++;
+                                quoteCoverages.push(quoteCoverage);
+                                break;
+                            case "PIADV":
+                                quoteCoverage.description = 'Personal and Advertising Injury';
+                                foundLimitsCount++;
+                                quoteCoverages.push(quoteCoverage);
+                                break;
+                            default:
+                                break;
+                        }
+                    });
+                }
+
+                // Get Location based Limits
+                const CommlPropertyInfoList = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.BOPPolicyQuoteInqRs.BOPLineBusiness.PropertyInfo.CommlPropertyInfo', true);
+                for (const coverage of CommlPropertyInfoList) {
+                    if (!coverage?.CommlCoverage?.length) {
+                        continue;
                     }
-                    const amount = parseInt(coverage.Limit[0].FormatInteger[0], 10);
-                    switch (coverage.CoverageCd[0]) {
-                        case "EAOCC":
-                            this.limits[4] = amount;
+                    commlCoverage = coverage.CommlCoverage[0];
+                    if (commlCoverage.CoverageCd) {
+                        let description = '';
+                        switch (commlCoverage.CoverageCd[0]) {
+                            case "BPP":
+                                description = 'Business Personal Property';
+                                break;
+                            case "BLDG":
+                                description = 'Building';
+                                break;
+                            default:
+                                continue;
+                        }
+
+                        if (commlCoverage.Limit && commlCoverage.Limit.length) {
+                            const limitAmt = parseInt(commlCoverage.Limit[0].FormatInteger[0], 10);
+                            const quoteCoverage = {
+                                description: description + ' Limit',
+                                value: convertToDollarFormat(limitAmt, true),
+                                sort: sortIndex++,
+                                category: `Location ${coverage.$.LocationRef}`,
+                                insurerIdentifier: commlCoverage.CoverageCd[0]
+                            }
                             foundLimitsCount++;
-                            break;
-                        case "GENAG":
-                            this.limits[8] = amount;
+                            quoteCoverages.push(quoteCoverage);
+                        }
+                        if (commlCoverage.Deductible && commlCoverage.Deductible.length) {
+                            const deductibleAmt = parseInt(commlCoverage.Deductible[0].FormatInteger[0], 10);
+                            const quoteCoverage = {
+                                description: description + ' Deductible',
+                                value: convertToDollarFormat(deductibleAmt, true),
+                                sort: sortIndex++,
+                                category: `Location ${coverage.$.LocationRef}`,
+                                insurerIdentifier: commlCoverage.CoverageCd[0]
+                            }
                             foundLimitsCount++;
-                            break;
-                        case "PRDCO":
-                            this.limits[9] = amount;
-                            foundLimitsCount++;
-                            break;
-                        case "PIADV":
-                            this.limits[7] = amount;
-                            foundLimitsCount++;
-                            break;
-                        default:
-                            break;
+                            quoteCoverages.push(quoteCoverage);
+                        }
                     }
-                });
+                }
+
                 // Ensure we found some limits
                 if (!foundLimitsCount) {
-                    this.reasons.push(`Did not recognized any returned limits.`);
-                    log.error(`Acuity (application ${this.app.id}): Did not recognized any returned limits. ${__location}`);
-                    return this.return_error('error', 'Acuity returned an unexpected reply');
+                    //this.reasons.push(`Did not recognized any returned limits.`);
+                    log.error(`Acuity BOP (application ${this.app.id}): Did not recognized any returned limits. ${__location}`);
+                    //return this.return_error('error', 'Acuity returned an unexpected reply');
                 }
+
                 if (policyAmount) {
                     // Set the policy amount
                     this.amount = policyAmount;
@@ -711,26 +1013,81 @@ module.exports = class AcuityGL extends Integration {
 
                 // Retrieve and the quote letter if it exists
                 const fileAttachmentInfoList = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.BOPPolicyQuoteInqRs.FileAttachmentInfo', true);
-                for (const fileAttachmentInfo of fileAttachmentInfoList) {
-                    switch (fileAttachmentInfo.AttachmentDesc[0]) {
-                        case "Policy Quote Print":
-                            this.quote_letter = {
-                                content_type: fileAttachmentInfo.MIMEContentTypeCd[0],
-                                data: fileAttachmentInfo.cData[0],
-                                file_name: `${this.insurer.name}_ ${this.policy.type}_quote_letter.pdf`
-                            };
-                            break;
-                        case "URL":
-                            this.quoteLink = fileAttachmentInfo.WebsiteURL[0];
-                            break;
-                        default:
-                            break;
+                let quoteLetter = null;
+                let quoteMIMEType = null;
+                if(fileAttachmentInfoList){
+                    for (const fileAttachmentInfo of fileAttachmentInfoList) {
+                        switch (fileAttachmentInfo.AttachmentDesc[0]) {
+                            case "Policy Quote Print":
+                                this.quote_letter = {
+                                    content_type: fileAttachmentInfo.MIMEContentTypeCd[0],
+                                    data: fileAttachmentInfo.cData[0],
+                                    file_name: `${this.insurer.name}_ ${this.policy.type}_quote_letter.pdf`
+                                };
+                                quoteMIMEType = fileAttachmentInfo.MIMEContentTypeCd[0];
+                                quoteLetter = fileAttachmentInfo.cData[0];
+                                break;
+                            case "URL":
+                                this.quoteLink = fileAttachmentInfo.WebsiteURL[0];
+                                break;
+                            default:
+                                break;
+                        }
                     }
                 }
 
-                const status = policyStatusCode === "com.acuity_BindableQuote" ? "quoted" : "referred";
-                log.info(`Acuity: Returning ${status} ${policyAmount ? "with price" : ""}`);
-                return this.return_result(status);
+                // Set payment plans
+                const insurerPaymentPlans = this.get_xml_child(res.ACORD, "InsuranceSvcRs.BOPPolicyQuoteInqRs.CommlPolicy.PaymentOption", true);
+
+                this.insurerPaymentPlans = insurerPaymentPlans.map(({
+                    $, ...rest
+                }) => (
+                    {
+                        id: $.id,
+                        ...rest
+                    }))
+
+                const paymentPlansIDsMap = {
+                    'FL': 1,
+                    'SA': 2,
+                    'QT': 3,
+                    '5P': 1,
+                    '11': 1
+                }
+
+                this.talageInsurerPaymentPlans = insurerPaymentPlans.map((insurerPaymentPlan) => {
+                    const insurerPaymentPlanId = insurerPaymentPlan.$.id
+                    const code = insurerPaymentPlan.PaymentPlanCd[0]
+                    const description = insurerPaymentPlan.Description[0]
+                    const numberPayments = Number(insurerPaymentPlan.NumPayments[0])
+                    const total = policyAmount
+                    const depositAmount = Number(insurerPaymentPlan.DepositAmt[0].Amt[0])
+                    const installmentFees = Number(insurerPaymentPlan.InstallmentFeeAmt[0].Amt[0])
+                    const paymentMethod = insurerPaymentPlan.MethodPaymentCd[0]
+                    const installmentPayment = Number(insurerPaymentPlan.InstallmentInfo[0].InstallmentAmt[0].Amt[0])
+
+                    return {
+                        paymentPlanId: paymentPlansIDsMap[code],
+                        insurerPaymentPlanId: insurerPaymentPlanId,
+                        insurerPaymentPlanDescription: `${description} (${paymentMethod})`,
+                        NumberPayments: numberPayments,
+                        TotalCost: total,
+                        TotalPremium: total,
+                        DownPayment: code === 'FL' ? 0 : depositAmount,
+                        TotalStateTaxes: 0,
+                        TotalBillingFees: numberPayments * installmentFees,
+                        DepositPercent: Number((100 * depositAmount / total).toFixed(2)),
+                        IsDirectDebit: paymentMethod === 'CHECK',
+                        installmentPayment: installmentPayment
+                    }
+                })
+
+                if (!quickQuote && (policyStatusCode === "com.acuity_BindableQuote" || policyStatusCode === "com.acuity_BindableModifiedQuote")) {
+                    return this.client_quoted(quoteNumber, [], policyAmount, quoteLetter, quoteMIMEType, quoteCoverages);
+                }
+                else {
+                    return this.client_referred(quoteNumber, [], policyAmount, quoteLetter, quoteMIMEType, quoteCoverages);
+                }
             case "com.acuity_Declined":
                 const extendedStatusList = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.BOPPolicyQuoteInqRs.MsgStatus.ExtendedStatus', true);
                 if (extendedStatusList) {
@@ -750,5 +1107,29 @@ module.exports = class AcuityGL extends Integration {
                 log.error(`Acuity (application ${this.app.id}): Returned unknown policy code '${policyStatusCode}' ${__location}`);
                 return this.return_error('error', 'Acuity returned an unexpected result for a bindable quote.');
         }
+    }
+
+    getAnswerForQuestionIdentifier(identifier) {
+        const talageQuestion = this.insurerQuestionList.find(question => question.identifier === identifier);
+        if (talageQuestion) {
+            const question = this.questions[talageQuestion.talageQuestionId];
+            if(question) {
+                let answer = null;
+                try {
+                    answer = this.determine_question_answer(question);
+                    return answer;
+                }
+                catch (err) {
+                    log.error(`Acuity application ${this.app.id}): Could not determine question ${question.talageQuestionId} answer: ${err} ${__location}`);
+                }
+            }
+            else {
+                log.debug(`Acuity question processing ${question?.attributes?.elementName} no TalageQuestion`)
+            }
+        }
+        else {
+            return null;
+        }
+
     }
 };
