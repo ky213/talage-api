@@ -258,7 +258,7 @@ module.exports = class AgencyLocation {
                         }
 
                         if (insurer.enable_cred3) {
-                            if (!insurer.agencyCred3) {
+                            if (!insurer.agencyCred3 && insurer.insurerId !== 19) {
                                 log.error(`Agency ${agencyLocation.agencyId} missing agencyCred3 in configuration.  ${JSON.stringify(insurer)}` + __location);
                                 //Do not stop quote because one insurer is miss configured.
                             }
