@@ -128,6 +128,7 @@ async function getUser(email) {
     }
     catch (e) {
         log.error(e.message + __location);
+        throw e;
     }
     return userDoc;
 }

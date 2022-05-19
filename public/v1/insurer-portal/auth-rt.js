@@ -45,13 +45,13 @@ async function login(req, res, next){
     // Make sure we found the user
     if (!insurerPortalUserDBJson) {
         log.info('Authentication failed - Account not found ' + req.body.email);
-        return next(serverHelper.invalidCredentialsError('Invalid API Credentials'));
+        return next(serverHelper.forbiddenError('Incorrect Email or Password'));
     }
 
     // Check the password
     if (!crypt.verifyPassword(insurerPortalUserDBJson.password, req.body.password)) {
         log.info('Authentication failed ' + req.body.email);
-        return next(serverHelper.invalidCredentialsError('Invalid API Credentials'));
+        return next(serverHelper.forbiddenError('Incorrect Email or Password'));
 
     }
 
@@ -80,8 +80,8 @@ async function login(req, res, next){
 
     }
     if(!emailResp){
-        log.error(`Failed to send the mfa code email to ${insurerPortalUserDBJson.email}. Please contact the user.`);
-        slack.send('#alerts', 'warning',`Failed to send the mfa code email to ${insurerPortalUserDBJson.email}. Please contact the user.`);
+        log.error(`Failed to send the mfa code email to ${insurerPortalUserDBJson.email} for Insurer Portal. Please contact the user.`);
+        slack.send('#alerts', 'warning',`Failed to send the mfa code email to ${insurerPortalUserDBJson.email} for Insurer Portal. Please contact the user.`);
         return next(serverHelper.internalError('Internal error when authenticating.'));
     }
 
@@ -109,7 +109,7 @@ async function verify(req, res, next) {
 
     if (!redisValueRaw?.found) {
         log.info('Unable to find user MFA key - Data may of expired.' + __location);
-        return next(serverHelper.notAuthorizedError('Not Authorized'));
+        return next(serverHelper.notAuthorizedError('Invalid Access Code'));
     }
     else if(req.authentication.tokenId === redisValueRaw?.value){
         let insurerPortalUserDBJson = null;
@@ -128,7 +128,7 @@ async function verify(req, res, next) {
         // Make sure we found the user
         if (!insurerPortalUserDBJson) {
             log.info('Insurer Portal - Authentication failed - Account not found ' + req.body.email);
-            return next(serverHelper.invalidCredentialsError('Invalid API Credentials'));
+            return next(serverHelper.forbiddenError('Access Denied'));
         }
 
         //Setup and return JWT
@@ -149,7 +149,7 @@ async function verify(req, res, next) {
     }
     else {
         log.info('Mismatch on MFA tokenId' + __location);
-        return next(serverHelper.notAuthorizedError('Not Authorized'));
+        return next(serverHelper.notAuthorizedError('Invalid Access Code'));
     }
 }
 
