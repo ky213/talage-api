@@ -52,7 +52,11 @@ async function getUniqueQuotes(req, res, next){
         {$unwind:
             {path: "$appl.policies"}},
         {$unwind:
-            {path: "$agency"}}
+            {path: "$agency"}},
+        {$replaceRoot:
+            {newRoot: {$mergeObjects: [{"quote":"$_id"},
+                {"appl":"$appl"},
+                {"agency":"$agency"}]}}}
     ]
 
     if(req.query && req.query.quoteStatus){
