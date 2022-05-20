@@ -19,28 +19,26 @@ async function changePassword(req, res, next){
         return next(serverHelper.requestError('Missing New Password'));
     }
 
-    if(!req.authentication.resetRequired || !req.body.resetPwd) {
-        if(!req.body.oldPwd){
-            log.warn('Missing \'oldPwd\' from request body' + __location);
-            return next(serverHelper.requestError('Missing Old Password'));
-        }
-        let insurerPortalUser = null;
-        try {
-            insurerPortalUser = await authHelper.getUser(req.authentication.email);
-        }
-        catch {
-            log.error('Failed retrieving insurer portal user' + __location);
-            return next(serverHelper.internalError('Unable to Retrieve Insurer Portal User'));
-        }
-        if(!insurerPortalUser) {
-            log.warn('Insurer Portal User Not Found' + __location);
-            return next(serverHelper.notFoundError('Insurer Portal User Not Found'));
-        }
-        // Check the password
-        if (!crypt.verifyPassword(insurerPortalUser.password, req.body.oldPwd)) {
-            log.warn('Old Password does not match the current password' + __location);
-            return next(serverHelper.invalidCredentialsError('Wrong Old Password'));
-        }
+    if(!req.body.oldPwd){
+        log.warn('Missing \'oldPwd\' from request body' + __location);
+        return next(serverHelper.requestError('Missing Old Password'));
+    }
+    let insurerPortalUser = null;
+    try {
+        insurerPortalUser = await authHelper.getUser(req.authentication.email);
+    }
+    catch {
+        log.error('Failed retrieving insurer portal user' + __location);
+        return next(serverHelper.internalError('Unable to Retrieve Insurer Portal User'));
+    }
+    if(!insurerPortalUser) {
+        log.warn('Insurer Portal User Not Found' + __location);
+        return next(serverHelper.notFoundError('Insurer Portal User Not Found'));
+    }
+    // Check the password
+    if (!crypt.verifyPassword(insurerPortalUser.password, req.body.oldPwd)) {
+        log.warn('Old Password does not match the current password' + __location);
+        return next(serverHelper.invalidCredentialsError('Wrong Old Password'));
     }
 
     let password = '';

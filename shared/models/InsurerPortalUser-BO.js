@@ -563,7 +563,6 @@ module.exports = class InsurerPortalUserBO{
                 insurerPortalUserDoc = await this.getMongoDocbyUserId(id, null, getDoc);
                 if(insurerPortalUserDoc){
                     insurerPortalUserDoc.password = newHashedPassword;
-                    insurerPortalUserDoc.resetRequired = false;
                     await insurerPortalUserDoc.save();
                 }
                 else {

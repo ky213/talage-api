@@ -102,7 +102,6 @@ async function add(req, res, next) {
         'password',
         'email',
         'insurerPortalUserGroupId',
-        'resetRequired',
         'timezone',
         'insurerId'
     ];
@@ -161,7 +160,6 @@ async function update(req, res, next) {
         'email',
         'insurerPortalUserGroupId',
         'requireSet',
-        'resetRequired',
         'canSign',
         'timezone'
     ];
