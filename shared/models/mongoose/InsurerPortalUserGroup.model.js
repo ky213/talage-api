@@ -27,12 +27,12 @@ const PermissionRightsSchema = new Schema({
 
 const PermissionSchema = new Schema({
     agencies: PermissionRightsSchema,
-    analytics: PermissionRightsSchema,
     applications: PermissionRightsSchema,
     dashboard: PermissionRightsSchema,
-    executive: PermissionRightsSchema,
     settings: PermissionRightsSchema,
-    users: PermissionRightsSchema
+    users: PermissionRightsSchema,
+    winlossReport: PermissionRightsSchema,
+    globalUser: {type: Boolean, required: false, default: false}
 },{_id : false})
 
 const InsurerPortalUserGroupSchema = new Schema({

@@ -75,31 +75,6 @@ async function deleteApiKey(req) {
     return ApiKey.deleteApiKey(userId, req.query.apiKey);
 }
 
-/**
- * POST /authenticate route
- * @param {*} req req
- * @returns {*}
- */
-async function authenticateUser(req) {
-    const keyId = req.query.apiKey;
-
-    // If API Keys feature is not enabled, block user authentication
-    const isApiKeysEnabled = await ApiKey.isApiKeysEnabled(null, keyId);
-    if(!isApiKeysEnabled) {
-        return {status: 'Disabled'};
-    }
-
-    const auth = await ApiKey.authenticate(keyId, req.body.apiSecret);
-
-    if (!auth.isSuccess) {
-        return {status: 'failed'};
-    }
-    return {
-        status: 'Created',
-        token: auth.token
-    };
-}
-
 const wrapper = (func) => async(req, res, next) => {
     try {
         const out = await func(req);
@@ -112,13 +87,15 @@ const wrapper = (func) => async(req, res, next) => {
             return next(ex);
         }
         log.error("API server error: " + ex + __location);
+        //no raw error messages.  Potental security issues.
         res.send(500, ex);
     }
     next();
 };
 
 exports.registerEndpoint = (server, basePath) => {
-    server.addPost('API Key Login', `${basePath}/authenticate`, wrapper(authenticateUser));
+    // move to api/auth/keys
+    // server.addPost('API Key Login', `${basePath}/authenticate`, authenticateUser);
     server.addPostAuth('Create API Key List', basePath, wrapper(createApiKeySet));
     server.addGetAuth('API Key List', basePath, wrapper(getApiKeysForUser));
     server.addDeleteAuth('Delete API Key', basePath, wrapper(deleteApiKey));

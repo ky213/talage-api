@@ -19,25 +19,6 @@ async function validateJWT(req, permission, permissionType) {
         !req.authentication.insurerPortalUserGroupId) {
         return 'Invalid Token';
     }
-    // Verify if a valid user
-    let userDoc = null;
-    try {
-        const portalUserQueryOptions = {
-            _id: req.authentication.userMongoId,
-            insurerId: req.authentication.insurerId,
-            insurerPortalUserGroupId: req.authentication.insurerPortalUserGroupId
-        };
-        const InsurerPortalUserBO = global.requireShared('models/InsurerPortalUser-BO.js');
-        const insurerPortalUserBO = new InsurerPortalUserBO();
-        userDoc = await insurerPortalUserBO.getById(req.authentication.userId, portalUserQueryOptions);
-    }
-    catch (e) {
-        return 'Server Error'
-    }
-    if(!userDoc) {
-        return 'Access Denied';
-    }
-
     // Get Valid User Portal Groupd and verify the permission
     let userGroupDoc = null;
     try {
@@ -51,8 +32,29 @@ async function validateJWT(req, permission, permissionType) {
     if (!userGroupDoc) {
         return 'Access Denied';
     }
-    if (permission && !userGroupDoc.permissions[permission][permissionType]) {
+    if (permission && permissionType && (!userGroupDoc.permissions || !userGroupDoc.permissions[permission] || !userGroupDoc.permissions[permission][permissionType]) ||
+        permission && !permissionType && (!userGroupDoc.permissions || !userGroupDoc.permissions[permission])) {
         return 'User does not have the correct permissions';
+    }
+    // Verify if a valid user
+    let userDoc = null;
+    try {
+        const portalUserQueryOptions = {
+            _id: req.authentication.userMongoId,
+            insurerPortalUserGroupId: req.authentication.insurerPortalUserGroupId
+        };
+        if(!userGroupDoc?.permissions?.globalUser){
+            portalUserQueryOptions.insurerId = req.authentication.insurerId;
+        }
+        const InsurerPortalUserBO = global.requireShared('models/InsurerPortalUser-BO.js');
+        const insurerPortalUserBO = new InsurerPortalUserBO();
+        userDoc = await insurerPortalUserBO.getById(req.authentication.userId, portalUserQueryOptions);
+    }
+    catch (e) {
+        return 'Server Error'
+    }
+    if(!userDoc) {
+        return 'Access Denied';
     }
     const tokenExpiresAt = new Date(req.authentication.exp * 1000);
     const today = new Date();
