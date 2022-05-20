@@ -3,8 +3,6 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 const Quote = global.mongoose.Quote;
 
-const ROGER_HARD_CODED_CARRIER = 19;
-
 /**
  * Responds to get requests for an authorization token
  *
@@ -15,9 +13,11 @@ const ROGER_HARD_CODED_CARRIER = 19;
  * @returns {object} res - Returns an authorization token using username/password credentials
  */
 async function getDashboard(req, res, next){
+    const insurerId = parseInt(req.authentication.insurerId, 10);
+
     const monthlyCount = await Quote.aggregate([
         {$match: {
-            insurerId: ROGER_HARD_CODED_CARRIER,
+            insurerId: insurerId,
             createdAt: {$gte: new Date("2021-01-01T00:08:00.000Z")}
         }},
         {$project: {
@@ -50,7 +50,7 @@ async function getDashboard(req, res, next){
 
     const appsByState = await Quote.aggregate([
         {$match: {
-            insurerId: ROGER_HARD_CODED_CARRIER,
+            insurerId: insurerId,
             createdAt: {$gte: new Date("2021-01-01T00:08:00.000Z")}
         }},
         {$lookup:
@@ -68,7 +68,7 @@ async function getDashboard(req, res, next){
 
     const classCodes = await Quote.aggregate([
         {$match: {
-            insurerId: ROGER_HARD_CODED_CARRIER,
+            insurerId: insurerId,
             createdAt: {$gte: new Date("2021-01-01T00:08:00.000Z")}
         }},
         {$lookup:
@@ -87,7 +87,7 @@ async function getDashboard(req, res, next){
 
     const totalApplications = await Quote.aggregate([
         {$match: {
-            insurerId: ROGER_HARD_CODED_CARRIER,
+            insurerId: insurerId,
             createdAt: {$gte: new Date("2021-01-01T00:08:00.000Z")}
         }},
         {$lookup:
@@ -104,7 +104,7 @@ async function getDashboard(req, res, next){
     const getQuoteAmount = (quoteStatusId) => Quote.aggregate([
         {$match: {
             quoteStatusId: quoteStatusId,
-            insurerId: ROGER_HARD_CODED_CARRIER,
+            insurerId: insurerId,
             createdAt: {$gte: new Date("2021-01-01T00:08:00.000Z")}
         }},
         {$lookup:
