@@ -186,13 +186,72 @@ const getDailyTrendsQuotedPremium = async(where) => {
 }
 ///*****  END Quoted Premium *******/
 
-///*****  Bind Premium from Quotes *******/
+///*****  request to Bind Premium from Quotes *******/
+const getMonthlyTrendsRequestBoundPremium = async(where) => {
+    const monthlyTrends = await Quote.aggregate([
+        {$match: where},
+        {$project: {
+            creationMonth: {$month: {date: '$updatedAt', timezone: "America/Los_Angeles"}},
+            creationYear: {$year: {date: '$updatedAt', timezone: "America/Los_Angeles"}},
+            "amount": 1
+        }},
+        {$group: {
+            _id: {
+                month: '$creationMonth',
+                year: '$creationYear'
+            },
+            premium: {$sum: '$amount'}
+        }},
+        {$sort: {
+            '_id.year': 1,
+            '_id.month': 1
+        }}
+    ]);
+
+    return monthlyTrends.map(t => [
+        moment(t._id.month, 'M').format('MMMM'), t.premium
+    ]);
+}
+
+
+const getDailyTrendsRequestBoundPremium = async(where) => {
+    const monthlyTrends = await Quote.aggregate([
+        {$match: where},
+        {$project: {
+            creationDay: {$dayOfMonth: {date: '$updatedAt', timezone: "America/Los_Angeles"}},
+            creationMonth: {$month: {date: '$updatedAt', timezone: "America/Los_Angeles"}},
+            creationYear: {$year: {date: '$updatedAt', timezone: "America/Los_Angeles"}},
+            "amount": 1
+        }},
+        {$group: {
+            _id: {
+                day: '$creationDay',
+                month: '$creationMonth',
+                year: '$creationYear'
+            },
+            premium: {$sum: '$amount'}
+        }},
+        {$sort: {
+            '_id.year': 1,
+            '_id.month': 1,
+            '_id.day': 1
+        }}
+    ]);
+
+    return monthlyTrends.map(t => [
+        moment(`${t._id.year}-${t._id.month}-${t._id.day}`, 'Y-M-D').format('M-D'), t.premium
+    ]);
+}
+///*****  END Request bind Quoted Premium *******/
+
+
+///*****  Bound Premium from Quotes *******/
 const getMonthlyTrendsBoundPremium = async(where) => {
     const monthlyTrends = await Quote.aggregate([
         {$match: where},
         {$project: {
-            creationMonth: {$month: {date: '$createdAt', timezone: "America/Los_Angeles"}},
-            creationYear: {$year: {date: '$createdAt', timezone: "America/Los_Angeles"}},
+            creationMonth: {$month: {date: '$boundDate', timezone: "America/Los_Angeles"}},
+            creationYear: {$year: {date: '$boundDate', timezone: "America/Los_Angeles"}},
             "amount": 1
         }},
         {$group: {
@@ -218,9 +277,9 @@ const getDailyTrendsBoundPremium = async(where) => {
     const monthlyTrends = await Quote.aggregate([
         {$match: where},
         {$project: {
-            creationDay: {$dayOfMonth: {date: '$createdAt', timezone: "America/Los_Angeles"}},
-            creationMonth: {$month: {date: '$createdAt', timezone: "America/Los_Angeles"}},
-            creationYear: {$year: {date: '$createdAt', timezone: "America/Los_Angeles"}},
+            creationDay: {$dayOfMonth: {date: '$boundDate', timezone: "America/Los_Angeles"}},
+            creationMonth: {$month: {date: '$boundDate', timezone: "America/Los_Angeles"}},
+            creationYear: {$year: {date: '$boundDate', timezone: "America/Los_Angeles"}},
             "amount": 1
         }},
         {$group: {
@@ -778,7 +837,7 @@ async function getReports(req) {
 
             //requested premium
             where.quoteStatusId = {$gte: 60}
-            returnDataJson.trendDataRequestedPremium = monthlyTrend ? await getMonthlyTrendsBoundPremium(where) : await getDailyTrendsBoundPremium(where);
+            returnDataJson.trendDataRequestedPremium = monthlyTrend ? await getMonthlyTrendsRequestBoundPremium(where) : await getDailyTrendsRequestBoundPremium(where);
 
             //Confirmed Bound
             where.quoteStatusId = {$gte: 100}
