@@ -37,8 +37,13 @@ async function getUniqueQuotes(req, res, next){
             }},
         {$project:
             {
-                "appl.questions": 0,
-                "appl.locations": 0
+                "appl.applicationId": 1,
+                "appl.agencyId": 1,
+                "appl.status": 1,
+                "appl.policies": 1,
+                "appl.mailingState": 1,
+                "appl.updatedAt": 1,
+                "appl.createdAt": 1
             }},
         {$lookup:
             {
@@ -46,6 +51,13 @@ async function getUniqueQuotes(req, res, next){
                 localField: "appl.agencyId",
                 foreignField: "systemId",
                 as: "agency"
+            }},
+        {$project:
+            {
+                "agency._id": 0,
+                "agency.additionalInfo": 0,
+                "agency.mysqlId": 0,
+                "agency.systemId": 0
             }},
         {$unwind:
             {path: "$appl"}},
