@@ -284,11 +284,15 @@ module.exports = class AMTrustWC extends Integration {
         let credentials = null;
         try {
             credentials = JSON.parse(this.password);
-            if(this.app.agencyLocation.insurers[this.insurer.id].agencyCred3?.trim().indexOf(",") > 20){
-                const clientInfo = this.app.agencyLocation.insurers[this.insurer.id].agencyCred3.split(',')
-                if(clientInfo.length > 1){
-                    credentials.clientId = clientInfo[0].trim();
-                    credentials.clientSecret = clientInfo[1].trim();
+
+            if(appDoc.agencyNetworkId > 0){
+                const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO');
+                const agencyNetworkBO = new AgencyNetworkBO();
+                const agencyNetworkDoc = await agencyNetworkBO.getById(appDoc.agencyNetworkId)
+                if(agencyNetworkDoc?.additionalInfo?.amtrustClientId && agencyNetworkDoc?.additionalInfo?.amtrustClientSecret){
+                    credentials.clientId = agencyNetworkDoc.additionalInfo.amtrustClientId;
+                    credentials.clientSecret = agencyNetworkDoc.additionalInfo.amtrustClientSecret;
+                    log.debug('AMTRUST using agency network ClientId')
                 }
             }
         }
@@ -622,11 +626,14 @@ module.exports = class AMTrustWC extends Integration {
         let credentials = null;
         try {
             credentials = JSON.parse(this.password);
-            if(this.app.agencyLocation.insurers[this.insurer.id].agencyCred3?.trim().indexOf(",") > 20){
-                const clientInfo = this.app.agencyLocation.insurers[this.insurer.id].agencyCred3.split(',')
-                if(clientInfo.length > 1){
-                    credentials.clientId = clientInfo[0].trim();
-                    credentials.clientSecret = clientInfo[1].trim();
+            if(appDoc.agencyNetworkId > 0){
+                const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO');
+                const agencyNetworkBO = new AgencyNetworkBO();
+                const agencyNetworkDoc = await agencyNetworkBO.getById(appDoc.agencyNetworkId)
+                if(agencyNetworkDoc?.additionalInfo?.amtrustClientId && agencyNetworkDoc?.additionalInfo?.amtrustClientSecret){
+                    credentials.clientId = agencyNetworkDoc?.additionalInfo?.amtrustClientId;
+                    credentials.clientSecret = agencyNetworkDoc?.additionalInfo?.amtrustClientSecret;
+                    log.debug('AMTRUST using agency network ClientId')
                 }
             }
         }

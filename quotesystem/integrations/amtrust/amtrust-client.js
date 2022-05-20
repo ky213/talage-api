@@ -66,6 +66,7 @@ async function authorize(clientId, clientSecret, username, password, mulesoftSub
         // ,
         // undefined: ""
     };
+    log.debug(`Amtrust auth \n ${JSON.stringify(requestData)}`)
     const requestDataString = queryString.stringify(requestData);
 
     const requestOptions = {headers: {"Content-type": "application/x-www-form-urlencoded"}}

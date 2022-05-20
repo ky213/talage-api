@@ -17,11 +17,14 @@ class AmTrustBind extends Bind {
         let credentials = null;
         try {
             credentials = JSON.parse(await this.insurer.get_password());
-            if(alInsurer.agencyCred3?.trim().indexOf(",") > 20){
-                const clientInfo = alInsurer.agencyCred3.split(',')
-                if(clientInfo.length > 1){
-                    credentials.clientId = clientInfo[0].trim();
-                    credentials.clientSecret = clientInfo[1].trim();
+            if(this.quote.agencyNetworkId > 0){
+                const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO');
+                const agencyNetworkBO = new AgencyNetworkBO();
+                const agencyNetworkDoc = await agencyNetworkBO.getById(this.quote.agencyNetworkId)
+                if(agencyNetworkDoc?.additionalInfo?.amtrustClientId && agencyNetworkDoc?.additionalInfo?.amtrustClientSecret){
+                    credentials.clientId = agencyNetworkDoc.additionalInfo.amtrustClientId;
+                    credentials.clientSecret = agencyNetworkDoc.additionalInfo.amtrustClientSecret;
+                    log.debug('AMTRUST using agency network ClientId')
                 }
             }
         }
