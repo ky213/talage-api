@@ -320,23 +320,57 @@ module.exports = class QuoteBind{
             return;
         }
 
-        const agencyBO = new AgencyBO();
-        // Load the request data into it
-        try {
-            this.agencyJSON = await agencyBO.getById(this.applicationDoc.agencyId)
-        }
-        catch (err) {
-            log.error("Agency load for bind error " + err + __location);
-            return;
-        }
+        let quoteAgencyId = this.applicationDoc.agencyId;
         //for API credentials.
         //load agencyLocation
         try {
             const agencyLocationBO = new AgencyLocationBO()
             this.agencyLocation = await agencyLocationBO.getById(this.applicationDoc.agencyLocationId)
+            //TODO process wholesale setups.
+            if(this.agencyLocation.useAgencyPrime){
+                this.agencyLocation = await this.getPrimaryAgencyAndLocation(quoteAgencyId)
+                quoteAgencyId = this.agencyLocation.agencyId;
+            }
+            const alInsurer = this.agencyLocation.insurers.find((ali) => ali.insurerId === this.quoteDoc.insurerId)
+            if(alInsurer){
+                if(alInsurer.useAgencyPrime){
+                    const agencyPrimeLocationDB = await agencyLocationBO.getAgencyPrimeLocation(this.quoteDoc.agencyNetworkId);
+                    const wholesaleInsurer = agencyPrimeLocationDB.insurers.find((ali) => ali.insurerId === this.quoteDoc.insurerId)
+                    alInsurer.agency_id = wholesaleInsurer.agencyId;
+                    alInsurer.agencyId = wholesaleInsurer.agencyId;
+                    alInsurer.agencyCred3 = wholesaleInsurer.agencyCred3;
+                    alInsurer.talageWholesale = wholesaleInsurer.talageWholesale;
+                    quoteAgencyId = wholesaleInsurer.agencyId;
+                }
+
+                if(alInsurer.talageWholesale){
+                    const talageAgencyLocationSystemId = 1;
+                    const getChildren = true;
+                    const talageWholesaleAgencyLocationDB = await agencyLocationBO.getById(talageAgencyLocationSystemId, getChildren);
+                    const wholesaleInsurer = talageWholesaleAgencyLocationDB.insurers.find((ali) => ali.insurerId === this.quoteDoc.insurerId)
+                    if(wholesaleInsurer){
+                        alInsurer.agency_id = wholesaleInsurer.agencyId;
+                        alInsurer.agencyId = wholesaleInsurer.agencyId;
+                        alInsurer.agencyCred3 = wholesaleInsurer.agencyCred3;
+                        quoteAgencyId = 1;
+                    }
+                }
+            }
+
+
         }
         catch (err) {
             log.error("Agency Location load for bind error " + err + __location);
+            return;
+        }
+
+        const agencyBO = new AgencyBO();
+        // Load the request data into it
+        try {
+            this.agencyJSON = await agencyBO.getById(quoteAgencyId)
+        }
+        catch (err) {
+            log.error("Agency load for bind error " + err + __location);
             return;
         }
 
@@ -349,6 +383,55 @@ module.exports = class QuoteBind{
             log.error("Insurer load for bind error " + err + __location);
             throw err;
         }
+    }
+
+    async getPrimaryAgencyAndLocation(agencyId){
+        const responseObj = {};
+        try{
+            const agencyBO = new AgencyBO();
+            let agencyNetworkId = 0;
+            const agencyJSON = await agencyBO.getById(agencyId);
+            if(agencyJSON){
+                responseObj.agencyJSON = agencyJSON
+                agencyNetworkId = agencyJSON.agencyNetworkId;
+            }
+            else {
+                log.error(`getPrimaryAgencyAndLocation: Could not find secondary agency ${agencyId}` + __location)
+            }
+            const agencyLocationBO = new AgencyLocationBO();
+            if(agencyNetworkId > 0){
+                //Get newtorks prime agency.
+                const queryAgency = {
+                    "agencyNetworkId": agencyNetworkId,
+                    "primaryAgency": true
+                }
+                const agencyList = await agencyBO.getList(queryAgency);
+                if(agencyList && agencyList.length > 0){
+                    const agencyPrime = agencyList[0];
+                    //get agency's prime location
+                    // return prime location's insurers.
+                    const returnChildren = true;
+                    const agencyLocationPrime = await agencyLocationBO.getByAgencyPrimary(agencyPrime.systemId, returnChildren);
+                    if(agencyLocationPrime){
+                        responseObj.agencyLocationJSON = agencyLocationPrime
+                    }
+                    else {
+                        log.error(`Agency Prime id ${agencyPrime.systemId} as no insurers ` + __location)
+                    }
+                }
+                else {
+                    log.error(`No Agency Prime for secondary agency ${agencyId}  agencyNetworkId ${agencyNetworkId}` + __location)
+                }
+
+            }
+            else {
+                log.error(`getPrimaryAgencyAndLocation: No agency Network ${agencyNetworkId} for secondary agency ${agencyId}` + __location)
+            }
+        }
+        catch(err){
+            log.error(`Error getting AgencyPrime's insurers secondary agency ${agencyId} ` + err + __location);
+        }
+        return responseObj;
     }
 
     /**

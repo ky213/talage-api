@@ -391,6 +391,7 @@ const getAgencyList = async(where,req, nameAndIdOnly = false) => {
                     agencyId: -9999,
                     name: "Global View"
                 }
+                const channelList = [];
                 agencyDisplayList.push(displayJSON);
                 // add agency networks. no wheelhouse.
                 const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO');
@@ -402,6 +403,17 @@ const getAgencyList = async(where,req, nameAndIdOnly = false) => {
                         name: agencyNetworkDoc.name
                     }
                     agencyDisplayList.push(anJSON);
+                    const inList = channelList.find((cl) => cl.name === agencyNetworkDoc?.marketingChannel);
+                    if(!inList && agencyNetworkDoc.marketingChannel?.trim()){
+                        const mcJSON = {
+                            agencyId: parseInt(agencyNetworkDoc.agencyNetworkId, 10) * -1 - 10000,
+                            name: agencyNetworkDoc.marketingChannel
+                        }
+                        channelList.push(mcJSON)
+                    }
+                }
+                for(const mc of channelList){
+                    agencyDisplayList.push(mc);
                 }
 
             }
@@ -601,7 +613,7 @@ async function getReports(req) {
             else {
                 const agencyBO = new AgencyBO();
                 const donotReportQuery = {doNotReport: true };
-                if(req.query.agencyid === "-9999" || agencyId === 4){
+                if(req.query.agencyid === "-9999" || parseInt(req.query.agencyid,10) < -9999 || agencyId === 4){
                     donotReportQuery.systemId = {$ne: 209}
                 }
                 const noReportAgencyList = await agencyBO.getList(donotReportQuery);
@@ -626,6 +638,23 @@ async function getReports(req) {
                         if(req.query.agencyid === "-9999"){
                             if(where.agencyNetworkId){
                                 delete where.agencyNetworkId;
+                            }
+                        }
+                        else if(parseInt(req.query.agencyid,10) < -9999){
+                            const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO');
+                            const agencyNetworkBO = new AgencyNetworkBO();
+                            const agencyNetworkIdMC = parseInt(req.query.agencyid, 10) * -1 - 10000;
+                            const agencyNetworkDoc = await agencyNetworkBO.getById(agencyNetworkIdMC);
+                            if(agencyNetworkDoc){
+                                const agencyNetorkIdList = [];
+                                const agencyNetworkList = await agencyNetworkBO.getList({marketingChannel: agencyNetworkDoc.marketingChannel });
+                                for(const agencyNetworkJson of agencyNetworkList){
+                                    agencyNetorkIdList.push(agencyNetworkJson.agencyNetworkId)
+                                }
+                                where.agencyNetworkId = {$in: agencyNetorkIdList}
+                            }
+                            else {
+                                where.agencyNetworkId = -999
                             }
                         }
                         else {
