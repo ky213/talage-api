@@ -72,7 +72,6 @@ async function createToken(email, insurerId) {
         firstLogin: Boolean(insurerPortalUserDBJson.lastLogin),
         insurerId: insurerId,
         permissions: insurerPortalUserDBJson.permissions,
-        resetRequired: Boolean(insurerPortalUserDBJson.resetRequired),
         userId: insurerPortalUserDBJson.insurerPortalUserId,
         userMongoId: insurerPortalUserDBJson.id,
         firstName: insurerPortalUserDBJson.firstName,

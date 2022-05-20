@@ -39,7 +39,6 @@ const InsurerPortalUserSchema = new Schema({
     logo: {type: String, required: false},
     tableOptions: {type: tableOptionsSchema},
     canSign: {type: Boolean, default: false},
-    resetRequired: {type: Boolean, default: false},
     lastLogin: {type: Date},
     timezoneId: {type: Number, required: false, default: 0},
     timezoneName: {type: String, required: false},

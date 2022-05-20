@@ -284,6 +284,13 @@ module.exports = class AMTrustWC extends Integration {
         let credentials = null;
         try {
             credentials = JSON.parse(this.password);
+            if(this.app.agencyLocation.insurers[this.insurer.id].agencyCred3?.trim().indexOf(",") > 20){
+                const clientInfo = this.app.agencyLocation.insurers[this.insurer.id].agencyCred3.split(',')
+                if(clientInfo.length > 1){
+                    credentials.clientId = clientInfo[0].trim();
+                    credentials.clientSecret = clientInfo[1].trim();
+                }
+            }
         }
         catch (error) {
             log.error(`Could not load AmTrust API credentials ${error}` + __location);
@@ -615,6 +622,13 @@ module.exports = class AMTrustWC extends Integration {
         let credentials = null;
         try {
             credentials = JSON.parse(this.password);
+            if(this.app.agencyLocation.insurers[this.insurer.id].agencyCred3?.trim().indexOf(",") > 20){
+                const clientInfo = this.app.agencyLocation.insurers[this.insurer.id].agencyCred3.split(',')
+                if(clientInfo.length > 1){
+                    credentials.clientId = clientInfo[0].trim();
+                    credentials.clientSecret = clientInfo[1].trim();
+                }
+            }
         }
         catch (error) {
             return this.client_error("Could not load AmTrust API credentials", __location);
