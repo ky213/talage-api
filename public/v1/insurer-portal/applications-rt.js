@@ -1,19 +1,11 @@
-const QuoteBO = require("../../../shared/models/Quote-BO");
-
+// eslint-disable-next-line no-unused-vars
 const serverHelper = global.requireRootPath('server.js');
-
-const ApplicationMongooseModel = global.mongoose.Application;
+// const ApplicationMongooseModel = global.mongoose.Application;
 // const QuoteMongooseModel = global.mongoose.Quote;
-// const Quote =global.mongoose.Quote;
-// const ActivityCode = global.mongoose.ActivityCode;
-
-// const InsurerIndustryCodeModel = global.mongoose.InsurerIndustryCode;
-
-const ApplicationBO = global.requireShared('./models/Application-BO.js');
-const AgencyBO = global.requireShared('./models/Agency-BO.js');
+const Quote = global.mongoose.Quote;
 
 /**
- * Responds to get requests for the applications endpoint
+ * Responds to get unique quotes for current insurer id the application page
  *
  * @param {object} req - HTTP request object
  * @param {object} res - HTTP response object
@@ -21,51 +13,63 @@ const AgencyBO = global.requireShared('./models/Agency-BO.js');
  *
  * @returns {void}
  */
-async function getApplications(req, res, next){
-    const applicationBO = new ApplicationBO();
-    const quoteBO = new QuoteBO();
-    const quoteDocs = await quoteBO.getList({insurerId: req.authentication.insurerId});
-    let appDocs = null;
-    try {
-        appDocs = await applicationBO.getAppListForAgencyPortalSearch({applicationId: {$in: quoteDocs.map(t => t.applicationId)}});
-    }
-    catch (err) {
-        log.error('Application Docs-2 error lookup' + err + __location);
-        return next(serverHelper.requestError('Bad Request: Invalid Query'));
+async function getUniqueQuotes(req, res, next){
+    const agrQuery = [
+        {$match:
+            {
+                insurerId: req.authentication.insurerId,
+                createdAt: {$gte: new Date("2022-01-01T00:08:00.000Z")}
+            }},
+        {$group:
+            {_id:
+                {
+                    applicationId : "$applicationId",
+                    amount : "$amount",
+                    quoteStatus: "$quoteStatusDescription",
+                    quoteNumber: "$quoteNumber"
+                }}},
+        {$lookup:
+            {
+                from : "applications",
+                localField : "_id.applicationId",
+                foreignField : "applicationId",
+                as : "appl"
+            }},
+        {$project:
+            {
+                "appl.questions": 0,
+                "appl.locations": 0
+            }},
+        {$lookup:
+            {
+                from: "agencies",
+                localField: "appl.agencyId",
+                foreignField: "systemId",
+                as: "agency"
+            }},
+        {$unwind:
+            {path: "$appl"}},
+        {$unwind:
+            {path: "$appl.policies"}},
+        {$unwind:
+            {path: "$agency"}}
+    ]
+
+    if(req.query && req.query.quoteStatus){
+        agrQuery[0].$match.quoteStatusDescription = {$in: req.query.quoteStatus}
     }
 
     try {
-        const appList = [];
-        const agencyBO = new AgencyBO();
-
-        for(const appDoc of appDocs) {
-            const appx = await agencyBO.getById(appDoc.agencyId)
-            appDoc.agencyOwnerName = appx.firstName + ' ' + appx.lastName;
-            appDoc.agencyOwnerEmail = appx.email;
-            if(appx.phone){
-                appDoc.agencyPhone = appx.phone;
-            }
-            else{
-                appDoc.agencyPhone = '';
-            }
-            if(appDoc.metrics && appDoc.metrics.appValue){
-                appDoc.appValue = appDoc.metrics.appValue;
-            }
-            else {
-                appDoc.appValue = 0;
-            }
-            appList.push(appDoc);
-        }
-        res.send(200, appList)
+        const insurerUniqueQuotes = await Quote.aggregate(agrQuery);
+        res.send(200, insurerUniqueQuotes);
     }
-    catch (err){
-        log.error('Application finding Agency ' + err + __location);
+    catch(err){
+        log.error('Unique Quote Error ' + err + __location);
     }
     return next();
 }
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
-    server.addGetInsurerPortalAuth('Get Applications by InsurerId', `${basePath}/applications`, getApplications, 'applications', 'view');
-    // server.addPost('Get Applications by InsurerId', `${basePath}/applications`, getApplications);
+    server.addGetInsurerPortalAuth('Get Unique Quotes by InsurerId', `${basePath}/applications/getuniquequotes`, getUniqueQuotes, 'applications', 'view');
 };
