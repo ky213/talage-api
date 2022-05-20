@@ -1339,7 +1339,6 @@ module.exports = class AgencyBO {
             email: 1,
             phone: 1
         };
-        // TODO: Enable Pagination (After the decision of denormalizing / aggregating)
         const queryOptions = {sort: {
             active: -1,
             name: 1
@@ -1354,11 +1353,7 @@ module.exports = class AgencyBO {
                     fullName: `${agency.firstName} ${agency.lastName}`,
                     agencyNetworkName: agencyNetworkList.find(agencyNetwork => agencyNetwork.systemId === agency.agencyNetworkId).name
                 }));
-            const count = await AgencyModel.countDocuments(query);
-            return {
-                count: count,
-                rows: mongoUtils.objListCleanup(docList)
-            }
+            return mongoUtils.objListCleanup(docList);
         }
         catch (err) {
             log.error("Error getting Agency List " + err + __location);

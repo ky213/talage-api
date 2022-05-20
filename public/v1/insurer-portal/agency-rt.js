@@ -34,14 +34,12 @@ async function getAgencies(req, res, next){
     }
     const insurerId = req.authentication.insurerId;
     let agenciesList = [];
-    let agenciesCount = 0;
     let quoteList = [];
     let appsList = [];
     try {
         const agencyBO = new AgencyBO();
         const agencyListResponse = await agencyBO.getListByInsurerId({}, insurerId);
-        agenciesList = agencyListResponse.rows;
-        agenciesCount = agencyListResponse.count;
+        agenciesList = agencyListResponse;
         const appsQuery = {
             agencyId: {$in: agenciesList.map(a => a.systemId)},
             createdAt: {
@@ -96,7 +94,7 @@ async function getAgencies(req, res, next){
     });
     res.send(200, {
         rows: agenciesList,
-        count: agenciesCount
+        count: agenciesList.length
     });
     return next();
 }
