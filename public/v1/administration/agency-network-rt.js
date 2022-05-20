@@ -56,6 +56,10 @@ async function findOne(req, res, next) {
     }
     // Send back a success response
     if (objectJSON) {
+        //update old agency network documents.
+        if (!Object.prototype.hasOwnProperty.call(objectJSON.landing_page_content, 'showFaq')) {
+            objectJSON.landing_page_content.showFaq = true;
+        }
         // log.debug(`Agency Network returned: ${JSON.stringify(objectJSON)}` + __location)
         res.send(200, objectJSON);
         return next();

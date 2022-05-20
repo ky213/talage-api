@@ -16,6 +16,33 @@ const tracker = global.requireShared('./helpers/tracker.js');
 const opts = {toJSON: {virtuals: true}};
 const optsNoId = {toJSON: {virtuals: true},id: false, _id: false};
 
+
+const faqSchema = new Schema({
+    question: {type: String, required: false, default: ""},
+    answer: {type: String, required: false, default: ""}
+
+}, optsNoId);
+
+const landingPageSchema = new Schema({
+    bannerHeadingDefault: {type: String, required: false, default: ""},
+    showFaq:{type: Boolean, required: false, default: true},
+    faq: [faqSchema],
+    meta: {
+        title: {type: String, required: false, default: ""},
+        description: {type: String, required: false, default: ""}
+    },
+    workflow: {
+        heading: {type: String, required: false, default: ""},
+        section1Heading: {type: String, required: false, default: ""},
+        section1Content: {type: String, required: false, default: ""},
+        section2Heading: {type: String, required: false, default: ""},
+        section2Content: {type: String, required: false, default: ""},
+        section3Heading: {type: String, required: false, default: ""},
+        section3Content: {type: String, required: false, default: ""},
+        subtext: {type: String, required: false, default: ""}
+    }
+}, optsNoId)
+
 const startAndEndThresholdsSchema = new Schema({
     start: {type: Number, required: true, default: 1},
     end: {type: Number, required: true, default: 90}
@@ -100,7 +127,7 @@ const AgencyNetworkSchema = new Schema({
     fname: {type: String, required: false},
     lname: {type: String, required: false},
     help_text: {type: String, required: false},
-    landing_page_content: {type: Schema.Types.Mixed},
+    landing_page_content: {type: landingPageSchema},
     custom_emails: {type: Schema.Types.Mixed},
     phone: {type: String, required: false},
     quoteAppCustomRouting: {type: Object, required: false},
