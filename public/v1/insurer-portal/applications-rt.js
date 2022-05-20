@@ -169,6 +169,7 @@ async function getApplications(req, res, next){
                     path : "$agency"
                 }
             },
+            {$sort: {"_id.updatedAt": -1}},
             { $limit: 500 },
         ]);
         res.send(200, insurerUniqueQuotes);
