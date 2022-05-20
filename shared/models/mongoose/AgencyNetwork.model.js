@@ -25,6 +25,7 @@ const faqSchema = new Schema({
 
 const landingPageSchema = new Schema({
     bannerHeadingDefault: {type: String, required: false, default: ""},
+    showFaq:{type: Boolean, required: false, default: true},
     faq: [faqSchema],
     meta: {
         title: {type: String, required: false, default: ""},
