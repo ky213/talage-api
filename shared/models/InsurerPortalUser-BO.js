@@ -66,8 +66,7 @@ module.exports = class InsurerPortalUserBO{
         if(!requestQueryJSON){
             requestQueryJSON = {};
         }
-        // eslint-disable-next-line prefer-const
-        let queryJSON = JSON.parse(JSON.stringify(requestQueryJSON));
+        const queryJSON = requestQueryJSON;
         const queryProjection = {
             "__v": 0,
             "_id": 0,
@@ -422,28 +421,6 @@ module.exports = class InsurerPortalUserBO{
         }
         else {
             throw new Error("Missing insurerId");
-        }
-    }
-
-    async activateById(id) {
-        //validate
-        if (id) {
-            try {
-                const getDoc = true;
-                const insurerPortalUserDoc = await this.getMongoDocbyUserId(id, null, getDoc, true);
-                insurerPortalUserDoc.active = true;
-                await insurerPortalUserDoc.save();
-            }
-            catch (err) {
-                log.error(`Error marking insurerPortalUserDoc from id ${id} ` + err + __location);
-                throw err;
-            }
-            return true;
-
-        }
-        else {
-            log.info(`no id supplied` + __location);
-            throw new Error('no id supplied');
         }
     }
 

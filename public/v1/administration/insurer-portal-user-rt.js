@@ -1,4 +1,5 @@
 const InsurerPortalUserBO = global.requireShared('./models/InsurerPortalUser-BO.js');
+const InsurerPortalUserGroupBO = global.requireShared('./models/InsurerPortalUserGroup-BO.js');
 const crypt = global.requireShared('./services/crypt.js');
 
 const serverHelper = global.requireRootPath('server.js');
@@ -13,7 +14,7 @@ async function findAll(req, res, next) {
     let rows = null;
     try {
         const insurerPortalUserBO = new InsurerPortalUserBO();
-        rows = await insurerPortalUserBO.getList(req.query, false, true);
+        rows = await insurerPortalUserBO.getList(req.query);
     }
     catch(err) {
         return next(err);
@@ -114,6 +115,19 @@ async function add(req, res, next) {
         }
     }
 
+    try {
+        const insurerPortalUserGroupBO = new InsurerPortalUserGroupBO();
+        const insurerPortalUserGroup = await insurerPortalUserGroupBO.getById(insertJSON.insurerPortalUserGroupId);
+        if(insurerPortalUserGroup.permissions?.globalUser && !/@talageins.com$/.test(insertJSON.email)) {
+            log.warn("Can't add non-talage email user as a global user " + __location);
+            return next(serverHelper.requestError('Non-talage email cannot be a global user'));
+        }
+    }
+    catch(err) {
+        log.error("insurerPortalUserBO load error " + err + __location);
+        return next(err);
+    }
+
     if(needToUpdate){
         const insurerPortalUserBO = new InsurerPortalUserBO();
         try {
@@ -173,6 +187,19 @@ async function update(req, res, next) {
         }
     }
 
+    try {
+        const insurerPortalUserGroupBO = new InsurerPortalUserGroupBO();
+        const insurerPortalUserGroup = await insurerPortalUserGroupBO.getById(updateJSON.insurerPortalUserGroupId);
+        if(insurerPortalUserGroup.permissions?.globalUser && !/@talageins.com$/.test(updateJSON.email)) {
+            log.warn("Can't add non-talage email user as a global user " + __location);
+            return next(serverHelper.requestError('Non-talage email cannot be a global user'));
+        }
+    }
+    catch(err) {
+        log.error("insurerPortalUserBO load error " + err + __location);
+        return next(err);
+    }
+
     if(needToUpdate){
         if(updateJSON.email){
             updateJSON.clear_email = req.body.email;
@@ -220,24 +247,6 @@ async function deleteUser(req, res, next) {
 
 }
 
-async function activateUser(req, res, next) {
-    const id = stringFunctions.santizeNumber(req.params.id, true);
-    if (!id) {
-        return next(new Error("bad parameter"));
-    }
-    const insurerPortalUserBO = new InsurerPortalUserBO();
-    try {
-        await insurerPortalUserBO.activateById(id);
-    }
-    catch(err) {
-        log.error("insurerPortalUserBO load error " + err + __location);
-        return next(err);
-    }
-    res.send(200, {"success": true});
-    return next();
-
-}
-
 exports.registerEndpoint = (server, basePath) => {
     server.addGetAuthAdmin('GET Insurer Portal Users list', `${basePath}/insurer-portal/user`, findAll, 'administration', 'all');
     server.addGetAuthAdmin('GET Insurer Portal User  Object', `${basePath}/insurer-portal/user/:id`, findOne, 'administration', 'all');
@@ -245,5 +254,4 @@ exports.registerEndpoint = (server, basePath) => {
     server.addPutAuthAdmin('PUT Insurer Portal User', `${basePath}/insurer-portal/user/:id`, update, 'administration', 'all');
     server.addPostAuthAdmin('POST Insurer Portal User', `${basePath}/insurer-portal/user`, add, 'administration', 'all');
     server.addDeleteAuthAdmin('DELETE Insurer Portal User', `${basePath}/insurer-portal/user/:id`, deleteUser, 'administration', 'all');
-    server.addPutAuthAdmin('PUT (Activate) Insurer Portal User', `${basePath}/insurer-portal/user/:id/activate`, activateUser, 'administration', 'all');
 };
