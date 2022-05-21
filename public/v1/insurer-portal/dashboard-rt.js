@@ -2,6 +2,7 @@
 const tracker = global.requireShared('./helpers/tracker.js');
 
 const Quote = global.mongoose.Quote;
+const moment = require('moment');
 
 /**
  * Responds to get requests for an authorization token
@@ -15,11 +16,53 @@ const Quote = global.mongoose.Quote;
 async function getDashboard(req, res, next){
     const insurerId = parseInt(req.authentication.insurerId, 10);
 
-    const monthlyCount = await Quote.aggregate([
-        {$match: {
-            insurerId: insurerId,
-            createdAt: {$gte: new Date("2021-01-01T00:08:00.000Z")}
+    const startDate = moment(req.query.startDate, 'YYYY/MM/DD').tz("America/Los_Angeles").startOf('day').toDate();
+    const endDate = moment(req.query.endDate, 'YYYY/MM/DD').tz("America/Los_Angeles").startOf('day').toDate();
+
+    const queryMatch = {
+        insurerId: insurerId,
+        createdAt: {
+            $gte: startDate,
+            $lte: endDate
+        }
+    };
+    if (req.query.amount) {
+        queryMatch.amount = {$gte: parseFloat(req.query.amount)}
+    }
+    if (req.query.status) {
+        switch (req.query.status) {
+            case 'Request to Bind':
+                queryMatch.quoteStatusId = {$gte: 60};
+                break;
+            case 'Bound':
+                queryMatch.quoteStatusId = {$gte: 100};
+                break;
+            case 'Quoted':
+            default:
+                queryMatch.quoteStatusId = {$gte: 40};
+                break;
+        }
+    }
+
+    // Carrier industry name needs to be returned.
+    const classCodes = await Quote.aggregate([
+        {$match: queryMatch},
+        {$lookup:
+        {
+            from: "applications",
+            localField: "applicationId",
+            foreignField: "applicationId",
+            as: "application"
         }},
+        {$group: {
+            _id: {industryCode: '$application.industryCode'},
+            amount: {$sum: '$amount'}
+        }},
+        {$replaceRoot: {newRoot: {$mergeObjects: [{"amount": "$amount"}, "$_id"]}}}
+    ]);
+
+    const monthlyCount = await Quote.aggregate([
+        {$match: queryMatch},
         {$project: {
             creationMonth: {$month: {
                 date: '$createdAt',
@@ -48,11 +91,9 @@ async function getDashboard(req, res, next){
                     [{"count": "$count"}, "$_id"]}}}
     ]);
 
+    // Application Premium per State
     const appsByState = await Quote.aggregate([
-        {$match: {
-            insurerId: insurerId,
-            createdAt: {$gte: new Date("2021-01-01T00:08:00.000Z")}
-        }},
+        {$match: queryMatch},
         {$lookup:
         {
             from: "applications",
@@ -61,35 +102,13 @@ async function getDashboard(req, res, next){
             as: "application"
         }},
         {$group: {
-            _id: {state: '$application.mailingState'},
+            _id: {state: '$application.primaryState'},
             amount: {$sum: '$amount'}
         }}
     ]);
 
-    const classCodes = await Quote.aggregate([
-        {$match: {
-            insurerId: insurerId,
-            createdAt: {$gte: new Date("2021-01-01T00:08:00.000Z")}
-        }},
-        {$lookup:
-        {
-            from: "applications",
-            localField: "applicationId",
-            foreignField: "applicationId",
-            as: "application"
-        }},
-        {$group: {
-            _id: {industryCode: '$application.industryCode'},
-            amount: {$sum: '$amount'}
-        }},
-        {$replaceRoot: {newRoot: {$mergeObjects: [{"amount": "$amount"}, "$_id"]}}}
-    ]);
-
     const totalApplications = await Quote.aggregate([
-        {$match: {
-            insurerId: insurerId,
-            createdAt: {$gte: new Date("2021-01-01T00:08:00.000Z")}
-        }},
+        {$match: queryMatch},
         {$lookup:
         {
             from: "applications",
@@ -102,11 +121,7 @@ async function getDashboard(req, res, next){
     ]);
 
     const getQuoteAmount = (quoteStatusId) => Quote.aggregate([
-        {$match: {
-            quoteStatusId: quoteStatusId,
-            insurerId: insurerId,
-            createdAt: {$gte: new Date("2021-01-01T00:08:00.000Z")}
-        }},
+        {$match: Object.assign({}, queryMatch, {quoteStatusId: {$gte: quoteStatusId}})},
         {$lookup:
         {
             from: "applications",
@@ -120,14 +135,14 @@ async function getDashboard(req, res, next){
         }}
     ]);
 
-    const premiumQuoted = await getQuoteAmount(50); //status === quoted
-    const premiumRequestBound = await getQuoteAmount(60); //status === quoted
-
+    const premiumQuoted = await getQuoteAmount(40); //status === quoted
+    const premiumRequestBound = await getQuoteAmount(60); //status === request bound
+    const premiumBound = await getQuoteAmount(100); //status === bound
 
     res.send({
         monthlyCount: monthlyCount,
         appsByState: appsByState.
-            filter(t => t.amount !== 0).
+            filter(t => t.amount !== 0 && t?._id?.state?.[0]).
             map(t => ({
                 state: t?._id?.state?.[0],
                 amount: t.amount
@@ -140,7 +155,8 @@ async function getDashboard(req, res, next){
             })),
         totalApplications: totalApplications?.[0]?.amount,
         premiumQuoted: premiumQuoted?.[0]?.totalAmount,
-        premiumRequestBound: premiumRequestBound?.[0]?.totalAmount
+        premiumRequestBound: premiumRequestBound?.[0]?.totalAmount,
+        premiumBound: premiumBound?.[0]?.totalAmount
     });
     next();
 }
