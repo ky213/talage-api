@@ -73,6 +73,7 @@ const AgencySchema = new Schema({
     active: {type: Boolean, default: true},
     tierId: {type: Number},
     tierName: {type: String},
+    enableTieredQuoting: {type: Boolean, default: false},
     appCount: {type: Number, default: 0},
     featureJson: {type: featureSchema, required: true, default: {enableAgencyCodeField: false, enableDailyApplicationEmail: false}}
 }, opts);

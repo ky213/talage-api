@@ -99,6 +99,8 @@ const featureSchema = new Schema({
     enableEmployersAutoAddForGhostPolicy: {type: Boolean, required: true, default: false},
     enableGhostPolicyAgencyPortalSelection: {type: Boolean, required: true, default: false},
     enableAcordOcr: {type: Boolean, required: true, default: false},
+    enableTieredQuoting: {type: Boolean, required: true, default: false},
+    enableTieredQuotingAgencyLevel: {type: Boolean, required: true, default: false},
     policyEffectiveDateThresholds:
     {
         type: policyEffectiveDateThresholdsSchema,
