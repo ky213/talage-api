@@ -307,10 +307,16 @@ module.exports = class AgencyLocation {
                     else if(!this.isPrimaryAgency && this.quotingAgencyLocationDB.agencyId > 1 && agencyInfo.enableTieredQuoting !== true) {
                         //reset everything to 1
                         log.debug(`QUOTING AGENCY LOCATION tiering resetting to 1` + __location)
+                        // eslint-disable-next-line guard-for-in
                         for(const ptCode in insurer.policyTypeInfo){
-                            //reset to tier 1 in case primary agency is not set.
-                            if(insurer.policyTypeInfo[ptCode]){
-                                insurer.policyTypeInfo[ptCode].quotingTierLevel = 1
+                            try{
+                                //reset to tier 1 in case primary agency is not set.
+                                if(typeof insurer.policyTypeInfo[ptCode] === "object"){
+                                    insurer.policyTypeInfo[ptCode].quotingTierLevel = 1
+                                }
+                            }
+                            catch(err){
+                                log.error(`Agency ${agencyLocation.agencyId} error setting up tiering insurerId ${insurer.insurerId} error: ${err}` + __location);
                             }
                         }
                     }
