@@ -14,7 +14,7 @@
 /* eslint multiline-comment-style: 0 */
 const axios = require('axios');
 const moment = require('moment');
-const {get, isArray} = require("lodash")
+const {get} = require("lodash")
 
 
 const Integration = require('../Integration.js');
@@ -961,53 +961,60 @@ module.exports = class CnaBOP extends Integration {
 
                         try {
                             // property limits
-                            const commlCoverage = get(response, "BOPLineBusiness.PropertyInfo.CommlPropertyInfo[0].CommlCoverage")
-                            
-                            if(commlCoverage && isArray(commlCoverage)){
-                                commlCoverage.forEach(propLim => {
-                                    const coverageCode = propLim.CoverageCd?.value;
-                                    const descriptionsMap = {
-                                    BLDG: "Building",
-                                    BPP: "Building Personal Property",
-                                    WH: "Wind / Hail",
-                                    GLASS: "Glass"
-                                    };
-                                    const description = descriptionsMap[coverageCode] || ''
+                            const propertyInfo = get(response, "BOPLineBusiness.PropertyInfo.CommlPropertyInfo") || []
 
-                                    if (propLim.Limit) {
-                                        const limit = get(propLim, "Limit[0].FormatInteger.value")
-                                        const newCoverage = {
-                                            description: description + " Limit",
-                                            value: convertToDollarFormat(limit, true),
-                                            sort: coverageSort++,
-                                            category: 'Property Limits',
-                                            insurerIdentifier: coverageCode
+                            propertyInfo.forEach((property) => {
+                                    const commlCoverage = get(property, "CommlCoverage") || []
+                                    const address = get(property, "LocationRef.Addr.Addr1.value")
+                                    const city = get(property, "LocationRef.Addr.City.value")
+                                    const state = get(property, "LocationRef.Addr.StateProvCd.value")
+                                    const zip = get(property, "LocationRef.Addr.PostalCode.value")
+                                
+                                    commlCoverage.forEach(propLim => {
+                                        const coverageCode = propLim.CoverageCd?.value;
+                                        const descriptionsMap = {
+                                        BLDG: "Building",
+                                        BPP: "Building Personal Property",
+                                        WH: "Wind / Hail",
+                                        GLASS: "Glass"
                                         };
-        
-                                        quoteCoverages.push(newCoverage);
-                                    }
+                                        const description = descriptionsMap[coverageCode] || ''
 
-                                    if (propLim.Deductible) {
-                                        const deductibleText = get(propLim, "Deductible[0].FormatText.value")
-                                        const deductibleValue = get(propLim, "Deductible[0].FormatInteger.value")
-                                        let value = null;
-
-                                        if (deductibleText === "Policy Level") {
-                                            value = "Policy Level";
+                                        if (propLim.Limit) {
+                                            const limit = get(propLim, "Limit[0].FormatInteger.value")
+                                            const newCoverage = {
+                                                description: description + " Limit",
+                                                value: convertToDollarFormat(limit, true),
+                                                sort: coverageSort++,
+                                                category: `Property Limits for ${address} ${city} ${state} ${zip}`,
+                                                insurerIdentifier: coverageCode
+                                            };
+            
+                                            quoteCoverages.push(newCoverage);
                                         }
 
-                                        const newCoverage = {
-                                            description: description + " Deductible",
-                                            value: value ? value : convertToDollarFormat(deductibleValue, true),
-                                            sort: coverageSort++,
-                                            category: 'Property Limits',
-                                            insurerIdentifier: coverageCode
-                                        };
-        
-                                        quoteCoverages.push(newCoverage);
-                                    }
-                                });
-                            }
+                                        if (propLim.Deductible) {
+                                            const deductibleText = get(propLim, "Deductible[0].FormatText.value")
+                                            const deductibleValue = get(propLim, "Deductible[0].FormatInteger.value")
+                                            let value = null;
+
+                                            if (deductibleText === "Policy Level") {
+                                                value = "Policy Level";
+                                            }
+
+                                            const newCoverage = {
+                                                description: description + " Deductible",
+                                                value: value ? value : convertToDollarFormat(deductibleValue, true),
+                                                sort: coverageSort++,
+                                                category: `Property Limits for ${address} ${city} ${state} ${zip}`,
+                                                insurerIdentifier: coverageCode
+                                            };
+            
+                                            quoteCoverages.push(newCoverage);
+                                        }
+                                    })
+                        })
+
                         }
                         catch (e) {
                             log.error(`${logPrefix}Couldn't parse one or more property limit values from the response: ${e}.` + __location);

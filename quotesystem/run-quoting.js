@@ -1,6 +1,7 @@
 const ApplicationBO = global.requireShared('./models/Application-BO.js');
 const moment = require('moment');
 const applicationStatus = global.requireShared('./models/status/applicationStatus.js');
+const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
 const QuoteBO = global.requireShared('./models/Quote-BO.js');
 
 
@@ -207,16 +208,23 @@ async function runPricing(app) {
  * @returns {void}
  */
 async function runQuoting(app) {
+    const integrationList = [];
+    const policyTypeQuotedStatus = {}
+    const policyTypeList = []
+
     // appStatusId > 70 is finished.(request to bind)
     if(app.applicationDocData.appStatusId >= 70){
         log.warn("An attempt to quote application that is finished.")
         throw new Error("Finished Application cannot be quoted")
     }
+    // need Agency Network Doc for tiering.
+    const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO');
+    const agencyNetworkBO = new AgencyNetworkBO();
+    const agencyNetworkDoc = await agencyNetworkBO.getById(app.applicationDocData.agencyNetworkId)
+
 
     // Generate quotes for each policy type
     const fs = require('fs');
-    const quote_promises = [];
-
     if(app.policies && app.policies.length === 0){
         log.error(`No policies for Application ${app.id} ` + __location)
     }
@@ -225,6 +233,10 @@ async function runQuoting(app) {
     const applicationBO = new ApplicationBO();
     await applicationBO.updateMongo(app.applicationDocData.uuid, {quotingStartedDate: moment.utc()});
     app.policies.forEach((policy) => {
+        if (!Object.prototype.hasOwnProperty.call(policyTypeQuotedStatus, policy.type)) {
+            policyTypeQuotedStatus[policy.type] = false;
+            policyTypeList.push(policy.type);
+        }
         // Generate quotes for each insurer for the given policy type
         app.insurers.forEach((insurer) => {
             let quoteInsurer = true;
@@ -272,7 +284,17 @@ async function runQuoting(app) {
                                     // Require the integration file and add the response to our promises
                                     const IntegrationClass = require(normalizedPath);
                                     const integration = new IntegrationClass(app, insurer, policy);
-                                    quote_promises.push(integration.quote());
+                                    //Determine Tier Level. Agency vs Wholesaler tier level is determined in
+                                    if(agencyNetworkDoc?.featureJson?.enableTieredQuoting && agency_location_insurer_data.quotingTierLevel){
+                                        integration.quoteTierLevel = agency_location_insurer_data.quotingTierLevel;
+                                        log.info(`RUN QUOTING Agency Network ${agencyNetworkDoc.agencyNetworkId} application ${app.id}  Setting to Tier to ${agency_location_insurer_data.quotingTierLevel} for  ${integration.insurer.name}` + __location)
+                                    }
+                                    else {
+                                        //No tiering
+                                        log.info(`RUN QUOTING Agency Network ${agencyNetworkDoc.agencyNetworkId} application ${app.id}  Default to Tier 1 for ${integration.insurer.name}` + __location)
+                                        integration.quoteTierLevel = 1;
+                                    }
+                                    integrationList.push(integration)
                                 }
                                 else {
                                     log.error(`Database and Implementation mismatch: Integration confirmed in the database but implementation file was not found. Agency location ID: ${app.agencyLocation.id} insurer ${insurer.name} policyType ${policy.type} slug: ${slug} path: ${normalizedPath} app ${app.id} ` + __location);
@@ -297,28 +319,54 @@ async function runQuoting(app) {
         });
     });
 
-    // Wait for all quotes to finish
-    let quoteIDs = null;
-    try {
-        quoteIDs = await Promise.all(quote_promises);
-    }
-    catch (error) {
-        log.error(`Quoting did not complete successfully for application ${app.id}: ${error} ${__location}`);
-        return;
-    }
+    //loop their quoting tiers
+    let tierLevel = 0
+    let stillQuoting = true;
+    do{
+        tierLevel++;
+        //integrations quoting this tier
+        const tierIntegrationList = []
+        const quote_promises = [];
+        // Wait for all quotes to finish
+        for(const integration of integrationList){
+            if(integration.quoteTierLevel === tierLevel && policyTypeQuotedStatus[integration.policy.type] === false){
+                tierIntegrationList.push(integration)
+                quote_promises.push(integration.quote());
+            }
+        }
+        if(tierIntegrationList.length === 0){
+            stillQuoting = false;
+        }
 
-    //log.info(`${quoteIDs.length} quotes returned for application ${app.id}`);
+        if(stillQuoting){
+            log.info(`RUN QUOTING Agency Network ${agencyNetworkDoc.agencyNetworkId} application ${app.id} quoting tier ${tierLevel}` + __location)
+            let quoteIDs = null;
+            try {
+                quoteIDs = await Promise.all(quote_promises);
+                log.info(`RUN QUOTING Agency Network ${agencyNetworkDoc.agencyNetworkId} application ${app.id} quoting tier ${tierLevel} processed ${quoteIDs.length} quote attempts` + __location)
+            }
+            catch (error) {
+                log.error(`Quoting did not complete successfully for application ${app.id}: ${error} ${__location}`);
+                //return;
+            }
+            for(const integration of tierIntegrationList){
+                if(integration.quoteStatusId > quoteStatus.referred.id || integration.amount > 0){
+                    log.info(`RUN QUOTING Agency Network ${agencyNetworkDoc.agencyNetworkId} application ${app.id} got ${integration.policy.type} quote from ${integration.insurer.name} in quoting tier ${tierLevel}` + __location)
+                    policyTypeQuotedStatus[integration.policy.type] = true;
+                    stillQuoting = false
+                }
+                else if (!integration.quoteStatusId){
+                    log.error(`RUN QUOTING Agency Network ${agencyNetworkDoc.agencyNetworkId} application ${app.id}  ${integration.policy.type} unexpected quoteStatusId from ${integration.insurer.name} in quoting tier ${tierLevel}` + __location)
+                }
+            }
+            for(const pt of policyTypeList){
+                if(policyTypeQuotedStatus[pt] === false){
+                    stillQuoting = true
+                }
+            }
+        }
 
-    // Check for no quotes
-    if (quoteIDs.length < 1) {
-        log.warn(`No quotes returned for application ${app.id}` + __location);
-        return;
-    }
-
-
-    // Update the application quote metrics
-    const newMetrics = await applicationBO.recalculateQuoteMetrics(app.applicationDocData.applicationId);
-    app.applicationDocData.metrics = newMetrics;
+    }while(stillQuoting)
 
     // Update the application Status
     // Update the application quote progress to "complete"
@@ -328,6 +376,10 @@ async function runQuoting(app) {
     catch(err){
         log.error(`Error update appication progress appId = ${app.applicationDocData.applicationId}  for complete. ` + err + __location);
     }
+
+    // Update the application quote metrics
+    const newMetrics = await applicationBO.recalculateQuoteMetrics(app.applicationDocData.applicationId);
+    app.applicationDocData.metrics = newMetrics;
 
     // Update the application status
     // response {appStatusId: applicationDocJson.appStatusId, appStatusDesc: applicationDocJson.status};

@@ -96,7 +96,11 @@ const policyBasedRequiredFields = {
         website: {requirement: optional},
         yearsOfExp: {requirement: required},
         owner: {
-            requirement: hidden
+            requirement: hidden,
+            officerTitle: {requirement: hidden},
+            birthdate: {requirement: hidden},
+            ownership: {requirement: hidden},
+            payroll: {requirement: hidden}
         }
     },
     WC: {
@@ -169,7 +173,11 @@ const policyBasedRequiredFields = {
         yearsOfExp: {requirement: required},
         coverageLapseWC: {requirement: hidden},
         owner: {
-            requirement: hidden
+            requirement: hidden,
+            officerTitle: {requirement: hidden},
+            birthdate: {requirement: hidden},
+            ownership: {requirement: hidden},
+            payroll: {requirement: hidden}
         }
     },
     CYBER: {
@@ -204,7 +212,11 @@ const policyBasedRequiredFields = {
         yearsOfExp: {requirement: hidden},
         coverageLapseWC: {requirement: hidden},
         owner: {
-            requirement: hidden
+            requirement: hidden,
+            officerTitle: {requirement: hidden},
+            birthdate: {requirement: hidden},
+            ownership: {requirement: hidden},
+            payroll: {requirement: hidden}
         }
     }
 };

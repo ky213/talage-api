@@ -137,6 +137,14 @@ async function getbyId(req, res, next) {
                             insurer[pt.toLowerCase()] = 0;
                         }
                     }
+
+                    for(const ptCode in insurer.policyTypeInfo){
+                        if(insurer.policyTypeInfo[ptCode] && !insurer.policyTypeInfo[ptCode].quotingTierLevel){
+                            if(typeof insurer.policyTypeInfo[ptCode] === "object"){
+                                insurer.policyTypeInfo[ptCode].quotingTierLevel = 1;
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -618,6 +626,10 @@ async function getSelectionList(req, res, next) {
     const agencyBO = new AgencyBO();
     const agency = await agencyBO.getById(agencyId);
 
+    const agencyNetworkBO = new AgencyNetworkBO();
+    const agencyNetworkJson = await agencyNetworkBO.getById(agency.agencyNetworkId);
+
+
     // Initialize
     const agencyLocationBO = new AgencyLocationBO();
 
@@ -643,25 +655,25 @@ async function getSelectionList(req, res, next) {
         location.fname = location.firstName;
         location.lname = location.lastName;
         location.id = location.systemId;
+        location.showTieredQuotingLevel = false;
         if(location.agencyId){
             try{
-                let agencyNetworkId = null;
-                // Check if Agency Network Id is defined in location
-                if(location && location.agencyNetworkId) {
-                    agencyNetworkId = location.agencyNetworkId;
+                if(agencyNetworkJson.featureJson && agencyNetworkJson.featureJson.enablePrimeAgency) {
+                    location.showUseAgencyPrime = agencyNetworkJson.featureJson.enablePrimeAgency
                 }
-                else if(agency && agency.agencyNetworkId) {
-                    agencyNetworkId = agency.agencyNetworkId;
+                if(agencyNetworkJson?.featureJson?.agencyPrimePerInsurer === false && agencyNetworkJson?.featureJson?.talageWholesale === true){
+                    useTalageWholesale = true;
                 }
-                // Get Agency Network if Agency Network is Properly Defined
-                if(agencyNetworkId) {
-                    const agencyNetworkBO = new AgencyNetworkBO();
-                    const agencyNetwork = await agencyNetworkBO.getById(agencyNetworkId);
-                    if(agencyNetwork.featureJson && agencyNetwork.featureJson.enablePrimeAgency) {
-                        location.showUseAgencyPrime = agencyNetwork.featureJson.enablePrimeAgency
+                //show Tier Levels ?
+                if(agencyNetworkJson?.featureJson?.enableTieredQuoting){
+                    if(agency?.systemId === 1 || agency?.primaryAgency){
+                        location.showTieredQuotingLevel = true;
                     }
-                    if(agencyNetwork?.featureJson?.agencyPrimePerInsurer === false && agencyNetwork?.featureJson?.talageWholesale === true){
-                        useTalageWholesale = true;
+                    else if(agencyNetworkJson?.featureJson?.enableTieredQuotingAgencyLevel && agency?.enableTieredQuoting){
+                        location.showTieredQuotingLevel = true;
+                    }
+                    else {
+                        log.debug(`AL List gencyNetworkJson?.featureJson?.enableTieredQuotingAgencyLevel ${agencyNetworkJson?.featureJson?.enableTieredQuotingAgencyLevel} agencyId ${agency?.systemId} agency?.enableTieredQuoting ${agency?.enableTieredQuoting} \n ${JSON.stringify(agency)} `)
                     }
                 }
             }
@@ -687,6 +699,13 @@ async function getSelectionList(req, res, next) {
                         }
                         else {
                             insurer[pt] = 0;
+                        }
+                    }
+                    for(const ptCode in insurer.policyTypeInfo){
+                        if(insurer.policy_type_info[ptCode] && !insurer.policy_type_info[ptCode].quotingTierLevel){
+                            if(typeof insurer.policyTypeInfo[ptCode] === "object"){
+                                insurer.policyTypeInfo[ptCode].quotingTierLevel = 1;
+                            }
                         }
                     }
                 }

@@ -947,10 +947,12 @@ const validateAgencyLocation = async(applicationDocData, agencyLocationModel) =>
                     }
                 }
                 if(!gotHit){
+                    log.debug(`Application's Agency Location does not cover -  ${policy.policyType} AL model \n ${JSON.stringify(agencyLocationModel)} `)
                     throw new Error(`Application's Agency Location does not cover -  ${policy.policyType}  `)
                 }
             }
             else {
+                log.debug(`Application's Agency Location does not cover -  ${policy.policyType} does not have insurers  AL model \n ${JSON.stringify(agencyLocationModel)} `)
                 log.error(`AGency: ${agencyLocationModel.agencyId} locId ${agencyLocationModel.systemId} does not have insurers ` + __location);
                 throw new Error(`Application's Agency Location does not cover -  ${policy.policyType}  `)
             }
