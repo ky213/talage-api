@@ -119,6 +119,8 @@ module.exports = class Integration {
         this.talageInsurerPaymentPlans = null; //standardized Talage InsurerPaymentPlan structure
         this.insurerPolicyInfo = null;
         this.productDesc = '';
+        this.quoteTierLevel = 1;
+        this.quoteStatusId = 0;
 
 
         // quoteId will be passed in if a parent integration was instantiated first and passes its quoteId through
@@ -1436,7 +1438,7 @@ module.exports = class Integration {
      * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
      */
     quote() {
-        log.info(`QUOTING Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Quote Started (mode: ${this.insurer.useSandbox ? 'sandbox' : 'production'})`);
+        log.info(`QUOTING Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Quote Started (mode: ${this.insurer.useSandbox ? 'sandbox' : 'production'}) Tier: ${this.quoteTierLevel}`);
         return new Promise(async(fulfill) => {
 
             if (!this.quoteId) {
@@ -1991,8 +1993,16 @@ module.exports = class Integration {
         // quoteStatusId and quoteStatusDescription
         const status = getQuoteStatus(false, '', apiResult);
         quoteJSON.quoteStatusId = status.id;
+        this.quoteStatusId = quoteJSON.quoteStatusId
         quoteJSON.quoteStatusDescription = status.description;
-
+        //handle bad return_result from quoting.
+        if(this.quoteStatusId === 0 && (this.amount > 0 || amount > 0)){
+            this.quoteStatusId = quoteStatus.quoted_referred.id;
+        }
+        else if(!this.quoteStatusId === 0){
+            this.quoteStatusId = quoteStatus.error.id;
+        }
+       
         try{
             // Set up quote limits for old-style hydration (should be deprecated eventually)
             if (this.limits && Object.keys(this.limits).length) {

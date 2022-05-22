@@ -21,7 +21,8 @@ const AcordInfoSchema = new Schema({
 const PolicyTypeInfoDetailsSchema = new Schema({
     enabled: {type: Boolean, required: true, default: true},
     useAcord: {type: Boolean, required: true, default: false},
-    acordInfo: AcordInfoSchema
+    acordInfo: AcordInfoSchema,
+    quotingTierLevel: {type: Number, required: false} // null tells us it is not set at agency. Important to determine if Agency Network tiers should be used.
 },{_id : false})
 
 
