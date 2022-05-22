@@ -33,6 +33,7 @@ module.exports = class AgencyLocation {
         this.quotingAgencyLocationDB = null;
         this.agencyPrimeAgencyLocationDB = null;
         this.talageWholesaleAgencyLocationDB = null;
+        this.isPrimaryAgency = false;
     }
 
     /**
@@ -126,6 +127,9 @@ module.exports = class AgencyLocation {
                 agencyInfo.additionalInfo = this.quotingAgencyLocationDB.additionalInfo ? this.quotingAgencyLocationDB.additionalInfo : agencyInfo.additionalInfo;
                 agencyInfo.phone = this.quotingAgencyLocationDB.phone ? this.quotingAgencyLocationDB.phone : agencyInfo.phone;
 
+                if(this.quotingAgencyLocationDB.agencyId === 1 || agencyInfo.primaryAgency){
+                    this.isPrimaryAgency = true
+                }
             }
             catch(err){
                 log.error("Error Getting Agency error: " + err + __location);
@@ -172,11 +176,13 @@ module.exports = class AgencyLocation {
                         if(insurer.useAgencyPrime){
                             if(this.agencyPrimeAgencyLocationDB === null){
                                 const agencyPrimeLocationDB = await agencyLocationBO.getAgencyPrimeLocation(this.agencyId,agencyNetworkId);
-                                if(!agencyPrimeLocationDB){
-                                    const primaryAgencyLocationSystemId = agencyPrimeLocationDB.systemId;
-                                    this.agencyPrimeAgencyLocationDB = await agencyLocationBO.getById(primaryAgencyLocationSystemId, getChildren);
+                                if(agencyPrimeLocationDB){
+                                    //const primaryAgencyLocationSystemId = agencyPrimeLocationDB.systemId;
+                                    //this.agencyPrimeAgencyLocationDB = await agencyLocationBO.getById(primaryAgencyLocationSystemId, getChildren);
+                                    this.agencyPrimeAgencyLocationDB = agencyPrimeLocationDB
                                 }
-                                else if(agencyInfo.agencyNetworkId === 1){
+
+                                if(agencyInfo.agencyNetworkId === 1){
                                     insurer.talageWholesale = true;
                                 }
                             }
@@ -264,6 +270,50 @@ module.exports = class AgencyLocation {
                             }
                         }
                     }
+
+                    //Tiered Quoting Setup - failing back to Primary Agency Tiers
+                    //log.debug(`QUOTING AGENCY LOCATION tiering:  ${this.isPrimaryAgency}: this.isPrimaryAgency  agencyNetworkJSON?.featureJson?.enableTieredQuoting ${agencyNetworkJSON?.featureJson?.enableTieredQuoting} ` + __location)
+                    if(!this.isPrimaryAgency && agencyNetworkJSON?.agencyNetworkId > 1
+                        && agencyNetworkJSON?.featureJson?.enableTieredQuoting
+                        && (agencyNetworkJSON?.featureJson?.enableTieredQuotingAgencyLevel === false || agencyInfo.enableTieredQuoting === false)){
+                        // User Primary agency tier for
+                        try{
+                            const responseAgencyAndAgencyLocation = await this.getPrimaryAgencyAndLocation(agencyLocation.agencyId)
+                            const primaryAgencyLocationJSON = responseAgencyAndAgencyLocation?.agencyLocationJSON
+                            //loop through policytypes and get tier info.
+                            for(const ptCode in insurer.policyTypeInfo){
+                                //reset to tier 1 in case primary agency is not set.
+                                if(insurer.policyTypeInfo[ptCode]){
+                                    insurer.policyTypeInfo[ptCode].quotingTierLevel = 1
+                                    if(primaryAgencyLocationJSON?.insurers){
+                                        const wholesaleInsurer = primaryAgencyLocationJSON.insurers.find((ti) => ti.insurerId === insurer.insurerId);
+                                        if(wholesaleInsurer?.policyTypeInfo[ptCode] && wholesaleInsurer?.policyTypeInfo[ptCode].quotingTierLevel > 0){
+                                            insurer.policyTypeInfo[ptCode].quotingTierLevel = wholesaleInsurer?.policyTypeInfo[ptCode].quotingTierLevel
+                                        }
+                                        else {
+                                            log.error(`Agency ${agencyLocation.agencyId} primary agency ${primaryAgencyLocationJSON.agencyId} no tiering for ${insurer.name} ${ptCode}` + __location);
+                                        }
+                                    }
+                                    else {
+                                        log.error(`Agency ${agencyLocation.agencyId} primary agency ${primaryAgencyLocationJSON.agencyId} does not have insurers` + __location);
+                                    }
+                                }
+                            }
+                        }
+                        catch(err){
+                            log.error(`Agency ${agencyLocation.agencyId} error setting up tiering insurerId ${insurer.insurerId} error: ${err}` + __location);
+                        }
+                    }
+                    else if(!this.isPrimaryAgency && this.quotingAgencyLocationDB.agencyId > 1 && agencyInfo.enableTieredQuoting !== true) {
+                        //reset everything to 1
+                        log.debug(`QUOTING AGENCY LOCATION tiering resetting to 1` + __location)
+                        for(const ptCode in insurer.policyTypeInfo){
+                            //reset to tier 1 in case primary agency is not set.
+                            if(insurer.policyTypeInfo[ptCode]){
+                                insurer.policyTypeInfo[ptCode].quotingTierLevel = 1
+                            }
+                        }
+                    }
                     if(addInsurer){
                         this.insurers[insurer.id] = insurer;
                         this.insurerList.push(insurer)
@@ -273,6 +323,7 @@ module.exports = class AgencyLocation {
                     log.error(`Agency ${agencyLocation.agencyId} error adding insurerId ${insurer.insurerId} error: ${err}` + __location);
                 }
             }
+            log.debug(`QUOTING AGENCY LOCATION this.insurerList ${JSON.stringify(this.insurerList)}`)
 
 
             // Check that we have all of the required data
