@@ -186,13 +186,72 @@ const getDailyTrendsQuotedPremium = async(where) => {
 }
 ///*****  END Quoted Premium *******/
 
-///*****  Bind Premium from Quotes *******/
+///*****  request to Bind Premium from Quotes *******/
+const getMonthlyTrendsRequestBoundPremium = async(where) => {
+    const monthlyTrends = await Quote.aggregate([
+        {$match: where},
+        {$project: {
+            creationMonth: {$month: {date: '$updatedAt', timezone: "America/Los_Angeles"}},
+            creationYear: {$year: {date: '$updatedAt', timezone: "America/Los_Angeles"}},
+            "amount": 1
+        }},
+        {$group: {
+            _id: {
+                month: '$creationMonth',
+                year: '$creationYear'
+            },
+            premium: {$sum: '$amount'}
+        }},
+        {$sort: {
+            '_id.year': 1,
+            '_id.month': 1
+        }}
+    ]);
+
+    return monthlyTrends.map(t => [
+        moment(t._id.month, 'M').format('MMMM'), t.premium
+    ]);
+}
+
+
+const getDailyTrendsRequestBoundPremium = async(where) => {
+    const monthlyTrends = await Quote.aggregate([
+        {$match: where},
+        {$project: {
+            creationDay: {$dayOfMonth: {date: '$updatedAt', timezone: "America/Los_Angeles"}},
+            creationMonth: {$month: {date: '$updatedAt', timezone: "America/Los_Angeles"}},
+            creationYear: {$year: {date: '$updatedAt', timezone: "America/Los_Angeles"}},
+            "amount": 1
+        }},
+        {$group: {
+            _id: {
+                day: '$creationDay',
+                month: '$creationMonth',
+                year: '$creationYear'
+            },
+            premium: {$sum: '$amount'}
+        }},
+        {$sort: {
+            '_id.year': 1,
+            '_id.month': 1,
+            '_id.day': 1
+        }}
+    ]);
+
+    return monthlyTrends.map(t => [
+        moment(`${t._id.year}-${t._id.month}-${t._id.day}`, 'Y-M-D').format('M-D'), t.premium
+    ]);
+}
+///*****  END Request bind Quoted Premium *******/
+
+
+///*****  Bound Premium from Quotes *******/
 const getMonthlyTrendsBoundPremium = async(where) => {
     const monthlyTrends = await Quote.aggregate([
         {$match: where},
         {$project: {
-            creationMonth: {$month: {date: '$createdAt', timezone: "America/Los_Angeles"}},
-            creationYear: {$year: {date: '$createdAt', timezone: "America/Los_Angeles"}},
+            creationMonth: {$month: {date: '$boundDate', timezone: "America/Los_Angeles"}},
+            creationYear: {$year: {date: '$boundDate', timezone: "America/Los_Angeles"}},
             "amount": 1
         }},
         {$group: {
@@ -218,9 +277,9 @@ const getDailyTrendsBoundPremium = async(where) => {
     const monthlyTrends = await Quote.aggregate([
         {$match: where},
         {$project: {
-            creationDay: {$dayOfMonth: {date: '$createdAt', timezone: "America/Los_Angeles"}},
-            creationMonth: {$month: {date: '$createdAt', timezone: "America/Los_Angeles"}},
-            creationYear: {$year: {date: '$createdAt', timezone: "America/Los_Angeles"}},
+            creationDay: {$dayOfMonth: {date: '$boundDate', timezone: "America/Los_Angeles"}},
+            creationMonth: {$month: {date: '$boundDate', timezone: "America/Los_Angeles"}},
+            creationYear: {$year: {date: '$boundDate', timezone: "America/Los_Angeles"}},
             "amount": 1
         }},
         {$group: {
@@ -592,9 +651,15 @@ async function getReports(req) {
 
     // Localize data variables that the user is permitted to access
     const agencyNetworkId = parseInt(req.authentication.agencyNetworkId, 10);
+    const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO');
+    const agencyNetworkBO = new AgencyNetworkBO();
+
+    const agencyNetworkUserJson = await agencyNetworkBO.getById(agencyNetworkId);
+
     // Filter out any agencies with do_not_report value set to true
     if (req.authentication.isAgencyNetworkUser) {
         where.agencyNetworkId = agencyNetworkId // make sure to limit exposure in case something is missed in the logic below.
+
         try {
             const agencyId = parseInt(req.query.agencyid,10);
             if((req.query.agencyid || req.query.agencylocationid) && agencyId > 0){
@@ -641,8 +706,6 @@ async function getReports(req) {
                             }
                         }
                         else if(parseInt(req.query.agencyid,10) < -9999){
-                            const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO');
-                            const agencyNetworkBO = new AgencyNetworkBO();
                             const agencyNetworkIdMC = parseInt(req.query.agencyid, 10) * -1 - 10000;
                             const agencyNetworkDoc = await agencyNetworkBO.getById(agencyNetworkIdMC);
                             if(agencyNetworkDoc){
@@ -768,17 +831,18 @@ async function getReports(req) {
         // Advanced Graphs - quoted, requested premium and bound.
         // Agency Network feature  -  Initial only Talage Super users.
         if(req.authentication.agencyNetworkId === 1
-            && req.authentication.permissions.talageStaff === true){
+            && req.authentication.permissions.talageStaff === true
+            && agencyNetworkUserJson?.featureJson?.premiumReportGraphs === true){
             //TODO check agencyNetwork feature for user when enable for other agencyNetworkss
 
             //Quote Trend
-            where.appStatusId = {$gte: 40}
+            where.appStatusId = {$gte: 50}
             returnDataJson.trendDataQuotedPremium = monthlyTrend ? await getMonthlyTrendsQuotedPremium(where) : await getDailyTrendsQuotedPremium(where);
             delete where.appStatusId
 
             //requested premium
             where.quoteStatusId = {$gte: 60}
-            returnDataJson.trendDataRequestedPremium = monthlyTrend ? await getMonthlyTrendsBoundPremium(where) : await getDailyTrendsBoundPremium(where);
+            returnDataJson.trendDataRequestedPremium = monthlyTrend ? await getMonthlyTrendsRequestBoundPremium(where) : await getDailyTrendsRequestBoundPremium(where);
 
             //Confirmed Bound
             where.quoteStatusId = {$gte: 100}

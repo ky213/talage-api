@@ -124,6 +124,7 @@ const QuoteSchema = new Schema({
     isManualQuote: {type: Boolean, default: false},
     addUser: {type: String},
     amsInfo: {type: amsInfoSchema},
+    referrer: {type: String, required: false}, //Same as AppDoc, for reporting.
     active: {type: Boolean, default: true}
 });
 
