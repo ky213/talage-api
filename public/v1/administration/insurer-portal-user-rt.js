@@ -201,6 +201,16 @@ async function update(req, res, next) {
             updateJSON.clear_email = req.body.email;
         }
         const insurerPortalUserBO = new InsurerPortalUserBO();
+        try {
+            const hasDuplicate = await insurerPortalUserBO.checkForDuplicateEmail(id, updateJSON.email);
+            if(hasDuplicate) {
+                return next(serverHelper.requestError('Email Address is already in use'));
+            }
+        }
+        catch(err) {
+            log.error("insurerPortalUserBO load error " + err + __location);
+            return next(err);
+        }
         let userJSON = null;
         try {
             await insurerPortalUserBO.saveModel(updateJSON)
