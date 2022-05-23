@@ -20,10 +20,6 @@ async function findAll(req, res, next) {
         return next(err);
     }
     if (rows) {
-        rows = rows.map(row => ({
-            ...row,
-            id: row.insurerPortalUserId
-        }));
         res.send(200, rows);
         return next();
     }
