@@ -13,11 +13,11 @@ const InsurerIndustryCodeModel = global.mongoose.InsurerIndustryCode;
 
 /**
  * Renames the field of an object in an array of objects. Also can reformat the value if the optional formatter function is passed in.
- * @param {*} objs 
- * @param {*} oldFieldName 
- * @param {*} newFieldName 
- * @param {*} formatterFunc
- * @returns 
+ * @param {*} objs objs
+ * @param {*} oldFieldName oldFieldName
+ * @param {*} newFieldName newFieldName
+ * @param {*} formatterFunc formatterFunc
+ * @returns {*} objects
  */
 const renameFieldInObjs = (objs, oldFieldName, newFieldName, formatterFunc) => {
     for (const i of objs) {
@@ -33,8 +33,8 @@ const renameFieldInObjs = (objs, oldFieldName, newFieldName, formatterFunc) => {
 
 /**
  * Pretty format CSV rows for the Win/Loss Report.
- * @param {*} rows 
- * @returns 
+ * @param {*} rows rows
+ * @returns {*} rows
  */
 const formatCsvFile = (rows) => {
     rows = renameFieldInObjs(rows, 'primaryState', 'Primary State');
