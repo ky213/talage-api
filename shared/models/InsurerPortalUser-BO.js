@@ -501,11 +501,11 @@ module.exports = class InsurerPortalUserBO{
      * checkForDuplicateEmail
      *
      * @param {object} insurerPortalUserId - new or updating userId -999 for new
-     * @param {object} chkEmail - chkEmail to check
+     * @param {object} email - email to check
      * @param {object} insurerId - users agency network
      * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessContact , or an Error if rejected
      */
-    async checkForDuplicateEmail(insurerPortalUserId, chkEmail, insurerId){
+    async checkForDuplicateEmail(insurerPortalUserId, email, insurerId){
         let hasDuplicate = false;
         //new user
         if(!insurerPortalUserId){
@@ -514,10 +514,12 @@ module.exports = class InsurerPortalUserBO{
 
         try{
             const query = {
-                insurerPortalUserId: {$ne: insurerPortalUserId},
                 active: true,
-                email: chkEmail
+                email: email
             };
+            if(insurerPortalUserId) {
+                query.insurerPortalUserId = {$ne: insurerPortalUserId};
+            }
             if(insurerId){
                 query.insurerId = insurerId;
             }

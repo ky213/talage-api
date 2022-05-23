@@ -20,10 +20,6 @@ async function findAll(req, res, next) {
         return next(err);
     }
     if (rows) {
-        rows = rows.map(row => ({
-            ...row,
-            id: row.insurerPortalUserId
-        }));
         res.send(200, rows);
         return next();
     }
@@ -205,6 +201,16 @@ async function update(req, res, next) {
             updateJSON.clear_email = req.body.email;
         }
         const insurerPortalUserBO = new InsurerPortalUserBO();
+        try {
+            const hasDuplicate = await insurerPortalUserBO.checkForDuplicateEmail(id, updateJSON.email);
+            if(hasDuplicate) {
+                return next(serverHelper.requestError('Email Address is already in use'));
+            }
+        }
+        catch(err) {
+            log.error("insurerPortalUserBO load error " + err + __location);
+            return next(err);
+        }
         let userJSON = null;
         try {
             await insurerPortalUserBO.saveModel(updateJSON)
