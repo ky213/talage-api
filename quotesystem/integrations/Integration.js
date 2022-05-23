@@ -1879,11 +1879,13 @@ module.exports = class Integration {
         const quoteJSON = {
             applicationId: this.applicationDocData.applicationId,
             agencyId: this.applicationDocData.agencyId,
+            agencyLocationId: this.applicationDocData.agencyLocationId,
             agencyNetworkId: this.applicationDocData.agencyNetworkId,
             insurerId: this.insurer.id,
             log: this.log,
             policyType: policyType,
-            quoteTimeSeconds: this.seconds
+            quoteTimeSeconds: this.seconds,
+            referrer: this.applicationDocData.referrer
         }
         // if this is a new quote, set its quotingStartedDate to now
         if (apiResult === quoteStatus.initiated.description) {
