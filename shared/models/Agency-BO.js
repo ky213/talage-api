@@ -1315,6 +1315,51 @@ module.exports = class AgencyBO {
         return false;
     }
 
+    async getListByInsurerId(requestQueryJSON, insurerId) {
+        let agencyNetworkList = null;
+        const agencyNetworkBO = new AgencyNetworkBO();
+        try {
+            agencyNetworkList = await agencyNetworkBO.getListByInsurerId(insurerId);
+        }
+        catch (err) {
+            log.error("Error getting Agency Network List " + err + __location);
+            throw err;
+        }
+
+        const queryProjection = {
+            _id: 1,
+            systemId: 1,
+            agencyId: 1,
+            agencyNetworkId: 1,
+            name: 1,
+            appCount: 1,
+            active: 1,
+            firstName: 1,
+            lastName: 1,
+            email: 1,
+            phone: 1
+        };
+        const queryOptions = {sort: {
+            active: -1,
+            name: 1
+        }};
+        const query = {agencyNetworkId: {$in: agencyNetworkList.map(agencyNetwork => agencyNetwork.systemId)}};
+        try {
+            const docList = (await AgencyModel.find(query, queryProjection, queryOptions).
+                collation({locale: "en"}). // Collation for case insensitive sorting
+                lean()).
+                map(agency => ({
+                    ...agency,
+                    fullName: `${agency.firstName} ${agency.lastName}`,
+                    agencyNetworkName: agencyNetworkList.find(agencyNetwork => agencyNetwork.systemId === agency.agencyNetworkId).name
+                }));
+            return mongoUtils.objListCleanup(docList);
+        }
+        catch (err) {
+            log.error("Error getting Agency List " + err + __location);
+            throw err;
+        }
+    }
 
     async getAmsCredentials(agencyId){
         let amsCreds = null;

@@ -1,4 +1,5 @@
 const InsurerPortalUserGroupBO = global.requireShared('./models/InsurerPortalUserGroup-BO.js');
+const InsurerPortalUserBO = global.requireShared('./models/InsurerPortalUser-BO.js');
 
 const serverHelper = global.requireRootPath('server.js');
 // eslint-disable-next-line no-unused-vars
@@ -78,9 +79,28 @@ async function update(req, res, next) {
     if (!id) {
         return next(new Error("bad parameter"));
     }
-    const insurerPortalUserGroupBO = new InsurerPortalUserGroupBO();
     let userGroupJSON = null;
+    if(req.body?.permissions?.globalUser) {
+        try {
+            const insurerPortalUserBO = new InsurerPortalUserBO();
+            const query = {
+                insurerPortalUserGroupId: id,
+                email: {$not: /@talageins.com$/i},
+                count: true
+            };
+            const insurerPortalUsers = await insurerPortalUserBO.getList(query);
+            if(insurerPortalUsers.count > 0) {
+                log.warn(`Can't update insurerPortalUserGroupBO ${id} globalUser value when there are assigned non talage emails` + __location);
+                return next(serverHelper.requestError("There are existing non-talage emails for this User Group"));
+            }
+        }
+        catch(err) {
+            log.error("insurerPortalUserBO getList error " + err + __location);
+            return next(err);
+        }
+    }
     try {
+        const insurerPortalUserGroupBO = new InsurerPortalUserGroupBO();
         userGroupJSON = await insurerPortalUserGroupBO.saveModel(req.body);
     }
     catch(err) {

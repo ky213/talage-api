@@ -12,6 +12,49 @@ const IndustryCodeModel = global.mongoose.IndustryCode;
 const InsurerIndustryCodeModel = global.mongoose.InsurerIndustryCode;
 
 /**
+ * Renames the field of an object in an array of objects. Also can reformat the value if the optional formatter function is passed in.
+ * @param {*} objs objs
+ * @param {*} oldFieldName oldFieldName
+ * @param {*} newFieldName newFieldName
+ * @param {*} formatterFunc formatterFunc
+ * @returns {*} objects
+ */
+const renameFieldInObjs = (objs, oldFieldName, newFieldName, formatterFunc) => {
+    for (const i of objs) {
+        i[newFieldName] = i[oldFieldName];
+        delete i[oldFieldName];
+
+        if (formatterFunc) {
+            i[newFieldName] = formatterFunc(i[newFieldName]);
+        }
+    }
+    return objs;
+}
+
+/**
+ * Pretty format CSV rows for the Win/Loss Report.
+ * @param {*} rows rows
+ * @returns {*} rows
+ */
+const formatCsvFile = (rows) => {
+    rows = renameFieldInObjs(rows, 'primaryState', 'Primary State');
+    rows = renameFieldInObjs(rows, 'classCode', 'Class Code');
+    rows = renameFieldInObjs(rows, 'classCodeDesc', 'Class Code Description');
+    rows = renameFieldInObjs(rows, 'quoteStatusDesc', 'Quote Status');
+    rows = renameFieldInObjs(rows, 'totalCount', 'Total Count');
+    rows = renameFieldInObjs(rows, 'quotedcount', 'Quoted Count');
+    rows = renameFieldInObjs(rows, 'winCount', 'Win Count');
+    rows = renameFieldInObjs(rows, 'lossCount', 'Loss Count');
+    rows = renameFieldInObjs(rows, 'quotedtotalAmount', 'Quoted Total Amount');
+    rows = renameFieldInObjs(rows, 'avgQuoteAmount', 'Avg Quote Amount', t => t.toFixed(2));
+    rows = renameFieldInObjs(rows, 'premiumGapWinAvg', 'Premium Gap Win Avg');
+    rows = renameFieldInObjs(rows, 'avgPremiumLost', 'Avg Premium Lost');
+    rows = renameFieldInObjs(rows, 'avgPercentLost', 'Avg Percent Lost');
+    rows = renameFieldInObjs(rows, 'OutOfAppetitePremium', 'Out of Appetite Premium');
+    return rows;
+}
+
+/**
  * Responds to get requests for winloss report
  *
  * @param {object} req - HTTP request object
@@ -32,10 +75,10 @@ async function winloss(req, res, next) {
         return next(serverHelper.requestError('Bad Request: No policytype'));
     }
     if(req.query.policytype === "WC"){
-        winlossWC(req, res, next)
+        await winlossWC(req, res, next)
     }
     else if(req.query.policytype === "GL" || req.query.policytype === "BOP"){
-        winlossBOP(req, res, next)
+        await winlossBOP(req, res, next)
     }
     else {
         log.error(`Bad Request: Not supported policy type ${req.query.policytype} received ` + __location);
@@ -247,9 +290,9 @@ async function winlossWC(req, res, next) {
             wrap        : false,
             headers: "key"
         }
-        const csvData = csvjson.toCSV(metricsList, options);
+        const csvData = csvjson.toCSV(formatCsvFile(metricsList), options);
         res.writeHead(200, {
-            'Content-Disposition': 'attachment; filename=applications.csv',
+            'Content-Disposition': 'attachment; filename=winLossReport.csv',
             'Content-Length': csvData?.length,
             'Content-Type': 'text-csv'
         });
@@ -477,9 +520,9 @@ async function winlossBOP(req, res, next) {
             wrap        : false,
             headers: "key"
         }
-        const csvData = csvjson.toCSV(metricsList, options);
+        const csvData = csvjson.toCSV(formatCsvFile(metricsList), options);
         res.writeHead(200, {
-            'Content-Disposition': 'attachment; filename=applications.csv',
+            'Content-Disposition': 'attachment; filename=winLossReport.csv',
             'Content-Length': csvData?.length,
             'Content-Type': 'text-csv'
         });
@@ -625,5 +668,5 @@ function QuoteStatusDesc(quoteStatusId){
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
     //TODO add proper auth
-    server.addGetAuth('Get All Industry Codes', `${basePath}/winloss`, winloss, 'agencies', 'view', {insurerPortal: true});
+    server.addGetInsurerPortalAuth('Get All Industry Codes', `${basePath}/winloss`, winloss, 'winlossReport', 'view');
 };

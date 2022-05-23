@@ -1,4 +1,5 @@
 const InsurerPortalUserBO = global.requireShared('./models/InsurerPortalUser-BO.js');
+const InsurerPortalUserGroupBO = global.requireShared('./models/InsurerPortalUserGroup-BO.js');
 const crypt = global.requireShared('./services/crypt.js');
 
 const serverHelper = global.requireRootPath('server.js');
@@ -13,13 +14,16 @@ async function findAll(req, res, next) {
     let rows = null;
     try {
         const insurerPortalUserBO = new InsurerPortalUserBO();
-        rows = await insurerPortalUserBO.getList(req.query)
+        rows = await insurerPortalUserBO.getList(req.query);
     }
     catch(err) {
         return next(err);
     }
     if (rows) {
-
+        rows = rows.map(row => ({
+            ...row,
+            id: row.insurerPortalUserId
+        }));
         res.send(200, rows);
         return next();
     }
@@ -99,7 +103,6 @@ async function add(req, res, next) {
         'password',
         'email',
         'insurerPortalUserGroupId',
-        'resetRequired',
         'timezone',
         'insurerId'
     ];
@@ -110,6 +113,19 @@ async function add(req, res, next) {
             insertJSON[allowedPropsInsert[i]] = req.body[allowedPropsInsert[i]];
             needToUpdate = true
         }
+    }
+
+    try {
+        const insurerPortalUserGroupBO = new InsurerPortalUserGroupBO();
+        const insurerPortalUserGroup = await insurerPortalUserGroupBO.getById(insertJSON.insurerPortalUserGroupId);
+        if(insurerPortalUserGroup.permissions?.globalUser && !/@talageins.com$/.test(insertJSON.email)) {
+            log.warn("Can't add non-talage email user as a global user " + __location);
+            return next(serverHelper.requestError('Non-talage email cannot be a global user'));
+        }
+    }
+    catch(err) {
+        log.error("insurerPortalUserBO load error " + err + __location);
+        return next(err);
     }
 
     if(needToUpdate){
@@ -158,7 +174,6 @@ async function update(req, res, next) {
         'email',
         'insurerPortalUserGroupId',
         'requireSet',
-        'resetRequired',
         'canSign',
         'timezone'
     ];
@@ -170,6 +185,19 @@ async function update(req, res, next) {
             updateJSON[allowedPropsUpdate[i]] = req.body[allowedPropsUpdate[i]];
             needToUpdate = true;
         }
+    }
+
+    try {
+        const insurerPortalUserGroupBO = new InsurerPortalUserGroupBO();
+        const insurerPortalUserGroup = await insurerPortalUserGroupBO.getById(updateJSON.insurerPortalUserGroupId);
+        if(insurerPortalUserGroup.permissions?.globalUser && !/@talageins.com$/.test(updateJSON.email)) {
+            log.warn("Can't add non-talage email user as a global user " + __location);
+            return next(serverHelper.requestError('Non-talage email cannot be a global user'));
+        }
+    }
+    catch(err) {
+        log.error("insurerPortalUserBO load error " + err + __location);
+        return next(err);
     }
 
     if(needToUpdate){
@@ -218,7 +246,6 @@ async function deleteUser(req, res, next) {
     return next();
 
 }
-
 
 exports.registerEndpoint = (server, basePath) => {
     server.addGetAuthAdmin('GET Insurer Portal Users list', `${basePath}/insurer-portal/user`, findAll, 'administration', 'all');
