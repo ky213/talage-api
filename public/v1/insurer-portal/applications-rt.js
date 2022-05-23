@@ -17,7 +17,7 @@ async function getUniqueQuotes(req, res, next){
     const agrQuery = [
         {$match:
             {
-                insurerId: req.authentication.insurerId,
+                insurerId: parseInt(req.authentication.insurerId, 10),
                 createdAt: {$gte: new Date("2022-01-01T00:08:00.000Z")}
             }},
         {$group:
