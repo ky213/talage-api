@@ -191,8 +191,8 @@ const getMonthlyTrendsRequestBoundPremium = async(where) => {
     const monthlyTrends = await Quote.aggregate([
         {$match: where},
         {$project: {
-            creationMonth: {$month: {date: '$updatedAt', timezone: "America/Los_Angeles"}},
-            creationYear: {$year: {date: '$updatedAt', timezone: "America/Los_Angeles"}},
+            creationMonth: {$month: {date: '$createdAt', timezone: "America/Los_Angeles"}},
+            creationYear: {$year: {date: '$createdAt', timezone: "America/Los_Angeles"}},
             "amount": 1
         }},
         {$group: {
@@ -218,9 +218,9 @@ const getDailyTrendsRequestBoundPremium = async(where) => {
     const monthlyTrends = await Quote.aggregate([
         {$match: where},
         {$project: {
-            creationDay: {$dayOfMonth: {date: '$updatedAt', timezone: "America/Los_Angeles"}},
-            creationMonth: {$month: {date: '$updatedAt', timezone: "America/Los_Angeles"}},
-            creationYear: {$year: {date: '$updatedAt', timezone: "America/Los_Angeles"}},
+            creationDay: {$dayOfMonth: {date: '$createdAt', timezone: "America/Los_Angeles"}},
+            creationMonth: {$month: {date: '$createdAt', timezone: "America/Los_Angeles"}},
+            creationYear: {$year: {date: '$createdAt', timezone: "America/Los_Angeles"}},
             "amount": 1
         }},
         {$group: {
