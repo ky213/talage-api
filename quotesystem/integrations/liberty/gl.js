@@ -867,6 +867,9 @@ module.exports = class LibertyGL extends Integration{
             }
         }
 
+        // Get quote link
+        this.quoteLink = get(res, "ResponseURL[0]")
+
         // Send the result of the request
         return this.return_result(status);
 	}
