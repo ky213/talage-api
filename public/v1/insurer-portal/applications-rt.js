@@ -3,6 +3,9 @@ const serverHelper = global.requireRootPath('server.js');
 // const ApplicationMongooseModel = global.mongoose.Application;
 // const QuoteMongooseModel = global.mongoose.Quote;
 const Quote = global.mongoose.Quote;
+const moment = require('moment');
+// eslint-disable-next-line no-unused-vars
+const moment_timezone = require('moment-timezone');
 
 /**
  * Responds to get unique quotes for current insurer id the application page
@@ -14,19 +17,26 @@ const Quote = global.mongoose.Quote;
  * @returns {void}
  */
 async function getUniqueQuotes(req, res, next){
+
+
+    const begin90DayAgo = moment().tz("America/Los_Angeles").subtract(90,'d').startOf('day');
     const agrQuery = [
         {$match:
             {
                 insurerId: parseInt(req.authentication.insurerId, 10),
-                createdAt: {$gte: new Date("2022-01-01T00:08:00.000Z")}
+                createdAt: {$gte: begin90DayAgo.toDate()}
             }},
         {$group:
             {_id:
                 {
                     applicationId : "$applicationId",
+                    agencyId: "$agencyId",
                     amount : "$amount",
                     quoteStatus: "$quoteStatusDescription",
-                    quoteNumber: "$quoteNumber"
+                    quoteNumber: "$quoteNumber",
+                    policyType: "$policyType",
+                    updatedAt: "$updatedAt",
+                    createdAt: "$createdAt"
                 }}},
         {$lookup:
             {
@@ -38,17 +48,13 @@ async function getUniqueQuotes(req, res, next){
         {$project:
             {
                 "appl.applicationId": 1,
-                "appl.agencyId": 1,
                 "appl.status": 1,
-                "appl.policies": 1,
-                "appl.mailingState": 1,
-                "appl.updatedAt": 1,
-                "appl.createdAt": 1
+                "appl.mailingState": 1
             }},
         {$lookup:
             {
                 from: "agencies",
-                localField: "appl.agencyId",
+                localField: "_id.agencyId",
                 foreignField: "systemId",
                 as: "agency"
             }},
@@ -62,21 +68,23 @@ async function getUniqueQuotes(req, res, next){
         {$unwind:
             {path: "$appl"}},
         {$unwind:
-            {path: "$appl.policies"}},
-        {$unwind:
             {path: "$agency"}},
         {$replaceRoot:
             {newRoot: {$mergeObjects: [{"quote":"$_id"},
                 {"appl":"$appl"},
-                {"agency":"$agency"}]}}}
+                {"agency":"$agency"}]}}},
+        {$sort:
+            {'_id.createdAt': 1}}
     ]
 
     if(req.query && req.query.quoteStatus){
         agrQuery[0].$match.quoteStatusDescription = {$in: req.query.quoteStatus}
     }
-
     try {
         const insurerUniqueQuotes = await Quote.aggregate(agrQuery);
+        insurerUniqueQuotes.forEach((QuoteItem) => {
+            QuoteItem.quote.createdAt = moment(QuoteItem.quote.createdAt).tz("America/Los_Angeles").format('YYYY-MM-DD');
+        });
         res.send(200, insurerUniqueQuotes);
     }
     catch(err){
