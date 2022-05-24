@@ -13,40 +13,26 @@ const util = require('util');
 
 /*
 * As of 08/2020
-* Define how legal entities are mapped for BTIS (/GL/Common/v1/gateway/api/lookup/dropdowns/businesstypes)
-* NOTE: The closest mapping for an association is a corporation
-*/
-const BUSINESS_ENTITIES = {
-    Association: 2,
-    Corporation: 2,
-    'Limited Liability Company': 5,
-    'Limited Partnership': 3,
-    Partnership: 6,
-    'Sole Proprietorship': 1
-};
-
-/*
-* As of 08/2020
 * This is the BTIS list of territories that offer deductibles OTHER THAN $500
 * There is no lookup available to give us this list, instead each of the in appetite territories have to be checked
 * here individually with an effective date:
 * GL/Common/v1/gateway/api/lookup/dropdowns/deductibles/state/<state_code>/effective/<YYYY-MM-DD>/
 * GL/Common/v1/gateway/api/lookup/dropdowns/deductibles/state/CA/effective/2020-08-23/
 */
-const DEDUCTIBLE_TERRITORIES = [
-    'AR',
-    'AZ',
-    'CA',
-    'CO',
-    'ID',
-    'NM',
-    'NV',
-    'OK',
-    'OR',
-    'TX',
-    'UT',
-    'WA'
-];
+// const DEDUCTIBLE_TERRITORIES = [
+//     'AR',
+//     'AZ',
+//     'CA',
+//     'CO',
+//     'ID',
+//     'NM',
+//     'NV',
+//     'OK',
+//     'OR',
+//     'TX',
+//     'UT',
+//     'WA'
+// ];
 
 /*
 * As of 08/2020
@@ -55,11 +41,11 @@ const DEDUCTIBLE_TERRITORIES = [
 * GL/Common/v1/gateway/api/lookup/dropdowns/deductibles/state/<state_code>/effective/<YYYY-MM-DD>/
 * GL/Common/v1/gateway/api/lookup/dropdowns/deductibles/state/CA/effective/2020-08-23/
 */
-const BTIS_DEDUCTIBLE_IDS = {
-    500: 2000500,
-    1000: 2001000,
-    1500: 2001500
-};
+// const BTIS_DEDUCTIBLE_IDS = {
+//     500: 2000500,
+//     1000: 2001000,
+//     1500: 2001500
+// };
 
 // This is derived from their API - for now, we will just convert experience into num and if >= 10, we send "10+" instead
 // const industryExperienceMap = {
@@ -86,63 +72,82 @@ const priorCoverageMap = {
     "Other": "other"
 };
 
-// doesn't look like the request requires this, so leaving out for now
-// const entityTypeMap = {
-//     {
-//         "value": "Association"
-//           {
-//         "key": 11,
-//         "value": "Common Ownership"
-//         },
-//           {
-//         "key": 2,
-//         "value": "Corporation"
-//         },
-//           {
-//         "key": 14,
-//         "value": "Government Entity"
-//         },
-//           {
-//         "key": 7,
-//         "value": "Individual"
-//         },
-//           {
-//         "key": 12,
-//         "value": "Joint Employers"
-//         },
-//           {
-//         "key": 4,
-//         "value": "Joint Venture"
-//         },
-//           {
-//         "key": 9,
-//         "value": "Labor Union"
-//         },
-//           {
-//         "key": 5,
-//         "value": "Limited Liability Company"
-//         },
-//           {
-//         "key": 6,
-//         "value": "Limited Liability Partnership"
-//         },
-//           {
-//         "key": 3,
-//         "value": "Limited Partnership"
-//         },
-//           {
-//         "key": 1,
-//         "value": "Partnership"
-//         },
-//           {
-//         "key": 10,
-//         "value": "Religious Organization"
-//         },
-//           {
-//         "key": 13,
-//         "value": "Trust or Estate"
-//         }
-// };
+// This is a list of all entity types BITS supports. Unfortunately, they don't have an "other" option, and don't support all of our entity types
+// NOTE: The map property is a many to one mapping of our entity types to their entity type
+const entityTypes = [
+    {
+        key: 8,
+        value: "Association",
+        map: ["Association"]
+    },
+    {
+        key: 11,
+        value: "Common Ownership",
+        map: []
+    },
+    {
+        key: 2,
+        value: "Corporation",
+        map: ["Corporation", "Non Profit Corporation"]
+    },
+    {
+        key: 14,
+        value: "Government Entity",
+        map: []
+    },
+    {
+        key: 7,
+        value: "Individual",
+        map: []
+    },
+    {
+        key: 12,
+        value: "Joint Employers",
+        map: []
+    },
+    {
+        key: 4,
+        value: "Joint Venture",
+        map: []
+    },
+    {
+        key: 9,
+        value: "Labor Union",
+        map: []
+    },
+    {
+        "key": 5,
+        "value": "Limited Liability Company",
+        map: ["Limited Liability Company"]
+    },
+    {
+        "key": 6,
+        "value": "Limited Liability Partnership",
+        map: []
+    },
+    {
+        "key": 3,
+        "value": "Limited Partnership",
+        map: ["Limited Partnership"]
+    },
+    {
+        "key": 1,
+        "value": "Partnership",
+        map: ["Partnership"]
+    },
+    {
+        "key": 10,
+        "value": "Religious Organization",
+        map: []
+    },
+    {
+        "key": 13,
+        "value": "Trust or Estate",
+        map: []
+    }
+];
+
+const skippedQuestionIds = [];
 
 /*
 * As of 08/2020
@@ -156,17 +161,18 @@ const priorCoverageMap = {
 const AUTH_URL = '/v1/authentication/connect/token';
 const LIMITS_URL = '/WC/v1/gateway/lookup/limits?stateName={STATE_NAME}';
 const QUOTE_URL = '/Common/v1/crosssell/WC/Quote ';
-const REGISTER_AGENT_URL = '/v1/authentication/api/registeragent';
+// const REGISTER_AGENT_URL = '/v1/authentication/api/registeragent';
 
 /*
 * As of 10/2020
 * Our BTIS service channel designations for retrieving agency credentials
 * Used in the request to the BTIS registeragent endpoint
 */
-const SANDBOX_SERVICE_CHANNEL_ID = 12;
-const PRODUCTION_SERVICE_CHANNEL_ID = 86;
+// const SANDBOX_SERVICE_CHANNEL_ID = 12;
+// const PRODUCTION_SERVICE_CHANNEL_ID = 86;
 
-module.exports = class BtisGL extends Integration {
+// Uses Acuity WC as a proxy to utilize existing NCCI activity codes
+module.exports = class AcuityWC extends Integration {
 
     /**
      * Initializes this integration.
@@ -175,6 +181,7 @@ module.exports = class BtisGL extends Integration {
      */
     _insurer_init() {
         this.requiresInsurerIndustryCodes = true;
+        this.requiresInsurerActivityCodes = true;
     }
 
     /**
@@ -187,6 +194,20 @@ module.exports = class BtisGL extends Integration {
         const logPrefix = `Appid: ${this.app.id} BTIS WC: `
         let errorMessage = '';
         let host = '';
+
+        // TODO: We should have ncci on activty codes already
+        // Ensure we have valid NCCI code mappings
+        // for (const location of appDoc.locations) {
+        //     for (const activityCode of location.activityPayrollList) {
+        //         const ncciCode = await this.get_national_ncci_code_from_activity_code(location.state, activityCode.activityCodeId);
+        //         if (!ncciCode) {
+        //             errorMessage = `Error: Missing NCCI class code mapping: activityCode=${activityCode.activityCodeId}, territory=${location.state}. `;
+        //             log.error(`${logPrefix}${errorMessage}`, __location);
+        //             return this.client_autodeclined(errorMessage);
+        //         }
+        //         activityCode.ncciCode = ncciCode;
+        //     }
+        // }
 
         // let service_channel = null;
 
@@ -342,15 +363,81 @@ module.exports = class BtisGL extends Integration {
         const insuredInformation = appDoc.contacts.find(contact => contact.primary);
         let insuredPhoneNumber = insuredInformation.phone.toString();
         // Format phone number to: (xxx)xxx-xxxx
-        insuredPhoneNumber = `(${insuredPhoneNumber.substring(0, 3)})${insuredPhoneNumber.substring(3, 6)}-${insuredPhoneNumber.substring(insuredPhoneNumber.length - 4)}`;
+        insuredPhoneNumber = `1-${insuredPhoneNumber.substring(0, 3)}-${insuredPhoneNumber.substring(3, 6)}-${insuredPhoneNumber.substring(insuredPhoneNumber.length - 4)}`;
 
         /*
         * BUSINESS ENTITY
         * Check to make sure BTIS supports the applicant's entity type, if not autodecline
         */
-        if (!(this.app.business.entity_type in BUSINESS_ENTITIES)) {
-            this.reasons.push(`BTIS does not support business entity type: ${this.app.business.entity_type}`);
-            return this.return_result('autodeclined');
+        // if (!(this.app.business.entity_type in BUSINESS_ENTITIES)) {
+        //     this.reasons.push(`BTIS does not support business entity type: ${this.app.business.entity_type}`);
+        //     return this.return_result('autodeclined');
+        // }
+        const entityTypeId = entityTypes.find(entityType => entityType.map.includes(appDoc.entityType))?.key;
+        if (!entityTypeId) {
+            errorMessage = `BTIS does not support the selected business entity type ${appDoc.entityType}.`;
+            log.error(`${logPrefix}${errorMessage} ` + __location);
+            this.reasons.push(errorMessage);
+            return this.client_autodeclined(errorMessage);
+        }
+
+        const acordQuestions = this.insurerQuestionList.filter(insurerQuestion => !insurerQuestion.identifer.includes("child_"));
+        const explanationQuestions = this.insurerQuestionList.filter(insurerQuestion => insurerQuestion.identifer.includes("child_"));
+        const appQuestions = [];
+
+        // first, create the acord questions in the format BTIS is expecting
+        for (const insurerQuestion of acordQuestions) {
+            if (skippedQuestionIds.includes(insurerQuestion.identifier) || insurerQuestion.talageQuestionId) {
+                continue;
+            }
+
+            const question = this.questions[insurerQuestion.talageQuestionId];
+            if (!question) {
+                log.warn(`${logPrefix}Unable to find Talage question with ID ${insurerQuestion.talageQuestionId}. Skipping...`);
+                continue;
+            }
+
+            let answer = '';
+            try {
+                answer = this.determine_question_answer(question);
+            }
+            catch (e) {
+                log.error(`${logPrefix}Could not determine acord question ${question.id} answer: ${e}. Skipping... ` + __location);
+                continue;
+            }
+
+            appQuestions.push({
+                QuestionId: question.identifier,
+                Answer: answer
+            });
+        }
+
+        // then, add the explanations to the appropriate questions
+        for (const insurerQuestion of explanationQuestions) {
+            if (!insurerQuestion.talageQuestionId) {
+                continue;
+            }
+
+            const question = this.questions[insurerQuestion.talageQuestionId];
+
+            let answer = '';
+            try {
+                answer = this.determine_question_answer(question);
+            }
+            catch (e) {
+                log.error(`${logPrefix}Could not determine explanation question ${question.id} answer: ${e}. Skipping... ` + __location);
+                continue;
+            }
+
+            const parentQuestionId = insurerQuestion.identifier.replace("child_", "");
+            const acordQuestion = appQuestions.find(q => q.QuestionId === parentQuestionId);
+
+            if (!acordQuestion) {
+                log.warn(`${logPrefix}Unable to find parent question for explanation question ${question.id}. Skipping... ` + __location)
+                continue;
+            }
+
+            acordQuestion.explanation = answer;
         }
 
         /*
@@ -364,62 +451,42 @@ module.exports = class BtisGL extends Integration {
         * 4 = 4 years in business
         * 5 = 5+ years in business
         */
-        let businessHistoryId = moment().diff(this.app.business.founded, 'years');
-        if(businessHistoryId > 5){
-            businessHistoryId = 5;
-        }
+        // let businessHistoryId = moment().diff(this.app.business.founded, 'years');
+        // if(businessHistoryId > 5){
+        //     businessHistoryId = 5;
+        // }
 
-        /*
-        * PRIMARY ADDRESS
-        * Retrieve the business' primary address. Primary address is always stored in the first element of locations.
-        */
         const primaryAddress = appDoc.locations.find(location => location.primary);
 
-        /*
-        * BTIS QUALIFYING STATEMENTS
-        * Retrieve the BTIS qualifying statement ids and map them to our ids, if unsuccessful we have
-        * to quit as they are required for BTIS.
-        * questionIdsObject: key - talage ID
-        *                    value - BTIS ID
-        */
-        let questionIdsObject = null;
-        try{
-            questionIdsObject = await this.get_question_identifiers();
-        }
-        catch(error){
-            this.reasons.push('Unable to get BTIS question identifiers required for application submission.');
-            return this.return_error('error', `${logPrefix}Unable to get BTIS question identifiers required for application submission` + error + __location);
-        }
-
         // Loop through and process each BTIS qualifying statement/question
-        let subcontractorCosts = 0;
-        let constructionExperience = 0;
-        const qualifyingStatements = [];
-        for (const question_id in this.questions) {
-            if(this.questions[question_id]){
-                const question = this.questions[question_id];
-                // Make sure we have a BTIS qualifying statement ID
-                if (questionIdsObject[question.id]) {
-                    // If the question is a special case (manually added in the question importer) handle it,
-                    // otherwise push it onto the qualifying statements
-                    switch(questionIdsObject[question.id]){
-                        // What is your annual cost of sub-contracted labor?
-                        case '1000':
-                            subcontractorCosts = question.answer ? question.answer : 0;
-                            break;
-                        // How many years of construction experience do you have?
-                        case '1001':
-                            constructionExperience = question.answer ? question.answer : 0;
-                            break;
-                        default:
-                            qualifyingStatements.push({
-                                QuestionId: parseInt(questionIdsObject[question.id], 10),
-                                Answer: question.get_answer_as_boolean()
-                            });
-                    }
-                }
-            }
-        }
+        // let subcontractorCosts = 0;
+        // let constructionExperience = 0;
+        // const qualifyingStatements = [];
+        // for (const question_id in this.questions) {
+        //     if(this.questions[question_id]){
+        //         const question = this.questions[question_id];
+        //         // Make sure we have a BTIS qualifying statement ID
+        //         if (questionIdsObject[question.id]) {
+        //             // If the question is a special case (manually added in the question importer) handle it,
+        //             // otherwise push it onto the qualifying statements
+        //             switch(questionIdsObject[question.id]){
+        //                 // What is your annual cost of sub-contracted labor?
+        //                 case '1000':
+        //                     subcontractorCosts = question.answer ? question.answer : 0;
+        //                     break;
+        //                 // How many years of construction experience do you have?
+        //                 case '1001':
+        //                     constructionExperience = question.answer ? question.answer : 0;
+        //                     break;
+        //                 default:
+        //                     qualifyingStatements.push({
+        //                         QuestionId: parseInt(questionIdsObject[question.id], 10),
+        //                         Answer: question.get_answer_as_boolean()
+        //                     });
+        //             }
+        //         }
+        //     }
+        // }
 
         /*
         * PERFORM NEW RESIDENTIAL WORK
@@ -432,24 +499,24 @@ module.exports = class BtisGL extends Integration {
         */
 
         // Get the talage ID of BTIS qualifying statement number 2
-        const talageIdNewResidentialWork = Object.keys(questionIdsObject).find(talageId => questionIdsObject[talageId] === '2');
-        let performNewResidentialWork = false;
-        if(this.questions[talageIdNewResidentialWork]){
-            performNewResidentialWork = !this.questions[talageIdNewResidentialWork].get_answer_as_boolean();
-        }
-        else {
-            log.warn(`${logPrefix} missing BTIS question (BTIS ID: 2) appId: ` + this.app.id + __location);
-        }
+        // const talageIdNewResidentialWork = Object.keys(questionIdsObject).find(talageId => questionIdsObject[talageId] === '2');
+        // let performNewResidentialWork = false;
+        // if(this.questions[talageIdNewResidentialWork]){
+        //     performNewResidentialWork = !this.questions[talageIdNewResidentialWork].get_answer_as_boolean();
+        // }
+        // else {
+        //     log.warn(`${logPrefix} missing BTIS question (BTIS ID: 2) appId: ` + this.app.id + __location);
+        // }
 
         /*
         * GROSS RECEIPTS
         * BTIS qulaifying statement id 1 asks: Are your gross receipts below $1,500,000 in each of the past 2 years?
         * We ask for and store gross sales in the applicaiton so this qualifying statement needs to be processed separately
         */
-        qualifyingStatements.push({
-            QuestionId: 1,
-            Answer: this.policy.gross_sales < 1500000
-        });
+        // qualifyingStatements.push({
+        //     QuestionId: 1,
+        //     Answer: this.policy.gross_sales < 1500000
+        // });
 
         /*
         * BTIS APPLICAITON
@@ -460,67 +527,73 @@ module.exports = class BtisGL extends Integration {
                 AgentContactId: 1, // TODO
                 AgencyId: 1, // TODO
                 ProposedEffectiveDate: moment(WCPolicy.effectiveDate).format("M/D/YYYY"),
-                ProposedExpirationDate: "1/9/2022",
+                ProposedExpirationDate: moment(WCPolicy.expirationDate).format("M/D/YYYY"),
                 LimitId: btisLimitsId,
                 ProgramCode: "QMWC",
                 Applicant: {
                     InsuredFirstName: insuredInformation.firstName,
                     InsuredLastName: insuredInformation.lastName,
                     LegalEntityName: appDoc.businessName,
-                    LegalEntity: 2, // TODO
+                    LegalEntity: entityTypeId,
                     FEIN: appDoc.ein
                 },
                 YearBusinessStarted: 2010,
                 YearsOfIndustryExperience: 10,
-                DescriptionOfOperations: "cutting hear",
+                DescriptionOfOperations: this.get_operation_description(),
                 BlanketWaiverSubrogation: false,
-                ContractorLicense: "1231231",
-                MCP65OrDMVLicense: "123123123",
-                ExperienceMod: 1.0,
-                Line1: "200 South Virginia St",
-                City: "Reno",
-                State: "NV",
-                Zip: "89501",
-                EmployeeSinceEstablishment: true,
-                NoOfPriorCoverage: 1,
-                ClaimCount: 0
+                ContractorLicense: "1231231", // TODO: Do we need a question for this?
+                MCP65OrDMVLicense: "123123123", // TODO: Do we need a question for this?
+                ExperienceMod: appDoc.experience_modifier,
+                Line1: primaryAddress.address,
+                City: primaryAddress.city,
+                State: primaryAddress.state,
+                Zip: primaryAddress.zip.substring(0, 5),
+                EmployeeSinceEstablishment: true, // TODO: what is this? Leave as default?
+                NoOfPriorCoverage: 1, // TODO: Make a child question of existing prior coverage question, OR, use existing question, and if yes, just default to 1, otherwise 0
+                ClaimCount: appDoc.claims.length,
+                AcordResponses: appQuestions
+                // CreditResponses: [] // currently not handling credit questions
             },
             contact: {
                 FirstName: insuredInformation.firstName,
                 LastName: insuredInformation.lastName,
                 PhoneNumber: insuredPhoneNumber// TODO: check if it needs to be this format - "1-415-239-1756"
             },
-            owners: { // TODO: This isn't an array, do they only allow a single owner?
-                FirstName: "John",
-                LastName: "Doe",
-                Title: "CEO", // TODO: Do they have a map for this? Or is this free-form?
-                OwnershipPct: 100,
-                IsIncluded: false
+            owners: { // TODO: Figure out how to pass as array, there can be multiple owners
+                FirstName: appDoc.owners[0].fname,
+                LastName: appDoc.owners[0].lname,
+                Title: appDoc.owners[0].officerTitle,
+                OwnershipPct: appDoc.owners[0].ownership,
+                IsIncluded: appDoc.owners[0].include
             },
-            LocationsClassifications: { // TODO: This isn't an array, do they only allow single location?
-                Location: {
+            LocationsClassifications: { // TODO: Figure out how to pass as array
+                Location: { // TODO: Likely needs to be location specific
                     IsPrimary: true,
-                    FEIN: "231245676",
-                    ExperienceMod: 1.0,
-                    Line1: "200 South Virginia St",
-                    City: "Reno",
-                    State: "NV",
-                    Zip: "89501",
-                    EmployeeSinceEstablishment: true,
-                    NoOfPriorCoverage: 1,
-                    ClaimCount: 0
+                    FEIN: appDoc.ein,
+                    ExperienceMod: appDoc.experience_modifier,
+                    Line1: primaryAddress.address,
+                    City: primaryAddress.city,
+                    State: primaryAddress.state,
+                    Zip: primaryAddress.zipcode,
+                    EmployeeSinceEstablishment: true, // defaulting true
+                    NoOfPriorCoverage: 1, // TODO: Same as above reference
+                    ClaimCount: appDoc.claims.length
                 },
-                Classifications: {
-                    ClassCode: 8808,
+                Classifications: { // TODO: Likely needs to be classification specific
+                    ClassCode: primaryAddress.activityPayrollList,
                     "Description Banks": "Banks",
-                    Payroll: 100000,
-                    NumberOfFullTimeEmployees: 3,
-                    NumberOfPartTimeEmployees: 1
+                    Payroll: this.get_total_payroll(),
+                    NumberOfFullTimeEmployees: this.get_total_full_time_employees(),
+                    NumberOfPartTimeEmployees: this.get_total_part_time_employees()
                 }
             }
         };//,
         //     carriers: ["AMTRUSTWC", "GREATAMERICAN"]
         // }
+
+        console.log(JSON.stringify(data, null, 4));
+        console.log(JSON.stringify(appDoc, null, 4));
+        process.exit(0);
 
         // Send JSON to the insurer
         let quoteResult = null;
