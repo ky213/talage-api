@@ -74,7 +74,7 @@ async function getUniqueQuotes(req, res, next){
                 {"appl":"$appl"},
                 {"agency":"$agency"}]}}},
         {$sort:
-            {'_id.createdAt': 1}}
+            {'quote.createdAt': -1}}
     ]
 
     if(req.query && req.query.quoteStatus){
