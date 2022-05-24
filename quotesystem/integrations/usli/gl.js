@@ -132,6 +132,7 @@ module.exports = class USLIGL extends Integration {
             return this.client_error(errorMessage, __location);
         }
 
+
         // ------------- CREATE XML REQUEST ---------------
 
         const acord = {ACORD: {
@@ -451,6 +452,26 @@ module.exports = class USLIGL extends Integration {
                 }
             }
         }};
+
+        //If this is a 'Home Business' submission the app should be promoted to a BOP policy, as per the insurer's advise
+        const isHomeBusiness = this.insurerIndustryCode?.attributes?.product === 'Home Business'
+        if(isHomeBusiness){
+            const CommlSubLocation = []
+            const nodesToBeDefaulted = {
+                "usli:Perils": "Special Excluding Wind And Hail",
+                "usli:RequestedCauseOfLossCd": "SPC"
+
+            }
+            acord.ACORD.InsuranceSvcRq.CommlPkgPolicyQuoteInqRq.CommlPolicy.LOBCd = "BOP"
+            acord.ACORD.InsuranceSvcRq.CommlPkgPolicyQuoteInqRq.Location.forEach(location => {
+                CommlSubLocation.push({
+                    '@LocationRef':`${location['@id']}`,
+                    ...nodesToBeDefaulted
+                })
+            })
+
+            acord.ACORD.InsuranceSvcRq.CommlPkgPolicyQuoteInqRq.CommlSubLocation = CommlSubLocation
+        }
 
         // -------------- SEND XML REQUEST ----------------
 
