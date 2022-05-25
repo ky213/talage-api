@@ -189,7 +189,7 @@ module.exports = class Application {
         //update business with policy type list.
         this.business.setPolicyTypeList(this.appPolicyTypeList);
         // Agent
-        this.agencyLocation = new AgencyLocation(this.business, this.policies);
+        this.agencyLocation = new AgencyLocation(this.business, this.policies, this.applicationDocData.applicationId);
         // Note: The front-end is sending in 'agent' but this is really a reference to the 'agency location'
         if (this.applicationDocData.agencyLocationId) {
             await this.agencyLocation.load({id: this.applicationDocData.agencyLocationId});
