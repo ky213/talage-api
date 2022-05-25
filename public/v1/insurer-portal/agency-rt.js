@@ -127,10 +127,7 @@ async function getAgencies(req, res, next){
 
                     }},
                     {$group : {
-                        _id: {
-                            month: '$month',
-                            year: '$year'
-                        },
+                        _id: {insurerId: '$insurerId'},
                         premium: {$sum: '$amount'},
                         quoteRequestsCount : {$sum : "$quoteRequests"},
                         quotedCount : {$sum : "$quoted"},
@@ -138,10 +135,7 @@ async function getAgencies(req, res, next){
                         boundCount : {$sum : "$bound"},
                         boundPremiumAmount : {$sum : "$boundPremium"}
                     }},
-                    {$sort: {
-                        '_id.quoteStatusId': 1,
-                        '_id.month': 1
-                    }},
+                    {$sort: {'_id.insurerId': 1}},
                     {$replaceRoot: {"newRoot":
                         {"$mergeObjects": ["$_id", {
                             "quoteRequests": "$quoteRequestsCount" ,
@@ -173,7 +167,7 @@ async function getAgencies(req, res, next){
 
                 const quoteAgencyTotalCountQuery = [
                     {$match: {
-                        quotingAgencyId: 1,
+                        quotingAgencyId: agency.agencyId,
                         createdAt: {
                             $gte: startPeriod.toDate(),
                             $lte: endPeriod.toDate()
@@ -189,7 +183,7 @@ async function getAgencies(req, res, next){
                         _id: {
                             quoteStatusId: '$quoteStatusId',
                             quoteStatusDescription: '$quoteStatusDescription',
-                            quotingAgencyId: '$insurerId'
+                            quotingAgencyId: '$quotingAgencyId'
                         },
                         count: {$sum: 1},
                         premium: {$sum: '$amount'}
@@ -250,10 +244,7 @@ async function getAgencies(req, res, next){
 
                     }},
                     {$group : {
-                        _id: {
-                            month: '$month',
-                            year: '$year'
-                        },
+                        _id: {quotingAgencyId: '$quotingAgencyId'},
                         premium: {$sum: '$amount'},
                         quoteRequestsCount : {$sum : "$quoteRequests"},
                         quotedCount : {$sum : "$quoted"},
@@ -261,10 +252,7 @@ async function getAgencies(req, res, next){
                         boundCount : {$sum : "$bound"},
                         boundPremiumAmount : {$sum : "$boundPremium"}
                     }},
-                    {$sort: {
-                        '_id.quoteStatusId': 1,
-                        '_id.month': 1
-                    }},
+                    {$sort: {'_id.quotingAgencyId': 1}},
                     {$replaceRoot: {"newRoot":
                         {"$mergeObjects": ["$_id", {
                             "quoteRequests": "$quoteRequestsCount" ,
