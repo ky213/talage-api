@@ -45,7 +45,7 @@ async function getDashboard(req, res, next){
     }
 
     // Carrier industry name needs to be returned.
-    const classCodes = await Quote.aggregate([
+    let classCodes = await Quote.aggregate([
         {$match: queryMatch},
         {$lookup:
         {
@@ -58,8 +58,11 @@ async function getDashboard(req, res, next){
             _id: {industryCode: '$application.industryCode'},
             amount: {$sum: '$amount'}
         }},
+        {$sort: {amount: -1}},
         {$replaceRoot: {newRoot: {$mergeObjects: [{"amount": "$amount"}, "$_id"]}}}
     ]);
+    // Don't return more than 20.
+    classCodes = classCodes.slice(0, 20);
 
     const monthlyCount = await Quote.aggregate([
         {$match: queryMatch},
