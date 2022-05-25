@@ -167,11 +167,13 @@ async function refresh(req, res, next) {
 }
 
 async function changeInsurer(req, res, next) {
-    if(!req.body.insurerId) {
+    if(!req.body?.insurerId && !req.params.insurerId) {
         return next(serverHelper.requestError('Missing New Insurer ID'));
     }
     try {
-        const jwtToken = await AuthHelper.createToken(req.authentication.email, req.body.insurerId);
+        let insurerId = req.body?.insurerId ? req.body.insurerId : req.params.insurerId
+        insurerId = parseInt(insurerId, 10)
+        const jwtToken = await AuthHelper.createToken(req.authentication.email, insurerId);
         const token = `Bearer ${jwtToken}`;
         res.send(201, token);
         return next();
@@ -187,4 +189,5 @@ exports.registerEndpoint = (server, basePath) => {
     server.addPostMFA('MFA Check', `${basePath}/auth/verify`, verify);
     server.addPutInsurerPortalAuth('Refresh Token', `${basePath}/auth`, refresh);
     server.addPutInsurerPortalAuth('Change Insurer', `${basePath}/auth/change-insurer`, changeInsurer, 'globalUser', null)
+    server.addPutInsurerPortalAuth('Change Insurer', `${basePath}/auth/:insurerId`, changeInsurer, 'globalUser', null)
 };
