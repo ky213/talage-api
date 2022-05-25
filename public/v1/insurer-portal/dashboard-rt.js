@@ -39,7 +39,7 @@ async function getDashboard(req, res, next){
                 break;
             case 'Quoted':
             default:
-                queryMatch.quoteStatusId = {$gte: 40};
+                queryMatch.quoteStatusId = {$gte: 50};
                 break;
         }
     }
@@ -135,7 +135,7 @@ async function getDashboard(req, res, next){
         }}
     ]);
 
-    const premiumQuoted = await getQuoteAmount(40); //status === quoted
+    const premiumQuoted = await getQuoteAmount(50); //status === quoted
     const premiumRequestBound = await getQuoteAmount(60); //status === request bound
     const premiumBound = await getQuoteAmount(100); //status === bound
 
