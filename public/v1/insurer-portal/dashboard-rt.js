@@ -45,7 +45,7 @@ async function getDashboard(req, res, next){
     }
 
     // Carrier industry name needs to be returned.
-    let classCodes = await Quote.aggregate([
+    const classCodes = await Quote.aggregate([
         {$match: queryMatch},
         {$lookup:
         {
@@ -54,15 +54,40 @@ async function getDashboard(req, res, next){
             foreignField: "applicationId",
             as: "application"
         }},
+        // This is a hack because industryId is often a string in the application collection but
+        // an integer in the industrycodes collection. So we need to cast it to int first.
+        {$project:
+        {
+            application: {$arrayElemAt: ["$application", 0]},
+            amount: 1
+        }},
+        {$project:
+        {
+            industryCodeId: {$toInt: '$application.industryCode'},
+            amount: 1
+        }},
+        {$lookup:
+            {
+                from: "industrycodes",
+                localField: "industryCodeId",
+                foreignField: "industryCodeId",
+                as: "industrycode"
+            }},
         {$group: {
-            _id: {industryCode: '$application.industryCode'},
+            _id: {
+                industryCode: '$industryCodeId',
+                description: '$industrycode.description'
+            },
             amount: {$sum: '$amount'}
         }},
         {$sort: {amount: -1}},
-        {$replaceRoot: {newRoot: {$mergeObjects: [{"amount": "$amount"}, "$_id"]}}}
+        {$replaceRoot: {newRoot: {$mergeObjects: [{"amount": "$amount"}, "$_id"]}}},
+        {$project:
+            {
+                description: {$arrayElemAt: ["$description", 0]},
+                amount: 1
+            }}
     ]);
-    // Don't return more than 20.
-    classCodes = classCodes.slice(0, 20);
 
     const monthlyCount = await Quote.aggregate([
         {$match: queryMatch},
@@ -75,7 +100,8 @@ async function getDashboard(req, res, next){
                 date: '$createdAt',
                 timezone: "America/Los_Angeles"
             }},
-            insurerId: 1
+            insurerId: 1,
+            amount: 1
         }},
         {$group: {
             _id: {
@@ -83,7 +109,7 @@ async function getDashboard(req, res, next){
                 year: '$creationYear',
                 insurerId: '$insurerId'
             },
-            count: {$sum: 1}
+            count: {$sum: '$amount'}
         }},
         {$sort: {
             '_id.insurerId': 1,
@@ -151,11 +177,7 @@ async function getDashboard(req, res, next){
                 amount: t.amount
             })),
         classCodes: classCodes.
-            filter(t => t.amount !== 0).
-            map(t => ({
-                industryCode: t?.industryCode?.[0],
-                amount: t.amount
-            })),
+            filter(t => t.amount !== 0),
         totalApplications: totalApplications?.[0]?.amount,
         premiumQuoted: premiumQuoted?.[0]?.totalAmount,
         premiumRequestBound: premiumRequestBound?.[0]?.totalAmount,
