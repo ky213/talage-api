@@ -19,7 +19,6 @@ module.exports = class USLIGL extends Integration {
    */
     _insurer_init() {
         this.requiresInsurerIndustryCodes = true;
-        this.productDesc = "Commercial Package";
     }
 
     /**
@@ -456,6 +455,7 @@ module.exports = class USLIGL extends Integration {
         //If this is a 'Home Business' submission the app should be promoted to a BOP policy, as per the insurer's advise
         const isHomeBusiness = this.insurerIndustryCode?.attributes?.product === 'Home Business'
         if(isHomeBusiness){
+            this.productDesc = "This Home Business has been promoted to a BOP submission."
             const CommlSubLocation = []
             const nodesToBeDefaulted = {
                 "usli:Perils": "Special Excluding Wind And Hail",
