@@ -17,6 +17,8 @@
 
 const builder = require('xmlbuilder');
 const moment = require('moment');
+const {get} = require('lodash')
+
 const Integration = require('../Integration.js');
 // eslint-disable-next-line no-unused-vars
 global.requireShared('./helpers/tracker.js');
@@ -1787,6 +1789,9 @@ module.exports = class LibertySBOP extends Integration {
                 this.insurerPaymentPlans.push(paymentPlan);
             });
         } 
+
+        // Get quote link
+        this.quoteLink = get(result, "ResponseURL[0]")
 
         // return result based on policy status
         if (policyStatus) {

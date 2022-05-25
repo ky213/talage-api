@@ -11,6 +11,8 @@
 const builder = require('xmlbuilder');
 const moment = require('moment');
 const Integration = require('../Integration.js');
+const {get} = require('lodash')
+
 // eslint-disable-next-line no-unused-vars
 global.requireShared('./helpers/tracker.js');
 const {getLibertyQuoteProposal, getLibertyOAuthToken} = require('./api');
@@ -645,6 +647,10 @@ module.exports = class LibertySBOP extends Integration {
                 quoteLetter = quoteResult.substring(start, end);
             }
         }
+
+        // Get quote link
+        this.quoteLink = get(result, "ResponseURL[0]")
+
 
         // return result based on policy status
         if (policyStatus) {
