@@ -10,8 +10,9 @@ const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
 
 module.exports = class AgencyLocation {
 
-    constructor(appBusiness, appPolicies) {
+    constructor(appBusiness, appPolicies, applicationId) {
         //this.app = app;
+        this.applicationId = applicationId;
         this.business = JSON.parse(JSON.stringify(appBusiness));
         this.appPolicies = appPolicies;
         this.agency = '';
@@ -45,7 +46,7 @@ module.exports = class AgencyLocation {
         return new Promise(async(fulfill, reject) => {
             // Make sure we can load the agency data
             if (!this.id) {
-                reject(new Error('You must set an agency location ID before running init.'));
+                reject(new Error(`AppId ${this.applicationId} You must set an agency location ID before running init.`));
                 return;
             }
 
@@ -98,7 +99,7 @@ module.exports = class AgencyLocation {
                     alInsurerList = this.quotingAgencyLocationDB.insurers;
                 }
                 else {
-                    log.error(`Agency location Missing insurers ${this.id} ` + JSON.stringify(agencyLocation) + __location);
+                    log.error(`AppId ${this.applicationId} - Agency location Missing insurers ${this.id} ` + JSON.stringify(agencyLocation) + __location);
                 }
                 //Territory has set at agency not Talage Wholesale or Agency Network Prime Agency.
                 if(agencyLocation.territories){
@@ -107,11 +108,11 @@ module.exports = class AgencyLocation {
                     //log.debug("alTerritoyList: " + JSON.stringify(alTerritoyList));
                 }
                 else {
-                    log.error(`Agency territories Missing  Application Id ${this.id} ` + JSON.stringify(agencyLocation) + __location);
+                    log.error(`AppId ${this.applicationId} - Agency territories Missing  Application Id ${this.id} ` + JSON.stringify(agencyLocation) + __location);
                 }
             }
             catch(err){
-                log.error("Error Getting AgencyLocationBO error: " + err + __location);
+                log.error(`AppId ${this.applicationId}  Error Getting AgencyLocationBO error: ` + err + __location);
                 reject(err);
                 hadError = true;
             }
@@ -132,7 +133,7 @@ module.exports = class AgencyLocation {
                 }
             }
             catch(err){
-                log.error("Error Getting Agency error: " + err + __location);
+                log.error(`AppId ${this.applicationId} Error Getting Agency error: ` + err + __location);
                 reject(err);
                 hadError = true;
             }
@@ -162,6 +163,8 @@ module.exports = class AgencyLocation {
 
             for (const insurer of alInsurerList) {
                 try{
+                    //So quote has the appointed agency used for submission.
+                    insurer.quotingAgencyId = this.quotingAgencyLocationDB.agencyId
                     //if agency is using talageWholeSale with the insurer.
                     //user talage's main location (agencyLocation systemId: 1)
                     //Tracks if there is a wholesale miss.
@@ -204,6 +207,7 @@ module.exports = class AgencyLocation {
                         }
                         //Find correct insurer
                         if(agencyPrimeAgencyLocation){
+                            insurer.quotingAgencyId = agencyPrimeAgencyLocation.agencyId;
                             const wholesaleInsurer = agencyPrimeAgencyLocation.insurers.find((ti) => ti.insurerId === insurer.insurerId);
                             if(wholesaleInsurer){
                                 if(wholesaleInsurer.agencyId){
@@ -222,19 +226,19 @@ module.exports = class AgencyLocation {
                                 if(wholesaleInsurer.talageWholesale){
                                     insurer.talageWholesale = wholesaleInsurer.talageWholesale;
                                 }
-                                log.info(`Agency ${agencyLocation.agencyId} using Wholesaler for insurerId ${insurer.insurerId}` + __location);
+                                log.info(`AppId ${this.applicationId} Agency ${agencyLocation.agencyId} using Wholesaler for insurerId ${insurer.insurerId}` + __location);
                             }
                             else {
-                                log.error(`Agency ${agencyLocation.agencyId} could not retrieve Wholesaler for insurerId ${insurer.insurerId}. Contact Customer Success - Bad Primary Agency Configuration` + __location);
+                                log.error(`AppId ${this.applicationId} Agency ${agencyLocation.agencyId} could not retrieve Wholesaler for insurerId ${insurer.insurerId}. Contact Customer Success - Bad Primary Agency Configuration` + __location);
                                 addInsurer = false;
                             }
                         }
                         else {
                             if(insurer.talageWholesale){
-                                log.error(`Agency ${agencyInfo.name} LocId: ${agencyLocation.agencyId} could not retrieve Talage Wholesale Agency Location for insurerId ${insurer.insurerId}` + __location);
+                                log.error(`AppId ${this.applicationId} Agency ${agencyInfo.name} LocId: ${agencyLocation.agencyId} could not retrieve Talage Wholesale Agency Location for insurerId ${insurer.insurerId}` + __location);
                             }
                             else {
-                                log.error(`Agency ${agencyInfo.name} LocId: ${agencyLocation.agencyId} could not retrieve Wholesaler for insurerId ${insurer.insurerId}. Contact Customer Success - Bad Primary Agency Configuration for Agency Network ${agencyNetworkJSON.name}` + __location);
+                                log.error(`AppId ${this.applicationId} Agency ${agencyInfo.name} LocId: ${agencyLocation.agencyId} could not retrieve Wholesaler for insurerId ${insurer.insurerId}. Contact Customer Success - Bad Primary Agency Configuration for Agency Network ${agencyNetworkJSON.name}` + __location);
                             }
                             addInsurer = false;
                         }
@@ -251,21 +255,21 @@ module.exports = class AgencyLocation {
                         }
 
                         if (!insurer.agency_id) {
-                            log.error(`Agency ${agencyLocation.agencyId} missing Agency ID in configuration. ${JSON.stringify(insurer)}` + __location);
+                            log.error(`AppId ${this.applicationId} Agency ${agencyLocation.agencyId} missing Agency ID in configuration. ${JSON.stringify(insurer)}` + __location);
                             //Do not stop quote because one insurer is miss configured.
                             //return;
                         }
 
                         if (insurer.enable_agent_id) {
                             if (!insurer.agent_id) {
-                                log.error(`Agency ${agencyLocation.agencyId} missing Agent ID in configuration.  ${JSON.stringify(insurer)}` + __location);
+                                log.error(`AppId ${this.applicationId} Agency ${agencyLocation.agencyId} missing Agent ID in configuration.  ${JSON.stringify(insurer)}` + __location);
                                 //Do not stop quote because one insurer is miss configured.
                             }
                         }
 
                         if (insurer.enable_cred3) {
                             if (!insurer.agencyCred3 && insurer.insurerId !== 19) {
-                                log.error(`Agency ${agencyLocation.agencyId} missing agencyCred3 in configuration.  ${JSON.stringify(insurer)}` + __location);
+                                log.error(`AppId ${this.applicationId} Agency ${agencyLocation.agencyId} missing agencyCred3 in configuration.  ${JSON.stringify(insurer)}` + __location);
                                 //Do not stop quote because one insurer is miss configured.
                             }
                         }
@@ -291,11 +295,11 @@ module.exports = class AgencyLocation {
                                             insurer.policyTypeInfo[ptCode].quotingTierLevel = wholesaleInsurer?.policyTypeInfo[ptCode].quotingTierLevel
                                         }
                                         else {
-                                            log.error(`Agency ${agencyLocation.agencyId} primary agency ${primaryAgencyLocationJSON.agencyId} no tiering for ${insurer.name} ${ptCode}` + __location);
+                                            log.error(`AppId ${this.applicationId} Agency ${agencyLocation.agencyId} primary agency ${primaryAgencyLocationJSON.agencyId} no tiering for ${insurer.name} ${ptCode}` + __location);
                                         }
                                     }
                                     else {
-                                        log.error(`Agency ${agencyLocation.agencyId} primary agency ${primaryAgencyLocationJSON.agencyId} does not have insurers` + __location);
+                                        log.error(`AppId ${this.applicationId} Agency ${agencyLocation.agencyId} primary agency ${primaryAgencyLocationJSON.agencyId} does not have insurers` + __location);
                                     }
                                 }
                             }
@@ -316,20 +320,21 @@ module.exports = class AgencyLocation {
                                 }
                             }
                             catch(err){
-                                log.error(`Agency ${agencyLocation.agencyId} error setting up tiering insurerId ${insurer.insurerId} error: ${err}` + __location);
+                                log.error(`AppId ${this.applicationId} Agency ${agencyLocation.agencyId} error setting up tiering insurerId ${insurer.insurerId} error: ${err}` + __location);
                             }
                         }
                     }
                     if(addInsurer){
+                        log.debug(`AgencyLocation Model insurer.quotingAgencyId ${insurer.quotingAgencyId}` + __location)
                         this.insurers[insurer.id] = insurer;
                         this.insurerList.push(insurer)
                     }
                 }
                 catch(err){
-                    log.error(`Agency ${agencyLocation.agencyId} error adding insurerId ${insurer.insurerId} error: ${err}` + __location);
+                    log.error(`AppId ${this.applicationId} Agency ${agencyLocation.agencyId} error adding insurerId ${insurer.insurerId} error: ${err}` + __location);
                 }
             }
-            log.debug(`QUOTING AGENCY LOCATION this.insurerList ${JSON.stringify(this.insurerList)}`)
+            //log.debug(`QUOTING AGENCY LOCATION this.insurerList ${JSON.stringify(this.insurerList)}`)
 
 
             // Check that we have all of the required data
@@ -355,7 +360,7 @@ module.exports = class AgencyLocation {
                 for (const insurer in this.insurers) {
                     if (Object.prototype.hasOwnProperty.call(this.insurers, insurer)) {
                         if (!this.insurers[insurer].agency_id || this.insurers[insurer].enable_agent_id && !this.insurers[insurer].agent_id) {
-                            log.error(`Agency insurer ID ${insurer} disabled because it was missing the agency_id, agent_id, or both.` + __location);
+                            log.error(`AppId ${this.applicationId} Agency insurer ID ${insurer} disabled because it was missing the agency_id, agent_id, or both.` + __location);
                             delete this.insurers[insurer];
                         }
                     }
@@ -370,8 +375,8 @@ module.exports = class AgencyLocation {
             }
 
             if (missing.length) {
-                log.error(`Agency application failed because the Agent was not fully configured. Missing: ${missing.join(', ')}` + __location);
-                reject(new Error('Agent not fully configured. Please contact us.'));
+                log.error(`AppId ${this.applicationId} Agency application failed because the Agent was not fully configured. Missing: ${missing.join(', ')}` + __location);
+                reject(new Error(`AppId ${this.applicationId} Agent not fully configured. Please contact us.`));
                 return;
             }
 
@@ -416,7 +421,7 @@ module.exports = class AgencyLocation {
             this.business.locations.forEach((location) => {
                 // log.debug(`this.territories` + JSON.stringify(this.territories))
                 if (!this.territories.includes(location.state)) {
-                    log.error(`Agent ${this.agencyId} does not have ${location.state} enabled` + __location);
+                    log.error(`AppId ${this.applicationId} Agent ${this.agencyId} does not have ${location.state} enabled` + __location);
                     reject(new Error(`The specified agent is not setup to support this application in territory ${location.state}.`));
                 }
             });
@@ -434,7 +439,7 @@ module.exports = class AgencyLocation {
                     }
                 }
                 if (!match_found) {
-                    log.error(`Agent ${this.agencyId} location ${this.id} does not have ${policy.type} policies enabled` + __location);
+                    log.error(`AppId ${this.applicationId} Agent ${this.agencyId} location ${this.id} does not have ${policy.type} policies enabled` + __location);
                     reject(new Error('The specified agent is not setup to support this application.'));
                 }
             });
@@ -452,7 +457,7 @@ module.exports = class AgencyLocation {
             }
         }
         else {
-            log.error("Quote Agency Location no insurers in shouldNotifyTalage " + __location);
+            log.error(`AppId ${this.applicationId} Quote Agency Location no insurers in shouldNotifyTalage ` + __location);
         }
         return notifyTalage;
     }
@@ -468,7 +473,7 @@ module.exports = class AgencyLocation {
                 agencyNetworkId = agencyJSON.agencyNetworkId;
             }
             else {
-                log.error(`getPrimaryAgencyAndLocation: Could not find secondary agency ${agencyId}` + __location)
+                log.error(`AppId ${this.applicationId} getPrimaryAgencyAndLocation: Could not find secondary agency ${agencyId}` + __location)
             }
             const agencyLocationBO = new AgencyLocationBO();
             if(agencyNetworkId > 0){
@@ -488,20 +493,20 @@ module.exports = class AgencyLocation {
                         responseObj.agencyLocationJSON = agencyLocationPrime
                     }
                     else {
-                        log.error(`Agency Prime id ${agencyPrime.systemId} as no insurers ` + __location)
+                        log.error(`AppId ${this.applicationId} Agency Prime id ${agencyPrime.systemId} as no insurers ` + __location)
                     }
                 }
                 else {
-                    log.error(`No Agency Prime for secondary agency ${agencyId}  agencyNetworkId ${agencyNetworkId}` + __location)
+                    log.error(`AppId ${this.applicationId} No Agency Prime for secondary agency ${agencyId}  agencyNetworkId ${agencyNetworkId}` + __location)
                 }
 
             }
             else {
-                log.error(`getPrimaryAgencyAndLocation: No agency Network ${agencyNetworkId} for secondary agency ${agencyId}` + __location)
+                log.error(`AppId ${this.applicationId} getPrimaryAgencyAndLocation: No agency Network ${agencyNetworkId} for secondary agency ${agencyId}` + __location)
             }
         }
         catch(err){
-            log.error(`Error getting AgencyPrime's insurers secondary agency ${agencyId} ` + err + __location);
+            log.error(`AppId ${this.applicationId} Error getting AgencyPrime's insurers secondary agency ${agencyId} ` + err + __location);
         }
         return responseObj;
     }

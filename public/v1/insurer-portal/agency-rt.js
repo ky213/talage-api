@@ -1,8 +1,8 @@
 const moment = require('moment');
-const serverHelper = global.requireRootPath('server.js');
+//const serverHelper = global.requireRootPath('server.js');
 const AgencyBO = global.requireShared('./models/Agency-BO.js');
 const QuoteMongooseModel = global.mongoose.Quote;
-const ApplicationMongooseModel = global.mongoose.Application;
+//const ApplicationMongooseModel = global.mongoose.Application;
 
 /**
  * Responds to get requests for the applications endpoint
@@ -32,69 +32,257 @@ async function getAgencies(req, res, next){
             log.error(`EndPeriod error ${err}` + __location)
         }
     }
-    const insurerId = req.authentication.insurerId;
+    const insurerId = parseInt(req.authentication.insurerId, 10);
     let agenciesList = [];
-    let quoteList = [];
-    let appsList = [];
+    const agencyResplist = [];
     try {
         const agencyBO = new AgencyBO();
         const agencyListResponse = await agencyBO.getListByInsurerId({}, insurerId);
-        agenciesList = agencyListResponse;
-        const appsQuery = {
-            agencyId: {$in: agenciesList.map(a => a.systemId)},
-            createdAt: {
-                $gte: startPeriod,
-                $lte: endPeriod
+        //log.debug(`agencyListResponse count: ${agencyListResponse.length}`)
+        agenciesList = JSON.parse(JSON.stringify(agencyListResponse));
+
+        for(const agency of agenciesList){
+            if(agency.systemId === 1){
+                log.debug('Talage Agency')
             }
-        };
-        const appsQueryProjection = {
-            agencyId: 1,
-            appStatusId: 1,
-            applicationId: 1
-        };
-        appsList = await ApplicationMongooseModel.find(appsQuery, appsQueryProjection).lean();
-        const quotesQuery = {
-            agencyId: {$in: agenciesList.map(a => a.systemId)},
-            insurerId: insurerId,
-            apiResult: 'quoted',
-            applicationId: {$in: appsList.map(a => a.applicationId)}
-        };
-        const quotesQueryProjection = {
-            agencyId: 1,
-            insurerId: 1,
-            quoteStatusId: 1,
-            amount: 1
-        };
-        quoteList = await QuoteMongooseModel.find(quotesQuery, quotesQueryProjection).lean();
+            agency.agencyId = agency.systemId
+            try{
+                const quoteAggQuery = [
+                    {$match: {
+                        quotingAgencyId: agency.agencyId,
+                        insurerId: insurerId,
+                        createdAt: {
+                            $gte: startPeriod.toDate(),
+                            $lte: endPeriod.toDate()
+                        }
+                    }},
+                    {$project: {
+                        quoteStatusId: 1,
+                        quoteStatusDescription: 1,
+                        insurerId: 1,
+                        amount: 1
+                    }},
+                    {$group: {
+                        _id: {
+                            quoteStatusId: '$quoteStatusId',
+                            quoteStatusDescription: '$quoteStatusDescription',
+                            insurerId: '$insurerId'
+                        },
+                        count: {$sum: 1},
+                        premium: {$sum: '$amount'}
+                    }},
+                    {$sort: {
+                        '_id.quoteStatusId': 1,
+                        '_id.quoteStatusDescription': 1
+                    }},
+                    {$replaceRoot: {"newRoot":
+                        {"$mergeObjects": ["$_id", {
+                            "count": "$count" ,
+                            "Premium": "$premium"
+                        }]}}},
+                    {$project: {
+                        quoteStatusId: 1,
+                        quoteStatusDescription: 1,
+                        insurerId: 1,
+                        count: 1,
+                        Premium: 1,
+                        quoteRequests : {$cond : [{$in : ["$quoteStatusId", [20,
+                            40,
+                            50,
+                            55,
+                            60,
+                            58,
+                            65,
+                            100]]},
+                        "$count",
+                        null]},
+                        declined : {$cond : [{$eq : ["$quoteStatusId", 20]},
+                            "$count",
+                            null]},
+                        referred : {$cond : [{$eq : ["$quoteStatusId", 40]},
+                            "$count",
+                            null]},
+                        quoted : {$cond : [{$in : ["$quoteStatusId", [50,
+                            55,
+                            60,
+                            58,
+                            65,
+                            100]]},
+                        "$count",
+                        null]},
+                        quotedPremium: {$cond : [{$in : ["$quoteStatusId", [50,
+                            55,
+                            60,
+                            58,
+                            65,
+                            100]]},
+                        "$Premium",
+                        null]},
+                        bound : {$cond : [{$eq : ["$quoteStatusId", 100]},
+                            "$count",
+                            null]},
+                        boundPremium : {$cond : [{$eq : ["$quoteStatusId", 100]},
+                            "$Premium",
+                            null]}
+
+                    }},
+                    {$group : {
+                        _id: {insurerId: '$insurerId'},
+                        premium: {$sum: '$amount'},
+                        quoteRequestsCount : {$sum : "$quoteRequests"},
+                        quotedCount : {$sum : "$quoted"},
+                        quotedPremiumAmount:{$sum: "$quotedPremium"},
+                        boundCount : {$sum : "$bound"},
+                        boundPremiumAmount : {$sum : "$boundPremium"}
+                    }},
+                    {$sort: {'_id.insurerId': 1}},
+                    {$replaceRoot: {"newRoot":
+                        {"$mergeObjects": ["$_id", {
+                            "quoteRequests": "$quoteRequestsCount" ,
+                            "quotedCount": "$quotedCount" ,
+                            "quotedPremium": "$quotedPremiumAmount" ,
+                            "boundCount": "$boundCount" ,
+                            "BoundPremium": "$boundPremiumAmount"
+                        }]}}}
+
+                ];
+
+                const quoteNumbers = await QuoteMongooseModel.aggregate(quoteAggQuery);
+
+                //Do not send full agency Talge IP in tiering info
+                const agencytest = {
+                    "fullName": agency.fullName,
+                    "agencyNetworkName": agency.agencyNetworkName,
+                    name: agency.name,
+                    email: agency.email,
+                    phone: agency.phone
+                }
+                agencyResplist.push(agencytest);
+                if(quoteNumbers?.length > 0){
+                    agencytest.premiumBound = quoteNumbers[0].BoundPremium
+                    agencytest.boundApps = quoteNumbers[0].boundCount
+                    agencytest.premiumQuoted = quoteNumbers[0].quotedPremium
+                    agencytest.quotedApps = quoteNumbers[0].quotedCount
+                }
+
+                const quoteAgencyTotalCountQuery = [
+                    {$match: {
+                        quotingAgencyId: agency.agencyId,
+                        createdAt: {
+                            $gte: startPeriod.toDate(),
+                            $lte: endPeriod.toDate()
+                        }
+                    }},
+                    {$project: {
+                        quoteStatusId: 1,
+                        quoteStatusDescription: 1,
+                        quotingAgencyId: 1,
+                        amount: 1
+                    }},
+                    {$group: {
+                        _id: {
+                            quoteStatusId: '$quoteStatusId',
+                            quoteStatusDescription: '$quoteStatusDescription',
+                            quotingAgencyId: '$quotingAgencyId'
+                        },
+                        count: {$sum: 1},
+                        premium: {$sum: '$amount'}
+                    }},
+                    {$sort: {
+                        '_id.quoteStatusId': 1,
+                        '_id.quoteStatusDescription': 1
+                    }},
+                    {$replaceRoot: {"newRoot":
+                        {"$mergeObjects": ["$_id", {
+                            "count": "$count" ,
+                            "Premium": "$premium"
+                        }]}}},
+                    {$project: {
+                        quoteStatusId: 1,
+                        quoteStatusDescription: 1,
+                        quotingAgencyId: 1,
+                        count: 1,
+                        Premium: 1,
+                        quoteRequests : {$cond : [{$in : ["$quoteStatusId", [20,
+                            40,
+                            50,
+                            55,
+                            60,
+                            58,
+                            65,
+                            100]]},
+                        "$count",
+                        null]},
+                        declined : {$cond : [{$eq : ["$quoteStatusId", 20]},
+                            "$count",
+                            null]},
+                        referred : {$cond : [{$eq : ["$quoteStatusId", 40]},
+                            "$count",
+                            null]},
+                        quoted : {$cond : [{$in : ["$quoteStatusId", [50,
+                            55,
+                            60,
+                            58,
+                            65,
+                            100]]},
+                        "$count",
+                        null]},
+                        quotedPremium: {$cond : [{$in : ["$quoteStatusId", [50,
+                            55,
+                            60,
+                            58,
+                            65,
+                            100]]},
+                        "$Premium",
+                        null]},
+                        bound : {$cond : [{$eq : ["$quoteStatusId", 100]},
+                            "$count",
+                            null]},
+                        boundPremium : {$cond : [{$eq : ["$quoteStatusId", 100]},
+                            "$Premium",
+                            null]}
+
+                    }},
+                    {$group : {
+                        _id: {quotingAgencyId: '$quotingAgencyId'},
+                        premium: {$sum: '$amount'},
+                        quoteRequestsCount : {$sum : "$quoteRequests"},
+                        quotedCount : {$sum : "$quoted"},
+                        quotedPremiumAmount:{$sum: "$quotedPremium"},
+                        boundCount : {$sum : "$bound"},
+                        boundPremiumAmount : {$sum : "$boundPremium"}
+                    }},
+                    {$sort: {'_id.quotingAgencyId': 1}},
+                    {$replaceRoot: {"newRoot":
+                        {"$mergeObjects": ["$_id", {
+                            "quoteRequests": "$quoteRequestsCount" ,
+                            "quotedCount": "$quotedCount" ,
+                            "quotedPremium": "$quotedPremiumAmount" ,
+                            "boundCount": "$boundCount" ,
+                            "BoundPremium": "$boundPremiumAmount"
+                        }]}}}
+
+                ];
+
+
+                const quoteNumbersTotal = await QuoteMongooseModel.aggregate(quoteAgencyTotalCountQuery);
+                if(quoteNumbersTotal?.length > 0){
+                    agencytest.totalQuotedApps = quoteNumbersTotal[0].quotedCount
+                    agencytest.totalBoundApps = quoteNumbersTotal[0].boundCount
+                }
+            }
+            catch(err){
+                log.error("getAgencies load error " + err + __location);
+            }
+
+        }
     }
     catch(err){
         log.error("getAgencies load error " + err + __location);
-        return next(serverHelper.internalError('Unable to retrieve Agency List'));
     }
-    agenciesList = agenciesList.map(agency => {
-        const agencyAppList = appsList.filter(app => app.agencyId === agency.systemId);
-        const insurerAgencyQuotesQuoted = quoteList.filter((quote) => quote.agencyId === agency.systemId).
-            reduce((prev, curr) => {
-                const dup = prev.find(a => a.applicationId === curr.applicationId);
-                if(!dup || dup.quoteStatusId < curr.quoteStatusId) {
-                    prev.push(curr);
-                }
-                return prev;
-            }, []);
-        const insurerAgencyQuotesBound = insurerAgencyQuotesQuoted.filter(quote => quote.quoteStatusId === 100);
-        return {
-            ...agency,
-            premiumBound: insurerAgencyQuotesBound.reduce((prev, curr) => prev + (curr.amount || 0), 0),
-            boundApps: insurerAgencyQuotesBound.length,
-            totalBoundApps: agencyAppList.filter(agencyApp => agencyApp.appStatusId === 90).length,
-            premiumQuoted: insurerAgencyQuotesQuoted.reduce((prev, curr) => prev + (curr.amount || 0), 0),
-            quotedApps: insurerAgencyQuotesQuoted.length,
-            totalQuotedApps: agencyAppList.filter(agencyApp => agencyApp.appStatusId === 60).length
-        }
-    });
     res.send(200, {
-        rows: agenciesList,
-        count: agenciesList.length
+        rows: agencyResplist,
+        count: agencyResplist.length
     });
     return next();
 }

@@ -29,6 +29,7 @@ module.exports = class Insurer {
         this.test_username = '';
         this.username = '';
         this.insurerDoc = null;
+        this.quotingAgencyId = null;
     }
 
     /**

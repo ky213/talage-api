@@ -30,6 +30,10 @@ async function createToken(email, insurerId) {
         insurerId = insurerPortalUserDBJson.insurerId;
     }
 
+    if(typeof insurerId === 'string' && !isNaN(insurerId)) {
+        insurerId = parseInt(insurerId, 10);
+    }
+
     //get Permissions from Mongo UserGroup Permission
     // if error go with mySQL permissions.
     try{

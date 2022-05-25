@@ -39,13 +39,13 @@ async function getDashboard(req, res, next){
                 break;
             case 'Quoted':
             default:
-                queryMatch.quoteStatusId = {$gte: 40};
+                queryMatch.quoteStatusId = {$gte: 50};
                 break;
         }
     }
 
     // Carrier industry name needs to be returned.
-    const classCodes = await Quote.aggregate([
+    let classCodes = await Quote.aggregate([
         {$match: queryMatch},
         {$lookup:
         {
@@ -58,8 +58,11 @@ async function getDashboard(req, res, next){
             _id: {industryCode: '$application.industryCode'},
             amount: {$sum: '$amount'}
         }},
+        {$sort: {amount: -1}},
         {$replaceRoot: {newRoot: {$mergeObjects: [{"amount": "$amount"}, "$_id"]}}}
     ]);
+    // Don't return more than 20.
+    classCodes = classCodes.slice(0, 20);
 
     const monthlyCount = await Quote.aggregate([
         {$match: queryMatch},
@@ -135,7 +138,7 @@ async function getDashboard(req, res, next){
         }}
     ]);
 
-    const premiumQuoted = await getQuoteAmount(40); //status === quoted
+    const premiumQuoted = await getQuoteAmount(50); //status === quoted
     const premiumRequestBound = await getQuoteAmount(60); //status === request bound
     const premiumBound = await getQuoteAmount(100); //status === bound
 

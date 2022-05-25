@@ -13,6 +13,8 @@
 const builder = require('xmlbuilder');
 const moment_timezone = require('moment-timezone');
 const moment = require('moment');
+const {get} = require('lodash')
+
 const Integration = require('../Integration.js');
 const paymentPlanSVC = global.requireShared('./services/paymentplansvc');
 global.requireShared('./helpers/tracker.js');
@@ -822,6 +824,8 @@ module.exports = class LibertyWC extends Integration {
             log.error(`${logPrefix}Integration Error: unable to process paymentplans ${err}. ${__location}`);
         }
 
+        // Get quote link
+        this.quoteLink = get(res, "ResponseURL[0]")
 
         // Send the result of the request
         return this.return_result(status);

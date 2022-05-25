@@ -30,7 +30,7 @@ async function getUniqueQuotes(req, res, next){
             {_id:
                 {
                     applicationId : "$applicationId",
-                    agencyId: "$agencyId",
+                    agencyId: "$quotingAgencyId",
                     amount : "$amount",
                     quoteStatus: "$quoteStatusDescription",
                     quoteNumber: "$quoteNumber",
