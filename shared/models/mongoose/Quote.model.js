@@ -81,6 +81,7 @@ const QuoteSchema = new Schema({
     applicationId: {type: String},
     agencyNetworkId: {type: Number, required: false},
     agencyId: {type: Number, required: false},
+    quotingAgencyId: {type: Number, required: false},
     agencyLocationId: {type: Number, default: 0},
     policyType: {type: String, required: true},
     insurerId: {type: Number, required: true},

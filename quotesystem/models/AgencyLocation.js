@@ -162,6 +162,8 @@ module.exports = class AgencyLocation {
 
             for (const insurer of alInsurerList) {
                 try{
+                    //So quote has the appointed agency used for submission.
+                    insurer.quotingAgencyId = this.quotingAgencyLocationDB.agencyId
                     //if agency is using talageWholeSale with the insurer.
                     //user talage's main location (agencyLocation systemId: 1)
                     //Tracks if there is a wholesale miss.
@@ -204,6 +206,7 @@ module.exports = class AgencyLocation {
                         }
                         //Find correct insurer
                         if(agencyPrimeAgencyLocation){
+                            insurer.quotingAgencyId = agencyPrimeAgencyLocation.agencyId;
                             const wholesaleInsurer = agencyPrimeAgencyLocation.insurers.find((ti) => ti.insurerId === insurer.insurerId);
                             if(wholesaleInsurer){
                                 if(wholesaleInsurer.agencyId){
@@ -321,6 +324,7 @@ module.exports = class AgencyLocation {
                         }
                     }
                     if(addInsurer){
+                        log.debug(`AgencyLocation Model insurer.quotingAgencyId ${insurer.quotingAgencyId}` + __location)
                         this.insurers[insurer.id] = insurer;
                         this.insurerList.push(insurer)
                     }
@@ -329,7 +333,7 @@ module.exports = class AgencyLocation {
                     log.error(`Agency ${agencyLocation.agencyId} error adding insurerId ${insurer.insurerId} error: ${err}` + __location);
                 }
             }
-            log.debug(`QUOTING AGENCY LOCATION this.insurerList ${JSON.stringify(this.insurerList)}`)
+            //log.debug(`QUOTING AGENCY LOCATION this.insurerList ${JSON.stringify(this.insurerList)}`)
 
 
             // Check that we have all of the required data

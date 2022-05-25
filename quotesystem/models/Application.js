@@ -997,9 +997,9 @@ module.exports = class Application {
                 }
 
                 // Update when configure Application Statuses are implemented
-                let appStatus = this.applicationDocData.status
+                let appStatus = this.applicationDocData?.status
                 for(const appStatusProp in applicationStatus){
-                    if(this.applicationDocData.status === applicationStatus[appStatusProp].appStatusDesc){
+                    if(this.applicationDocData?.status === applicationStatus[appStatusProp].appStatusDesc){
                         appStatus = applicationStatus[appStatusProp].appStatusText;
                     }
                 }
@@ -1157,7 +1157,7 @@ module.exports = class Application {
                         subject = subject.replace(/{{Agency}}/g, this.agencyLocation.agency);
                         subject = subject.replace(/{{Brand}}/g, capitalizedBrand);
                         subject = subject.replace(/{{Business Name}}/g, this.applicationDocData.businessName);
-                        if (quoteList[0].status) {
+                        if (quoteList[0] && quoteList[0].status) {
                             message = message.replace(/{{Quote Result}}/g, quoteList[0].status.charAt(0).toUpperCase() + quoteList[0].status.substring(1));
                         }
 

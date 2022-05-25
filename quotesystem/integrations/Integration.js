@@ -1881,12 +1881,14 @@ module.exports = class Integration {
             agencyId: this.applicationDocData.agencyId,
             agencyLocationId: this.applicationDocData.agencyLocationId,
             agencyNetworkId: this.applicationDocData.agencyNetworkId,
+            quotingAgencyId: this.app.agencyLocation.insurers[this.insurer.id].quotingAgencyId,
             insurerId: this.insurer.id,
             log: this.log,
             policyType: policyType,
             quoteTimeSeconds: this.seconds,
             referrer: this.applicationDocData.referrer
         }
+        log.debug(`Integrations record_quote quoteJSON.quotingAgencyId ${quoteJSON.quotingAgencyId}` + __location)
         // if this is a new quote, set its quotingStartedDate to now
         if (apiResult === quoteStatus.initiated.description) {
             quoteJSON.quotingStartedDate = moment.utc();
