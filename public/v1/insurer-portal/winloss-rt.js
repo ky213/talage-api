@@ -37,7 +37,7 @@ const renameFieldInObjs = (objs, oldFieldName, newFieldName, formatterFunc) => {
  * @returns {*} rows
  */
 const formatCsvFile = (rows) => {
-    rows = renameFieldInObjs(rows, 'primaryState', 'Primary State');
+    rows = renameFieldInObjs(rows, 'primaryState', 'Rating State');
     rows = renameFieldInObjs(rows, 'classCode', 'Class Code');
     rows = renameFieldInObjs(rows, 'classCodeDesc', 'Class Code Description');
     rows = renameFieldInObjs(rows, 'quoteStatusDesc', 'Quote Status');
