@@ -127,9 +127,7 @@ async function getAgencies(req, res, next){
 
                     }},
                     {$group : {
-                        _id: {
-                            insurerId: '$insurerId'
-                        },
+                        _id: {insurerId: '$insurerId'},
                         premium: {$sum: '$amount'},
                         quoteRequestsCount : {$sum : "$quoteRequests"},
                         quotedCount : {$sum : "$quoted"},
@@ -137,9 +135,7 @@ async function getAgencies(req, res, next){
                         boundCount : {$sum : "$bound"},
                         boundPremiumAmount : {$sum : "$boundPremium"}
                     }},
-                    {$sort: {
-                        '_id.insurerId': 1
-                    }},
+                    {$sort: {'_id.insurerId': 1}},
                     {$replaceRoot: {"newRoot":
                         {"$mergeObjects": ["$_id", {
                             "quoteRequests": "$quoteRequestsCount" ,
@@ -248,9 +244,7 @@ async function getAgencies(req, res, next){
 
                     }},
                     {$group : {
-                        _id: {
-                            quotingAgencyId: '$quotingAgencyId'
-                        },
+                        _id: {quotingAgencyId: '$quotingAgencyId'},
                         premium: {$sum: '$amount'},
                         quoteRequestsCount : {$sum : "$quoteRequests"},
                         quotedCount : {$sum : "$quoted"},
@@ -258,9 +252,7 @@ async function getAgencies(req, res, next){
                         boundCount : {$sum : "$bound"},
                         boundPremiumAmount : {$sum : "$boundPremium"}
                     }},
-                    {$sort: {
-                        '_id.quotingAgencyId': 1
-                    }},
+                    {$sort: {'_id.quotingAgencyId': 1}},
                     {$replaceRoot: {"newRoot":
                         {"$mergeObjects": ["$_id", {
                             "quoteRequests": "$quoteRequestsCount" ,
