@@ -127,6 +127,16 @@ async function add(req, res, next) {
     if(needToUpdate){
         const insurerPortalUserBO = new InsurerPortalUserBO();
         try {
+            const hasDuplicate = await insurerPortalUserBO.checkForDuplicateEmail(insertJSON.email);
+            if(hasDuplicate) {
+                return next(serverHelper.requestError('Email Address is already in use'));
+            }
+        }
+        catch(err) {
+            log.error("insurerPortalUserBO load error " + err + __location);
+            return next(err);
+        }
+        try {
             await insurerPortalUserBO.saveModel(insertJSON);
         }
         catch(err) {
@@ -202,7 +212,7 @@ async function update(req, res, next) {
         }
         const insurerPortalUserBO = new InsurerPortalUserBO();
         try {
-            const hasDuplicate = await insurerPortalUserBO.checkForDuplicateEmail(id, updateJSON.email);
+            const hasDuplicate = await insurerPortalUserBO.checkForDuplicateEmail(updateJSON.email, id);
             if(hasDuplicate) {
                 return next(serverHelper.requestError('Email Address is already in use'));
             }
