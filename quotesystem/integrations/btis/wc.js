@@ -147,7 +147,9 @@ const entityTypes = [
     }
 ];
 
-const skippedQuestionIds = [];
+const skippedQuestionIds = [
+    "parent_18"
+];
 
 /*
 * As of 08/2020
@@ -195,19 +197,18 @@ module.exports = class AcuityWC extends Integration {
         let errorMessage = '';
         let host = '';
 
-        // TODO: We should have ncci on activty codes already
         // Ensure we have valid NCCI code mappings
-        // for (const location of appDoc.locations) {
-        //     for (const activityCode of location.activityPayrollList) {
-        //         const ncciCode = await this.get_national_ncci_code_from_activity_code(location.state, activityCode.activityCodeId);
-        //         if (!ncciCode) {
-        //             errorMessage = `Error: Missing NCCI class code mapping: activityCode=${activityCode.activityCodeId}, territory=${location.state}. `;
-        //             log.error(`${logPrefix}${errorMessage}`, __location);
-        //             return this.client_autodeclined(errorMessage);
-        //         }
-        //         activityCode.ncciCode = ncciCode;
-        //     }
-        // }
+        for (const location of appDoc.locations) {
+            for (const activityCode of location.activityPayrollList) {
+                const ncciCode = await this.get_national_ncci_code_from_activity_code(location.state, activityCode.activityCodeId);
+                if (!ncciCode) {
+                    errorMessage = `Error: Missing NCCI class code mapping: activityCode=${activityCode.activityCodeId}, territory=${location.state}. `;
+                    log.error(`${logPrefix}${errorMessage}`, __location);
+                    return this.client_autodeclined(errorMessage);
+                }
+                activityCode.ncciCode = ncciCode;
+            }
+        }
 
         // let service_channel = null;
 
@@ -541,8 +542,8 @@ module.exports = class AcuityWC extends Integration {
                 YearsOfIndustryExperience: 10,
                 DescriptionOfOperations: this.get_operation_description(),
                 BlanketWaiverSubrogation: false,
-                ContractorLicense: "1231231", // TODO: Do we need a question for this?
-                MCP65OrDMVLicense: "123123123", // TODO: Do we need a question for this?
+                ContractorLicense: "1231231", // TODO: Do we need a question for this? Is this universal?
+                MCP65OrDMVLicense: "123123123", // TODO: Do we need a question for this? Is this universal?
                 ExperienceMod: appDoc.experience_modifier,
                 Line1: primaryAddress.address,
                 City: primaryAddress.city,
@@ -557,36 +558,41 @@ module.exports = class AcuityWC extends Integration {
             contact: {
                 FirstName: insuredInformation.firstName,
                 LastName: insuredInformation.lastName,
-                PhoneNumber: insuredPhoneNumber// TODO: check if it needs to be this format - "1-415-239-1756"
+                PhoneNumber: insuredPhoneNumber
             },
-            owners: { // TODO: Figure out how to pass as array, there can be multiple owners
-                FirstName: appDoc.owners[0].fname,
-                LastName: appDoc.owners[0].lname,
-                Title: appDoc.owners[0].officerTitle,
-                OwnershipPct: appDoc.owners[0].ownership,
-                IsIncluded: appDoc.owners[0].include
-            },
-            LocationsClassifications: { // TODO: Figure out how to pass as array
-                Location: { // TODO: Likely needs to be location specific
+            owners: appDoc.owners.map(owner => ({
+                    FirstName: owner.fname,
+                    LastName: owner.lname,
+                    Title: owner.officerTitle,
+                    OwnershipPct: owner.ownership,
+                    IsIncluded: owner.include
+            })),
+            LocationsClassifications: appDoc.locations.map(location => ({
+                Location: {
                     IsPrimary: true,
                     FEIN: appDoc.ein,
                     ExperienceMod: appDoc.experience_modifier,
-                    Line1: primaryAddress.address,
-                    City: primaryAddress.city,
-                    State: primaryAddress.state,
-                    Zip: primaryAddress.zipcode,
+                    Line1: location.address,
+                    City: location.city,
+                    State: location.state,
+                    Zip: location.zipcode,
                     EmployeeSinceEstablishment: true, // defaulting true
                     NoOfPriorCoverage: 1, // TODO: Same as above reference
-                    ClaimCount: appDoc.claims.length
+                    ClaimCount: appDoc.claims.length // NOTE: we do not track claims per location
                 },
-                Classifications: { // TODO: Likely needs to be classification specific
-                    ClassCode: primaryAddress.activityPayrollList,
-                    "Description Banks": "Banks",
-                    Payroll: this.get_total_payroll(),
-                    NumberOfFullTimeEmployees: this.get_total_full_time_employees(),
-                    NumberOfPartTimeEmployees: this.get_total_part_time_employees()
-                }
-            }
+                Classifications: location.activityPayrollList.map(activity => {
+                    const fte = activity.employeeTypeList.find(employee => employee.employeeType === "Full Time");
+                    const pte = activity.employeeTypeList.find(employee => employee.employeeType === "Part Time");
+
+                    return {
+                        ClassCode: activity.ncciCode,
+                        "Description Banks": "Banks",
+                        Payroll: activity.payroll,
+                        NumberOfFullTimeEmployees: fte ? fte.employeeTypeCount : 0,
+                        NumberOfPartTimeEmployees: pte ? pte.emplyeeTypeCount : 0
+                    };
+                })
+            }))
         };//,
         //     carriers: ["AMTRUSTWC", "GREATAMERICAN"]
         // }
