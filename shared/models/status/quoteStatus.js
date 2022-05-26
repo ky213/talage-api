@@ -140,7 +140,55 @@ function getQuoteStatus(bound, status, apiResult, timeout) {
     return quoteStatus.error;
 }
 
+function QuoteStatusDesc(quoteStatusId){
+
+    try{
+        // eslint-disable-next-line default-case
+        switch(quoteStatusId){
+            case 0:
+                return quoteStatus.initiated.description
+            case 5:
+                return quoteStatus.piError.description
+            case 10:
+                return quoteStatus.error.description
+            case 12:
+                return quoteStatus.outage.description
+            case 15:
+                return quoteStatus.autodeclined.description
+            case 17:
+                return quoteStatus.piOutOfAppetite.description
+            case 20:
+                return quoteStatus.declined.description
+            case 25:
+                return quoteStatus.priceIndication.description
+            case 30:
+                return quoteStatus.ACORDEmailed.description
+            case 40:
+                return quoteStatus.referred.description
+            case 55:
+                return quoteStatus.quoted_referred.description
+            case 50:
+                return quoteStatus.quoted.description
+            case 58:
+                return quoteStatus.dead.description
+            case 60:
+                return quoteStatus.bind_requested.description
+            case 65:
+                return quoteStatus.bind_requested_referred.description
+            case 100:
+                return quoteStatus.bound.description
+        }
+        return ""
+    }
+    catch(err){
+        log.error(`QuoteStatusDesc ${err} on quoteStatusId ${quoteStatusId} ` + __location)
+    }
+
+}
+
+
 module.exports = {
     getQuoteStatus,
-    quoteStatus
+    quoteStatus,
+    QuoteStatusDesc
 };

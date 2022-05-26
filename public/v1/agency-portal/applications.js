@@ -810,6 +810,10 @@ async function getApplications(req, res, next){
 
     // Filter out any agencies with do_not_report value set to true
     let agencyNetworkList = [];
+
+    const agencyNetworkBO = new AgencyNetworkBO();
+    agencyNetworkList = await agencyNetworkBO.getList({});
+
     let isGlobalViewMode = false;
     // show/hide AgencyTierFields (User Permission)
     let showAgencyTierColumns = false;
@@ -822,15 +826,6 @@ async function getApplications(req, res, next){
 
                 // Show AgencyTierColumns by default for GlobalViewMode
                 showAgencyTierColumns = true;
-
-                //get list of agencyNetworks
-                try{
-                    const agencyNetworkBO = new AgencyNetworkBO();
-                    agencyNetworkList = await agencyNetworkBO.getList({});
-                }
-                catch(err){
-                    log.error(`Get Applications getting agency netowrk list error ${err}` + __location)
-                }
                 //Global View Check for filtering on agencyNetwork
                 if(req.body.agencyNetworkId){
                     noCacheUse = true;
@@ -845,7 +840,6 @@ async function getApplications(req, res, next){
                 if(req.authentication.permissions.talageStaff === true) {
                     // If not GlobalViewMode but is TalageSuperUser
                     try{
-                        const agencyNetworkBO = new AgencyNetworkBO();
                         const agencyNetworkDoc = await agencyNetworkBO.getById(agencyNetworkId);
                         // Determine if the AgencyTierFields should be displayed based on the TalageSuperUser's Agency Network feature_json
                         showAgencyTierColumns = agencyNetworkDoc.feature_json && agencyNetworkDoc.feature_json.showAgencyTierFields === true;
@@ -998,13 +992,32 @@ async function getApplications(req, res, next){
                     application.location = "";
                 }
                 //TODO update when customizeable status description are done.
-                if(application.agencyNetworkId === 4 && (application.appStatusId === applicationStatus.requestToBind.appStatusId || application.appStatusId === applicationStatus.requestToBindReferred.appStatusId)){
-                    application.status = "submitted_to_uw";
+                const delimiter = ' '
+                application.displayStatus = application.status.replace('_referred', '*').replace(/_/g, ' ')
+                application.displayStatus = application.displayStatus.toLowerCase().split(delimiter).map((s) => `${s.charAt(0).toUpperCase()}${s.substring(1)}`).join(' ');
+                application.displayStatus = application.displayStatus.replace('Uw', 'UW')
+
+                // if(application.agencyNetworkId === 4 && (application.appStatusId === applicationStatus.requestToBind.appStatusId || application.appStatusId === applicationStatus.requestToBindReferred.appStatusId)){
+                //     application.status = "submitted_to_uw";
+                //     application.displayStatus = 'Submitted To UW';
+                // }
+
+                const agencyNetworkDoc = agencyNetworkList.find((an) => an.agencyNetworkId === application.agencyNetworkId)
+                if(application.agencyNetworkId > 1 && (application.appStatusId === applicationStatus.requestToBind.appStatusId || application.appStatusId === applicationStatus.requestToBindReferred.appStatusId)){
+                    if(application.agencyNetworkId === 4){
+                        // quoteJSON.status = "Submitted To UW";
+                        application.displayStatus = 'Submitted To UW';
+                    }
+                    else if(agencyNetworkDoc?.featureJson?.requestToBindProcessedText.length > 3 && application.appStatusId === applicationStatus.requestToBind.appStatusId){
+                        application.displayStatus = agencyNetworkDoc.featureJson.requestToBindProcessedText;
+                    }
+                    else if(agencyNetworkDoc?.featureJson?.requestToBindReferredProcessedText.length > 3 && application.appStatusId === applicationStatus.requestToBindReferred.appStatusId){
+                        application.displayStatus = agencyNetworkDoc.featureJson.requestToBindReferredProcessedText;
+                    }
                 }
                 if(isGlobalViewMode){
                     // Add AgencyNetworkName AND Show/Hide AgencyTierFields based on the Application's AgencyNetwork feature_json config of showAgencyTierFields
                     let showAgencyTierFields = false;
-                    const agencyNetworkDoc = agencyNetworkList.find((an) => an.agencyNetworkId === application.agencyNetworkId)
                     if(agencyNetworkDoc){
                         application.agencyNetworkName = agencyNetworkDoc.name;
                         application.marketingChannel = agencyNetworkDoc.marketingChannel;
@@ -1253,12 +1266,13 @@ async function getApplicationsResources(req, res, next){
     resources.productTypeSelections = defaultProductTypeFilters;
 
     // if login is agency network grab the id
+    const agencyNetworkBO = new AgencyNetworkBO();
+    let agencyNetworkJSON = null;
     if(isAgencyNetworkUser === true){
         const agencyNetworkId = req.authentication.agencyNetworkId;
         try{
             // grab the agencyNetworkDB
-            const agencyNetworkBO = new AgencyNetworkBO();
-            const agencyNetworkJSON = await agencyNetworkBO.getById(agencyNetworkId).catch(function(err) {
+            agencyNetworkJSON = await agencyNetworkBO.getById(agencyNetworkId).catch(function(err) {
                 log.error(`agencyNetworkBO load error for agencyNetworkId ${agencyNetworkId} ${err} ${__location}`);
                 error = err;
             });
@@ -1386,8 +1400,18 @@ async function getApplicationsResources(req, res, next){
         }
     }
     log.debug(`req.authentication.agencyNetworkId ${req.authentication.agencyNetworkId}`)
-    if(req.authentication.agencyNetworkId === 4){
+    if(req.authentication.agencyNetworkId > 1){
         // backward compatibility, can remove next sprint
+        let request_to_bind_Text = "Submitted To UW";
+        let request_to_bind_referred_Text = "Referred Submitted To UW";
+        if(req.authentication.agencyNetworkId !== 4 && agencyNetworkJSON?.featureJson?.requestToBindProcessedText.length > 3){
+            request_to_bind_Text = agencyNetworkJSON.featureJson.requestToBindProcessedText
+        }
+
+        if(req.authentication.agencyNetworkId !== 4 && agencyNetworkJSON?.featureJson?.requestToBindReferredProcessedSearchText.length > 3){
+            request_to_bind_referred_Text = agencyNetworkJSON.featureJson.requestToBindReferredProcessedSearchText
+        }
+
         resources.appStatusSearchOptions = [
             {
                 value: '',
@@ -1399,11 +1423,11 @@ async function getApplicationsResources(req, res, next){
             },
             {
                 value: 'request_to_bind_referred',
-                text: 'Referred Submitted To UW'
+                text: request_to_bind_Text
             },
             {
                 value: 'request_to_bind',
-                text: 'Submitted To UW'
+                text: request_to_bind_referred_Text
             },
             {
                 value: 'quoted',
