@@ -145,8 +145,20 @@ async function forgotPassword(req, res, next){
 
     // Create a limited life JWT
     const token = jwt.sign({'userId': insurerPortalUser.insurerPortalUserId}, global.settings.AUTH_SECRET_KEY, {'expiresIn': '15m'});
-    // TODO: Set dev/prod by default?
-    const portalurl = global.settings.INSURER_PORTAL_URL || 'http://localhost:8084';
+
+    let portalurl = '';
+    switch(global?.settings?.ENV) {
+        case 'production':
+            portalurl = 'https://ip.talageins.com';
+            break;
+        case 'awsdev':
+            portalurl = 'https://devip.talageins.com';
+            break;
+        case 'development':
+        default:
+            portalurl = 'http://localhost:8084'
+            break;
+    }
 
     const emailData = {
         'html': `<p style="text-align:center;">A request to reset your password has been recieved. To continue the reset process, please click the button below within 15 minutes.</p><br><p style="text-align: center;"><a href="${portalurl}/#/reset-password/${token}" style="background-color:#ED7D31;border-radius:0.25rem;color:#FFF;font-size:1.3rem;padding-bottom:0.75rem;padding-left:1.5rem;padding-top:0.75rem;padding-right:1.5rem;text-decoration:none;text-transform:uppercase;">Reset Password</a></p>`,
