@@ -1005,6 +1005,7 @@ async function getApplications(req, res, next){
                 const agencyNetworkDoc = agencyNetworkList.find((an) => an.agencyNetworkId === application.agencyNetworkId)
                 if(application.agencyNetworkId > 1 && (application.appStatusId === applicationStatus.requestToBind.appStatusId || application.appStatusId === applicationStatus.requestToBindReferred.appStatusId)){
                     if(application.agencyNetworkId === 4){
+                        application.status = "submitted_to_uw";
                         // quoteJSON.status = "Submitted To UW";
                         application.displayStatus = 'Submitted To UW';
                     }
