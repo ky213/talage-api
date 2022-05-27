@@ -6,6 +6,7 @@
 /* eslint-disable object-curly-newline */
 /* eslint-disable no-trailing-spaces */
 /* eslint-disable no-empty */
+/* eslint-disable array-element-newline */
 /* eslint indent: 0 */
 /* eslint multiline-comment-style: 0 */
 
@@ -1515,34 +1516,34 @@ module.exports = class LibertySBOP extends Integration {
         // -------------- PARSE XML RESPONSE ----------------
 
         // check we have valid status object structure
-        if (!result.ACORD || !result.ACORD.Status || typeof result.ACORD.Status[0].StatusCd === 'undefined') {
+        const statusCode = get(result, "ACORD.Status[0].StatusCd")
+
+        if (!statusCode) {
             const errorMessage = `Unknown result structure: cannot parse result. `;
             log.error(logPrefix + errorMessage + __location);
             return this.client_error(errorMessage, __location);
         }
 
         // check we have a valid status code
-        if (result.ACORD.Status[0].StatusCd[0] !== '0') {
-            const errorMessage = `Unknown status code returned in quote response: ${result.ACORD.Status[0].StatusCd}. `;
+        if (statusCode[0] !== '0') {
+            const errorMessage = `Unknown status code returned in quote response: ${statusCode}. `;
             log.error(logPrefix + errorMessage + __location);
             return this.client_error(errorMessage, __location);
         }
 
         // check we have a valid object structure
-        if (
-            !result.ACORD.InsuranceSvcRs ||
-            !result.ACORD.InsuranceSvcRs[0].PolicyRs ||
-            !result.ACORD.InsuranceSvcRs[0].PolicyRs[0].MsgStatus
-        ) {
+        const msgStatus = get(result, "ACORD.InsuranceSvcRs[0].PolicyRs[0].MsgStatus")
+        if (!msgStatus) {
             const errorMessage = `Unknown result structure, no message status: cannot parse result. `;
             log.error(logPrefix + errorMessage + __location);
             return this.client_error(errorMessage, __location);
         }
 
-        let objPath = result.ACORD.InsuranceSvcRs[0].PolicyRs[0].MsgStatus[0];
+        let objPath = msgStatus[0];
+        const msgStatusCd = get(objPath, 'MsgStatusCd[0]')
 
         // check the response status
-        switch (objPath.MsgStatusCd[0].toLowerCase()) {
+        switch (msgStatusCd?.toLowerCase()) {
             case "error":
                 // NOTE: Insurer "error" is considered a "decline" within Wheelhouse.
                 // log.error("=================== QUOTE ERROR ===================");
@@ -1596,7 +1597,7 @@ module.exports = class LibertySBOP extends Integration {
                 }
                 break;
             default:
-                log.warn(`${logPrefix}Unknown MsgStatusCd returned in quote response - ${objPath.MsgStatusCd[0]}, continuing. ${__location}`);
+                log.warn(`${logPrefix}Unknown MsgStatusCd returned in quote response - ${msgStatusCd}, continuing. ${__location}`);
         }
 
         // PARSE SUCCESSFUL PAYLOAD
@@ -1619,18 +1620,21 @@ module.exports = class LibertySBOP extends Integration {
         result = result.ACORD.InsuranceSvcRs[0].PolicyRs[0];
         const policy = result.Policy[0];
 
-        if (!policy.UnderwritingDecisionInfo || !policy.UnderwritingDecisionInfo[0].SystemUnderwritingDecisionCd) {
+        if (!policy.UnderwritingDecisionInfo || !policy.UnderwritingDecisionInfo[0]?.SystemUnderwritingDecisionCd) {
             log.error(`${logPrefix}Policy status not provided, or the result structure has changed. ` + __location);
         }
         else {
-            policyStatus = policy.UnderwritingDecisionInfo[0].SystemUnderwritingDecisionCd[0];
-            if (policyStatus.toLowerCase() === "reject") {
-                if (policy.UnderwritingDecisionInfo[0].UnderwritingRuleInfo && policy.UnderwritingDecisionInfo[0].UnderwritingRuleInfo.length > 0) {
+            policyStatus = get(policy, "UnderwritingDecisionInfo[0].SystemUnderwritingDecisionCd[0]");
+            if (policyStatus?.toLowerCase() === "reject") {
+                const underwritingRuleInfo = get(policy, "UnderwritingDecisionInfo[0].UnderwritingRuleInfo")
+                if (underwritingRuleInfo?.length > 0) {
                     const rejectionReasons = [];
-                    policy.UnderwritingDecisionInfo[0].UnderwritingRuleInfo.forEach(rule => {
-                        if (rule.UnderwritingDecisionCd[0].toLowerCase() === 'reject') {
-                            const ruleInfo = rule.UnderwritingRuleInfoExt[0];
-                            rejectionReasons.push(`(${ruleInfo['com.libertymutual.ci_UnderwritingDecisionName'][0]}): ${ruleInfo['com.libertymutual.ci_UnderwritingMessage'][0]}`);
+                    underwritingRuleInfo.forEach(rule => {
+                        if (get(rule, "UnderwritingDecisionCd[0]")?.toLowerCase() === 'reject') {
+                            const decisionName = get(rule, ["UnderwritingRuleInfoExt", "0", "com.libertymutual.ci_UnderwritingDecisionName", "0"]);
+                            const decisionMessage = get(rule, ["UnderwritingRuleInfoExt", "0", "com.libertymutual.ci_UnderwritingMessage", "0"]);
+
+                            rejectionReasons.push(`(${decisionName}): ${decisionMessage}`);
                         }
                     });
 
@@ -1650,10 +1654,10 @@ module.exports = class LibertySBOP extends Integration {
                 }
             }
 
-            if (policyStatus.toLowerCase() === "refer") {
-                if (policy.UnderwritingDecisionInfo[0].UnderwritingRuleInfoExt[0] && 
-                    policy.UnderwritingDecisionInfo[0].UnderwritingRuleInfoExt[0]['com.libertymutual.ci_UnderwritingDecisionName']) {
-                    this.reasons.push(policy.UnderwritingDecisionInfo[0].UnderwritingRuleInfoExt[0]['com.libertymutual.ci_UnderwritingDecisionName'][0]);
+            if (policyStatus?.toLowerCase() === "refer") {
+                const underwritingDecisionName = get(policy, ["UnderwritingDecisionInfo", "0", "UnderwritingRuleInfoExt", "0", "com.libertymutual.ci_UnderwritingDecisionName"])
+                if (underwritingDecisionName) {
+                    this.reasons.push(underwritingDecisionName[0]);
                 } 
             }
         }
@@ -1663,25 +1667,27 @@ module.exports = class LibertySBOP extends Integration {
             log.error(`${logPrefix}Premium and Quote number not provided, or the result structure has changed. ${__location}`);
         }
         else {
-            if (policy.QuoteInfo[0].CompanysQuoteNumber) {
-                quoteNumber = policy.QuoteInfo[0].CompanysQuoteNumber[0];
+            const companysQuoteNumber = get(policy, "QuoteInfo[0].CompanysQuoteNumber[0]")
+            if (companysQuoteNumber) {
+                quoteNumber = companysQuoteNumber;
             }
             else {
                 log.error(`${logPrefix}Quote number not provided, or the result structure has changed. ${__location}`);
             }
-            if (policy.QuoteInfo[0].InsuredFullToBePaidAmt) {
-                premium = policy.QuoteInfo[0].InsuredFullToBePaidAmt[0].Amt[0];
+            const insuredFullToBePaidAmt = get(policy, "QuoteInfo[0].InsuredFullToBePaidAmt[0].Amt[0]")
+            if (insuredFullToBePaidAmt) {
+                premium = insuredFullToBePaidAmt;
             }
             else {
                 log.error(`${logPrefix}Premium not provided, or the result structure has changed. ${__location}`);
             }
         }
-
-        if (!policy.PolicyExt || !policy.PolicyExt[0]['com.libertymutual.ci_QuoteProposalId']) {
+        const insurerQuoteProposalId = get(policy, ["PolicyExt", "0", "com.libertymutual.ci_QuoteProposalId"])
+        if (insurerQuoteProposalId) {
             log.error(`${logPrefix}Quote ID for retrieving quote proposal not provided, or result structure has changed. ${__location}`);
         }
         else {
-            quoteProposalId = policy.PolicyExt[0]['com.libertymutual.ci_QuoteProposalId'];
+            quoteProposalId = insurerQuoteProposalId;
         }
 
         /**
@@ -1691,11 +1697,12 @@ module.exports = class LibertySBOP extends Integration {
          *      - Liability Coverages
         */
         // ===================== COMMERCIAL PROPERTY COVERAGES =====================
-        if (!result.BOPLineBusiness || !result.BOPLineBusiness[0].PropertyInfo || !result.BOPLineBusiness[0].PropertyInfo[0].CommlPropertyInfo) {
+        const commercialProperty = get(result, "BOPLineBusiness[0].PropertyInfo[0].CommlPropertyInfo") || [];
+
+        if (commercialProperty?.length === 0) {
             log.warn(`${logPrefix}No Commercial Property Limit Coverages provided, or result structure has changed. ` + __location);
         }
         else {
-            const commercialProperty = result.BOPLineBusiness[0].PropertyInfo[0].CommlPropertyInfo;
             commercialProperty.forEach(property => {
                 if (property.Coverage) {
                     this.getCoverages(property.Coverage, "Commercial Property Coverages");
@@ -1704,21 +1711,23 @@ module.exports = class LibertySBOP extends Integration {
         }
 
         // ===================== PROPERTY COVERAGES =====================
-        if (!result.BOPLineBusiness || !result.BOPLineBusiness[0].PropertyInfo || !result.BOPLineBusiness[0].PropertyInfo[0].Coverage) {
+        const propertyCoverages = get(result, "BOPLineBusiness[0].PropertyInfo[0].Coverage");
+
+        if (!propertyCoverages) {
             log.warn(`${logPrefix}No Property Limit Coverages provided, or result structure has changed. ` + __location);
         }
         else {
-            const coverages = result.BOPLineBusiness[0].PropertyInfo[0].Coverage;
-            this.getCoverages(coverages, "Property Coverages");
+            this.getCoverages(propertyCoverages, "Property Coverages");
         }
 
         // ===================== LIABILITY COVERAGES =====================
-        if (!result.BOPLineBusiness || !result.BOPLineBusiness[0].LiabilityInfo) {
+        const liabilityCoverages = get(result, "BOPLineBusiness[0].LiabilityInfo[0].Coverage");
+
+        if (!liabilityCoverages) {
             log.warn(`${logPrefix}No Liability Limit Coverages provided, or result structure has changed. ${__location}`);
         }
         else {
-            const coverages = result.BOPLineBusiness[0].LiabilityInfo[0].Coverage;
-            this.getCoverages(coverages, "Liability Coverages");
+            this.getCoverages(liabilityCoverages, "Liability Coverages");
         }
 
         let quoteResult = null;
@@ -1772,9 +1781,9 @@ module.exports = class LibertySBOP extends Integration {
          */
         // NOTE: No schema exists for this.paymentPlan, so leaving it as noted above for now
         this.insurerPaymentPlans = [];
-        if (policy && policy.QuoteInfo && policy.QuoteInfo[0].QuoteInfoExt && policy.QuoteInfo[0].QuoteInfoExt[0].PaymentOption) {
-            const paymentOptions = policy.QuoteInfo[0].QuoteInfoExt[0].PaymentOption;
+        const paymentOptions = get(policy, "QuoteInfo[0].QuoteInfoExt[0].PaymentOption");
 
+        if (paymentOptions) {
             paymentOptions.forEach(paymentOption => {
                 const paymentPlan = {};
 
@@ -1783,7 +1792,7 @@ module.exports = class LibertySBOP extends Integration {
                 }
 
                 if (paymentOption.DepositAmt) {
-                    paymentPlan.depositAmt = convertToDollarFormat(paymentOption.DepositAmt[0].Amt[0], true);
+                    paymentPlan.depositAmt = convertToDollarFormat(get(paymentOption, "DepositAmt[0].Amt[0]"), true);
                 }
 
                 this.insurerPaymentPlans.push(paymentPlan);
@@ -2259,7 +2268,7 @@ module.exports = class LibertySBOP extends Integration {
             const hasDeductible = coverage.Deductible;
             const hasCoverage = coverage.Limit && coverage.Limit.find(l => l.FormatCurrencyAmt);
             const hasPercentIncrease = coverage.Limit && coverage.Limit.find(l => l.FormatPct);
-            const insurerIdentifier = coverage.CoverageCd[0];
+            const insurerIdentifier = get(coverage, "CoverageCd[0]");
 
             let description = null;
             if (coverageCodeMatrix[insurerIdentifier]) {
@@ -2268,9 +2277,9 @@ module.exports = class LibertySBOP extends Integration {
 
             if (hasCoverage) {
                 coverage.Limit.filter(limit => limit.LimitAppliesToCd).forEach(limit => {
-                    const additionalText = limitCodeMatrix[limit.LimitAppliesToCd[0]];
-                    if (additionalText || limit.LimitAppliesToCd[0] === "Coverage") {
-                        const coverageValue = limit.FormatCurrencyAmt[0].Amt[0];
+                    const additionalText = limitCodeMatrix[get(limit, "LimitAppliesToCd[0]")];
+                    if (additionalText || get(limit, "LimitAppliesToCd[0]") === "Coverage") {
+                        const coverageValue = get(limit, "FormatCurrencyAmt[0].Amt[0]");
                         const coverageDescription = description ? `${description} Limit` : ``;
                         // eslint-disable-next-line no-nested-ternary
                         const additionalDescription = additionalText ? description ? `: ${additionalText}` : additionalText : ``;
@@ -2291,9 +2300,9 @@ module.exports = class LibertySBOP extends Integration {
             if (hasPercentIncrease) {
                 coverage.Limit.filter(limit => limit.LimitAppliesToCd).forEach(limit => {
                     if (limit.FormatPct) {
-                        const additionalText = limitCodeMatrix[limit.LimitAppliesToCd[0]];
-                        if (additionalText || limit.LimitAppliesToCd[0] === "Coverage") {
-                            const coverageValue = `${limit.FormatPct[0]}%`;
+                        const additionalText = limitCodeMatrix[get(limit, "LimitAppliesToCd[0]")];
+                        if (additionalText || get(limit, "LimitAppliesToCd[0]") === "Coverage") {
+                            const coverageValue = `${get(limit, "FormatPct[0]")}%`;
                             const coverageDescription = description ? `${description} Automatic Increase` : ``;
                             // eslint-disable-next-line no-nested-ternary
                             const additionalDescription = additionalText ? description ? `: ${additionalText}` : additionalText : ``;
@@ -2314,9 +2323,9 @@ module.exports = class LibertySBOP extends Integration {
 
             if (hasDeductible) {
                 coverage.Deductible.filter(deductible => deductible.DeductibleAppliesToCd).forEach(deductible => {
-                    const additionalText = limitCodeMatrix[deductible.DeductibleAppliesToCd[0]];
-                    if (additionalText || deductible.DeductibleAppliesToCd[0] === "Coverage") {
-                        const deductibleValue = deductible.FormatCurrencyAmt[0].Amt[0];
+                    const additionalText = limitCodeMatrix[get(deductible, "DeductibleAppliesToCd[0]")];
+                    if (additionalText || get(deductible, "DeductibleAppliesToCd[0]") === "Coverage") {
+                        const deductibleValue = get(deductible, "FormatCurrencyAmt[0].Amt[0]");
                         const deductibleDescription = description ? `${description} Deductible` : ``;
                         // eslint-disable-next-line no-nested-ternary
                         const additionalDescription = additionalText ? description ? `: ${additionalText}` : additionalText : ``;

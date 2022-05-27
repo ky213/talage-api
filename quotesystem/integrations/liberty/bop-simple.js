@@ -1,4 +1,5 @@
 /* eslint-disable object-curly-newline */
+/* eslint-disable array-element-newline */
 /* eslint indent: 0 */
 /* eslint multiline-comment-style: 0 */
 
@@ -423,34 +424,34 @@ module.exports = class LibertySBOP extends Integration {
         // -------------- PARSE XML RESPONSE ----------------
 
         // check we have valid status object structure
-        if (!result.ACORD || !result.ACORD.Status || typeof result.ACORD.Status[0].StatusCd === 'undefined') {
+        const statusCode = get(result, "ACORD.Status[0].StatusCd")
+
+        if (!statusCode) {
             const errorMessage = `Unknown result structure: cannot parse result. `;
             log.error(logPrefix + errorMessage + __location);
             return this.client_error(errorMessage, __location);
         }
 
         // check we have a valid status code
-        if (result.ACORD.Status[0].StatusCd[0] !== '0') {
-            const errorMessage = `Unknown status code returned in quote response: ${result.ACORD.Status[0].StatusCd}. `;
+        if (statusCode[0] !== '0') {
+            const errorMessage = `Unknown status code returned in quote response: ${statusCode}. `;
             log.error(logPrefix + errorMessage + __location);
             return this.client_error(errorMessage, __location);
         }
 
         // check we have a valid object structure
-        if (
-            !result.ACORD.InsuranceSvcRs ||
-            !result.ACORD.InsuranceSvcRs[0].PolicyRs ||
-            !result.ACORD.InsuranceSvcRs[0].PolicyRs[0].MsgStatus
-        ) {
+        const msgStatus = get(result, "ACORD.InsuranceSvcRs[0].PolicyRs[0].MsgStatus")
+
+        if (!msgStatus) {
             const errorMessage = `${logPrefix}Unknown result structure, no message status: cannot parse result. `;
             log.error(logPrefix + errorMessage + __location);
             return this.client_error(errorMessage, __location);
         }
 
-        let objPath = result.ACORD.InsuranceSvcRs[0].PolicyRs[0].MsgStatus[0];
+        let objPath = msgStatus[0];
 
         // check the response status
-        switch (objPath.MsgStatusCd[0].toLowerCase()) {
+        switch (get(objPath, "MsgStatusCd[0]")?.toLowerCase()) {
             case "error":
                 // NOTE: Insurer "error" is considered a "decline" within Wheelhouse.
                 // log.error("=================== QUOTE ERROR ===================");
@@ -459,20 +460,20 @@ module.exports = class LibertySBOP extends Integration {
                 // normal error structure, build an error message
                 let additionalReasons = null;
                 let errorMessage = ``;
-                if (objPath.MsgErrorCd) {
+                if (objPath?.MsgErrorCd) {
                     errorMessage += objPath.MsgErrorCd[0];
                 }
 
-                if (objPath.ExtendedStatus) {
+                if (objPath?.ExtendedStatus) {
                     objPath = objPath.ExtendedStatus[0];
-                    if (objPath.ExtendedStatusCd && objPath.ExtendedStatusDesc) {
+                    if (objPath?.ExtendedStatusCd && objPath?.ExtendedStatusDesc) {
                         errorMessage += ` (${objPath.ExtendedStatusCd}): ${objPath.ExtendedStatusDesc}. `;
                     }
 
                     if (
-                        objPath.ExtendedStatusExt &&
-                        objPath.ExtendedStatusExt[0]['com.libertymutual.ci_ExtendedDataErrorCd'] &&
-                        objPath.ExtendedStatusExt[0]['com.libertymutual.ci_ExtendedDataErrorDesc']
+                        objPath?.ExtendedStatusExt &&
+                        objPath?.ExtendedStatusExt[0]['com.libertymutual.ci_ExtendedDataErrorCd'] &&
+                        objPath?.ExtendedStatusExt[0]['com.libertymutual.ci_ExtendedDataErrorDesc']
                     ) {
                         objPath = objPath.ExtendedStatusExt;
                         additionalReasons = [];
@@ -494,7 +495,7 @@ module.exports = class LibertySBOP extends Integration {
             case "successnopremium":
                 let reason = null;
 
-                if (objPath.ExtendedStatus && Array.isArray(objPath.ExtendedStatus)) {
+                if (objPath?.ExtendedStatus && Array.isArray(objPath?.ExtendedStatus)) {
                     const reasonObj = objPath.ExtendedStatus.find(s => s.ExtendedStatusCd && typeof s.ExtendedStatusCd === 'string' && s.ExtendedStatusCd.toLowerCase() === "verifydatavalue");
                     reason = reasonObj && reasonObj.ExtendedStatusDesc ? reasonObj.ExtendedStatusDesc[0] : null;
                 }
@@ -504,7 +505,7 @@ module.exports = class LibertySBOP extends Integration {
                 }
                 break;
             default:
-                log.warn(`${logPrefix}Unknown MsgStatusCd returned in quote response - ${objPath.MsgStatusCd[0]}, continuing. ` + __location);
+                log.warn(`${logPrefix}Unknown MsgStatusCd returned in quote response - ${get(objPath, "MsgStatusCd[0]")}, continuing. ` + __location);
         }
 
         // PARSE SUCCESSFUL PAYLOAD
@@ -522,71 +523,70 @@ module.exports = class LibertySBOP extends Integration {
         let policyStatus = null;
 
         // check valid response object structure
-        if (
-            !result.ACORD.InsuranceSvcRs ||
-            !result.ACORD.InsuranceSvcRs[0].PolicyRs ||
-            !result.ACORD.InsuranceSvcRs[0].PolicyRs[0].Policy
-        ) {
+        if (!get(result, "ACORD.InsuranceSvcRs[0].PolicyRs[0].Policy")) {
             const errorMessage = `Unknown result structure: cannot parse quote information. `;
             log.error(logPrefix + errorMessage + __location);
             return this.client_error(errorMessage, __location);
         }
 
-        result = result.ACORD.InsuranceSvcRs[0].PolicyRs[0];
-        const policy = result.Policy[0];
+        result = get(result, "ACORD.InsuranceSvcRs[0].PolicyRs[0]");
+        const policy = get(result, "Policy[0]");
+        const underwritingDecisionCd = get(policy, "UnderwritingDecisionInfo[0].SystemUnderwritingDecisionCd[0]")
 
-        if (!policy.UnderwritingDecisionInfo || !policy.UnderwritingDecisionInfo[0].SystemUnderwritingDecisionCd) {
+        if (!underwritingDecisionCd) {
             log.error(`${logPrefix}Policy status not provided, or the result structure has changed. ` + __location);
         }
         else {
-            policyStatus = policy.UnderwritingDecisionInfo[0].SystemUnderwritingDecisionCd[0];
-            if (policyStatus.toLowerCase() === "reject") {
+            policyStatus = underwritingDecisionCd;
+            if (policyStatus?.toLowerCase() === "reject") {
                 return this.client_declined(`Application was rejected.`);
             }
         }
 
         // set quote values from response object, if provided
-        if (!policy.QuoteInfo || !policy.QuoteInfo[0].CompanysQuoteNumber) {
+        const companysQuoteNumber = get(policy, "QuoteInfo[0].CompanysQuoteNumber[0]")
+
+        if (!companysQuoteNumber) {
             log.error(`${logPrefix}Premium and Quote number not provided, or the result structure has changed. ` + __location);
         }
         else {
-            if (policy.QuoteInfo[0].CompanysQuoteNumber) {
-                quoteNumber = policy.QuoteInfo[0].CompanysQuoteNumber[0];
+            if (companysQuoteNumber) {
+                quoteNumber = companysQuoteNumber;
             }
             else {
                 log.error(`${logPrefix}Quote number not provided, or the result structure has changed. ` + __location);
             }
-            if (policy.QuoteInfo[0].InsuredFullToBePaidAmt) {
-                premium = policy.QuoteInfo[0].InsuredFullToBePaidAmt[0].Amt[0];
+            const premiumAmt = get(policy, "QuoteInfo[0].InsuredFullToBePaidAmt[0].Amt[0]")
+
+            if (premiumAmt) {
+                premium = premiumAmt;
             }
             else {
                 log.error(`${logPrefix}Premium not provided, or the result structure has changed. ` + __location);
             }
         }
+        const insurerQuoteProposalId = get(policy, ["PolicyExt", "0", "com.libertymutual.ci_QuoteProposalId"])
 
-        if (!policy.PolicyExt || !policy.PolicyExt[0]['com.libertymutual.ci_QuoteProposalId']) {
+        if (!insurerQuoteProposalId) {
             log.error(`${logPrefix}Quote ID for retrieving quote proposal not provided, or result structure has changed. ` + __location);
         }
         else {
-            quoteProposalId = policy.PolicyExt[0]['com.libertymutual.ci_QuoteProposalId'];
+            quoteProposalId = insurerQuoteProposalId;
         }
 
         // check valid limit data structure in response
-        if (
-            !result.BOPLineBusiness ||
-            !result.BOPLineBusiness[0].LiabilityInfo ||
-            !result.BOPLineBusiness[0].LiabilityInfo[0].GeneralLiabilityClassification ||
-            !result.BOPLineBusiness[0].LiabilityInfo[0].GeneralLiabilityClassification[0].Coverage
-        ) {
+        const coverages = get(result, "BOPLineBusiness[0].LiabilityInfo[0].GeneralLiabilityClassification[0].Coverage[0]")
+
+        if (!coverages) {
             log.error(`${logPrefix}Liability Limits not provided, or result structure has changed. ` + __location);
         }
         else {
             // limits exist, set them
-            const coverages = result.BOPLineBusiness[0].LiabilityInfo[0].GeneralLiabilityClassification[0].Coverage[0];
+            const limits = coverages?.Limit || []
 
-            coverages.Limit.forEach((limit) => {
-                const limitAmount = limit.FormatCurrencyAmt[0].Amt[0];
-                switch(limit.LimitAppliesToCd[0]){
+            limits.forEach((limit) => {
+                const limitAmount = get(limit, "FormatCurrencyAmt[0].Amt[0]");
+                switch(get(limit, "LimitAppliesToCd[0]")){
                     case 'Aggregate':
                         quoteLimits[8] = limitAmount;
                         break;
