@@ -83,7 +83,6 @@ module.exports = class AcuityGL extends Integration {
             return this.client_error("Acuity GL requires FEIN.", __location);
         }
 
-
         // Acuity has us define our own Request ID
         this.request_id = this.generate_uuid();
 
@@ -145,25 +144,41 @@ module.exports = class AcuityGL extends Integration {
         NameInfo.ele('CommlName').ele('CommercialName', 'Talage Insurance');
         // </CommlName>
         // </NameInfo>
-
-        // <Addr>
-        let Addr = GeneralPartyInfo.ele('Addr');
-        Addr.ele('Addr1', '300 South Wells Ave., Suite 4');
-        Addr.ele('City', 'Reno');
-        Addr.ele('StateProvCd', 'NV');
-        Addr.ele('PostalCode', 89502);
-        // </Addr>
-
         // <Communications>
         let Communications = GeneralPartyInfo.ele('Communications');
 
         // <PhoneInfo>
         let PhoneInfo = Communications.ele('PhoneInfo');
         PhoneInfo.ele('PhoneTypeCd', 'Phone');
-        PhoneInfo.ele('PhoneNumber', '+1-833-4825243');
         // </PhoneInfo>
 
         // </Communications>
+
+        // <Addr>
+        let Addr = GeneralPartyInfo.ele('Addr');
+        if(this.app.agencyLocation.insurers[this.insurer.id].talageWholesale ||
+            this.applicationDocData.agencyId === 1){
+            Addr.ele('Addr1', 'PO Box 12332');
+            Addr.ele('Addr2');
+            Addr.ele('City', 'Reno');
+            Addr.ele('StateProvCd', 'NV');
+            Addr.ele('PostalCode', '89510');
+            Communications.ele('PhoneInfo').ele('PhoneNumber', '8334725243');
+            Communications.ele('EmailInfo').ele('EmailAddr', 'info@talageins.com');
+        }
+        else {
+            Addr.ele('Addr1', this.app.agencyLocation.address);
+            Addr.ele('Addr2', this.app.agencyLocation.address2);
+            Addr.ele('City', this.app.agencyLocation.city);
+            Addr.ele('StateProvCd', this.app.agencyLocation.state);
+            Addr.ele('PostalCode', this.app.agencyLocation.zipcode);
+
+            Communications.ele('PhoneInfo').ele('PhoneNumber', this.app.agencyLocation.agencyPhone);
+            Communications.ele('EmailInfo').ele('EmailAddr', this.app.agencyLocation.agencyEmail);
+
+            NameInfo.ele('CommlName').ele('CommercialName', this.app.business.name.replace(/&/g, 'and'));
+        }
+        // </Addr>
 
         // </GeneralPartyInfo>
 
