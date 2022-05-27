@@ -582,7 +582,9 @@ module.exports = class LibertySBOP extends Integration {
         }
         else {
             // limits exist, set them
-            coverages?.Limit?.forEach((limit) => {
+            const limits = coverages?.Limit || []
+
+            limits.forEach((limit) => {
                 const limitAmount = get(limit, "FormatCurrencyAmt[0].Amt[0]");
                 switch(get(limit, "LimitAppliesToCd[0]")){
                     case 'Aggregate':
