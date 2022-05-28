@@ -21,24 +21,24 @@
             <TransactionRequestDt>{{>transactionRequestDate}}</TransactionRequestDt>
             <TransactionEffectiveDt>{{>transactionEffectiveDate}}</TransactionEffectiveDt>
             <CurCd>USD</CurCd>
-            {{!-- Producer is updated to be dynamic in --}}
+            {{!-- Producer is hard-coded in --}}
             <Producer>
                 <GeneralPartyInfo>
                     <NameInfo>
                         <CommlName>
-                            <CommercialName>{{>app.agencyLocation.agency}}</CommercialName>
+                            <CommercialName>Talage Insurance</CommercialName>
                         </CommlName>
                     </NameInfo>
                     <Addr>
-                        <Addr1>{{>app.agencyLocation.address}}</Addr1>
-                        <City>{{>app.agencyLocation.city}}</City>
-                        <StateProvCd>{{>app.agencyLocation.StateProvCd}}</StateProvCd>
-                        <PostalCode>{{>app.agencyLocation.zip}}</PostalCode>
+                        <Addr1>300 South Wells Ave., Suite 4</Addr1>
+                        <City>Reno</City>
+                        <StateProvCd>NV</StateProvCd>
+                        <PostalCode>89502</PostalCode>
                     </Addr>
                     <Communications>
                         <PhoneInfo>
                             <PhoneTypeCd>Phone</PhoneTypeCd>
-                            <PhoneNumber>{{>app.agencyLocation.Phone}}</PhoneNumber>
+                            <PhoneNumber>+1-833-4825243</PhoneNumber>
                         </PhoneInfo>
                     </Communications>
                 </GeneralPartyInfo>

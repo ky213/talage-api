@@ -141,7 +141,7 @@ module.exports = class AcuityGL extends Integration {
         let NameInfo = GeneralPartyInfo.ele('NameInfo');
 
         // <CommlName>
-        NameInfo.ele('CommlName').ele('CommercialName', 'Talage Insurance');
+        // NameInfo.ele('CommlName').ele('CommercialName', 'Talage Insurance');
         // </CommlName>
         // </NameInfo>
         // <Communications>
@@ -167,16 +167,16 @@ module.exports = class AcuityGL extends Integration {
             Communications.ele('EmailInfo').ele('EmailAddr', 'info@talageins.com');
         }
         else {
-            Addr.ele('Addr1', this.app.agencyLocation.address);
-            Addr.ele('Addr2', this.app.agencyLocation.address2);
-            Addr.ele('City', this.app.agencyLocation.city);
-            Addr.ele('StateProvCd', this.app.agencyLocation.state);
-            Addr.ele('PostalCode', this.app.agencyLocation.zipcode);
+            Addr.ele('Addr1', this.app.agencyLocation.quotingAgencyLocationDB.address);
+            Addr.ele('Addr2', this.app.agencyLocation.quotingAgencyLocationDB.address2);
+            Addr.ele('City', this.app.agencyLocation.quotingAgencyLocationDB.city);
+            Addr.ele('StateProvCd', this.app.agencyLocation.quotingAgencyLocationDB.state);
+            Addr.ele('PostalCode', this.app.agencyLocation.quotingAgencyLocationDB.zipcode);
 
             Communications.ele('PhoneInfo').ele('PhoneNumber', this.app.agencyLocation.agencyPhone);
             Communications.ele('EmailInfo').ele('EmailAddr', this.app.agencyLocation.agencyEmail);
 
-            NameInfo.ele('CommlName').ele('CommercialName', this.app.business.name.replace(/&/g, 'and'));
+            NameInfo.ele('CommlName').ele('CommercialName', this.app.agencyLocation.agency.replace(/&/g, 'and'));
         }
         // </Addr>
 
@@ -558,8 +558,6 @@ module.exports = class AcuityGL extends Integration {
 
         // Get the XML structure as a string
         const xml = ACORD.end({pretty: true});
-
-        // console.log('request', xml);
 
         // Determine which URL to use
         let host = '';
