@@ -2765,6 +2765,23 @@ async function amsGetPolicies(req, res, next){
 
     if(!applicationDB.amsInfo?.clientId){
         // TODO do an auto lookup 
+        const oldClientList = await nextsureClient.clientSearch(applicationDB.agencyId, applicationDB.businessName, applicationDB.primaryState);
+        if(oldClientList?.length > 0){
+            const clientId = oldClientList[0].clientId;
+            log.info(`calling Nextsure create client found existing client ${clientId} for appId ${applicationDB.applicationId}` + __location)
+            try{
+                const amsJSON = {amsInfo : {
+                    "amsType" : "Nextsure",
+                    clientId: clientId
+                }};
+                await applicationBO.updateMongo(applicationDB.applicationId, amsJSON);
+                applicationDB.amsInfo = amsJSON;   
+            }
+            catch(err){
+                log.error(`Nextsure createClientFromAppDoc updating App Doc error ${err}` + __location)
+            }
+            
+        }
         log.error(`AP: amsCreateClient No AMS client Id on application for agencyId ${applicationDB.agencyId} appId: ${applicationId} ` + __location);
         return next(serverHelper.requestError('No AMS ClientId not set on application.'));
     }

@@ -184,12 +184,12 @@ async function startQueueProcessing() {
         log.debug('Auto Running Task');
         //const taskJson = {"taskname": "redisindustrycodequestions", "insurerId" : 14};
         const taskJson = {
-            "taskname": "agencylistincompleteapp",
-            beginDate: "2021-10-08",
-            endDate: "2021-10-30"
+            "taskname": "nextsurepolicycheck",
+            // beginDate: "2021-10-08",
+            // endDate: "2021-10-30"
             //"deadBeat" : true
-            //"minDaysInPast": 0,
-            //"maxDaysInPast": 5
+            "minDaysInPast": 30,
+            "maxDaysInPast": 180
 
         };
         const messageTS = moment().utc().valueOf();

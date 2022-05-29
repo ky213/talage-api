@@ -27,6 +27,8 @@ async function httpRequest(method, path, authToken, params = null, data = null, 
     }
     else {
         url = `https://resteaiqa0.nexsure.com`
+        // url = `https://resteai.nexsure.com`
+
     }
 
     url += path;
@@ -77,13 +79,15 @@ async function auth(agencyId){
     //Basic Auth should be calculated with username and password set
     // in the admin for the insurer
     // Basic Auth setup moved to Auth function
-    log.debug(`GETTING Nextsure AuthToken` + __location)
+    //log.debug(`GETTING Nextsure AuthToken` + __location)
     let authUrl = null;
     if (global.settings.ENV === 'production') {
         authUrl = `https://resteai.nexsure.com/auth/gettoken`
     }
     else {
         authUrl = `https://resteaiqa0.nexsure.com/auth/gettoken`
+        // authUrl = `https://resteai.nexsure.com/auth/gettoken`
+
     }
 
     const query = {
@@ -100,6 +104,7 @@ async function auth(agencyId){
             "IntegrationLogin": agencyAmsCredJson.username,
             "IntegrationPwd": agencyAmsCredJson.password
         }
+        //log.debug(`authUrl ${authUrl} body ${JSON.stringify(body)}` + __location);
         const url = require('url');
         const params = new url.URLSearchParams(body);
 
@@ -128,16 +133,23 @@ async function auth(agencyId){
  * @returns {object} Array of client records
  */
 async function clientSearch(agencyId, companyName, territory){
+    if(!companyName){
+        return [];
+    }
+    if(!territory){
+        return [];
+    }
+    log.debug(`Nexsure clientSearch companyName ${companyName}  territory ${territory}` + __location)
     const authToken = await auth(agencyId).catch(function(err){
         log.error(`error getting Nextsure Auth Token ${err}` + __location)
     });
     if(authToken){
-        const path = "/clients/getclientbyname?searchType=1";
+        const path = "/clients/getclientlist?searchType=1";
 
         const requestOptions = {headers: {'Content-Type': 'application/x-www-form-urlencoded'}};
 
         const body = {
-            "clientName": _.escape(companyName),
+            "clientName": _.escape(companyName.trim()),
             "returnContentType": "application/json"
         }
 
@@ -145,19 +157,20 @@ async function clientSearch(agencyId, companyName, territory){
         const params = new url.URLSearchParams(body);
         const response = await httpRequest("POST",path, authToken, null, params.toString(), requestOptions);
         if (response.error) {
-            log.error(`Nextsure clientSearch error ${response.error}` + __location)
+            log.error(`Nextsure clientSearch error ${response.error} on companyname ${companyName}` + __location)
             return null;
         }
         if (!response.data) {
-            log.info(`Nextsure clientSearch no response.data in response ${response} ` + __location)
+            log.info(`Nextsure clientSearch no response.data in response ${response}  on companyname ${companyName} ` + __location)
             return null;
         }
         if (response.data.error) {
-            log.error(`Nextsure clientSearch error ${response.data.error}` + __location)
+            log.error(`Nextsure clientSearch error ${response.data.error}  on companyname ${companyName}` + __location)
             return null;
         }
 
         if (!response.data.Clients) {
+            log.debug(`Nexsure client search got not hits` + __location)
             //not found case
             return [];
         }
@@ -191,32 +204,44 @@ async function clientSearch(agencyId, companyName, territory){
 function processSearchClient(client,territory){
     const returnClient = {}
     let location = {};
-    if(Array.isArray(client.Locations)){
-        location = client.Locations.find((loc) => loc.IsPrimaryLocation === "true")
-    }
-    else {
-        location = client.Locations
-    }
+    if(client.Locations){
+        if(Array.isArray(client.Locations)){
+            location = client.Locations.find((loc) => loc.IsPrimaryLocation === "true")
+        }
+        else {
+            location = client.Locations
+        }
 
-    if(location?.Address){
-        const primaryAddress = location.Address.find((addr) => addr.AddressType === "Physical")
-        if(!territory || primaryAddress?.State === territory){
-            returnClient.clientId = client.ClientID
-            let clientName = null;
-            if(Array.isArray(client.ClientNames)){
-                clientName = client.ClientNames.find((obj) => obj.IsPrimaryName === "true")
+        if(location?.Address){
+            const primaryAddress = location.Address.find((addr) => addr.AddressType === "Physical")
+            if(!territory || primaryAddress?.State === territory){
+                returnClient.clientId = client.ClientID
+                let clientName = null;
+                if(Array.isArray(client.ClientNames)){
+                    clientName = client.ClientNames.find((obj) => obj.IsPrimaryName === "true")
+                }
+                else {
+                    clientName = client.ClientNames
+                }
+                returnClient.clientName = clientName?.Name
+                returnClient.address1 = primaryAddress.StreetAddress1
+                returnClient.city = primaryAddress.City
+                returnClient.state = primaryAddress.State
+                returnClient.zipcode = primaryAddress.ZipCode
             }
-            else {
-                clientName = client.ClientNames
-            }
-            returnClient.clientName = clientName?.Name
-            returnClient.address1 = primaryAddress.StreetAddress1
-            returnClient.city = primaryAddress.City
-            returnClient.state = primaryAddress.State
-            returnClient.zipcode = primaryAddress.ZipCode
         }
     }
-
+    else if(!territory || client?.LocState === territory){
+        log.debug(`processing clientlist search results`)
+        returnClient.clientId = client.ClientId
+        returnClient.clientName = client.ClientName
+        returnClient.clientName = client.ClientType
+        returnClient.ClientStage = client.ClientStage
+        returnClient.address1 = client.LocAddress1
+        returnClient.city = client.LocCity
+        returnClient.state = client.LocState
+        returnClient.zipcode = client.LocZipCode
+    }
     return returnClient
 }
 
@@ -419,14 +444,22 @@ async function createApplicationFromClientId(agencyId, clientId, agencyPortalUse
 async function getPoliciesByClientId(agencyId, clientId, appDoc, processBound = false){
 
     let policies = [];
+
+    if(!clientId || !agencyId){
+        return policies;
+    }
     const authToken = await auth(agencyId).catch(function(err){
         log.error(`error getting Nextsure Auth Token ${err}` + __location)
     });
     if(authToken){
         const requestJson = {
             "SearchType": 1,
-            "ClientID": clientId
+            "ClientID": clientId,
+            "PolicyStatus": "In Force"
         }
+        //log.debug(`policy parameters ${JSON.stringify(requestJson)}`)
+        // EffDateFrom: appDoc.createdAt.toISOString()
+        //"EffDateFrom": "2022-01-01T00:45:37.277Z",
         //match to Talage insurers
         const path = "/policy/policysearchwithdetails?page=1&resultsPerPage=20&returnContentType=application/json";
 
