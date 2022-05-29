@@ -4,7 +4,7 @@
 
 const moment = require('moment');
 //const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
-const {applicationStatus} = global.requireShared('./models/status/applicationStatus.js');
+//const {applicationStatus} = global.requireShared('./models/status/applicationStatus.js');
 const nextsureClient = require('../ams-integrations/nextsure/nextsure-client.js');
 const ApplicationBO = global.requireShared('models/Application-BO.js');
 
@@ -99,10 +99,10 @@ async function policyCheck(taskBodyJSON){
                     }
                 }
 
-                let sendSlackMessage = true;
-                if(taskBodyJSON.hasOwnProperty("sendSlackMessage")){
-                    sendSlackMessage = taskBodyJSON.sendSlackMessage
-                }
+                // let sendSlackMessage = true;
+                // if(taskBodyJSON.hasOwnProperty("sendSlackMessage")){
+                //     sendSlackMessage = taskBodyJSON.sendSlackMessage
+                // }
 
                 var Application = global.mongoose.Application;
                 const queryProjection = {
@@ -184,8 +184,8 @@ async function policyCheck(taskBodyJSON){
                                                 policyPremium += parseInt(amsPolicy.PolicyDetails?.LineOfBusiness?.Premiums?.Estimated,10) ? parseInt(amsPolicy.PolicyDetails?.LineOfBusiness?.Premiums?.Estimated,10) : 0;
                                             }
                                             else if(Array.isArray(amsPolicy.PolicyDetails?.LineOfBusiness)){
-                                                for( const LOB of amsPolicy.PolicyDetails?.LineOfBusiness){
-                                                    if(LOB.Premiums?.Estimated && parseInt(LOB.Premiums?.Estimated,10) >0){
+                                                for(const LOB of amsPolicy.PolicyDetails?.LineOfBusiness){
+                                                    if(LOB.Premiums?.Estimated && parseInt(LOB.Premiums?.Estimated,10) > 0){
                                                         policyPremium += parseInt(LOB.Premiums?.Estimated,10)
                                                     }
                                                 }
