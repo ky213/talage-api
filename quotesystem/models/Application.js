@@ -530,7 +530,7 @@ module.exports = class Application {
                 q.load(questionDef,this.applicationDocData.applicationId);
                 // Load the user's answer
                 //work with Application dataa
-                if (this.applicationDocData.questions) {
+                if (this.applicationDocData.questions.length > 0) {
                     const appQuestionJSON = this.applicationDocData.questions.find((appQ) => appQ.questionId === questionDef.talageQuestionId)
                     if (appQuestionJSON) {
                         try {
