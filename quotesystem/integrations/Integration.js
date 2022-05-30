@@ -1576,7 +1576,7 @@ module.exports = class Integration {
                         else if(insurerQuestion.universal && insurerQuestion.allTerritories){
                             log.warn(`Appid ${this.applicationDocData.applicationId} insurer ${this.insurer.id}: No app question for universal insurer q:  ${insurerQuestion.insurerQuestionId}: ${insurerQuestion.identifier} talageQuestionId ${insurerQuestion.talageQuestionId}` + __location);
                         }
-                        else if(insurerQuestion.universal && insurerQuestion){
+                        else if(insurerQuestion?.universal){
                             const qForTerritory = insurerQuestion.territoryList.some(r => territoryList.includes(r))
                             if(qForTerritory){
                                 log.warn(`Appid ${this.applicationDocData.applicationId} insurer ${this.insurer.id}: No app question for universal insurer q:  ${insurerQuestion.insurerQuestionId}: ${insurerQuestion.identifier} talageQuestionId ${insurerQuestion.talageQuestionId}` + __location);
