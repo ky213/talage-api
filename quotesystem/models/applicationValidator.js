@@ -7,6 +7,7 @@
 const validator = global.requireShared('./helpers/validator');
 const moment = require('moment');
 
+const ApplicationBO = global.requireShared('./models/Application-BO.js');
 
 /**
  * Checks that the data supplied is valid - Rejection should be done inside the Insurer Integration files.
@@ -673,14 +674,12 @@ const validateBOPPolicies = async(applicationDocData,insurerList) => {
             let invalid = false;
             //Does industryCode have any BOPCode children.
             try{
-                var IndustryCode = global.mongoose.IndustryCode;
-                const industryCodeId = parseInt(applicationDocData.industryCode,10)
-                const query = {
-                    parentIndustryCodeId: industryCodeId,
-                    codeGroupList: "BOP"
-                }
-                const icBopCount = await IndustryCode.countDocuments(query);
-                if(icBopCount > 0){
+                //TODO change this to a insurer based BOCCode lookup like UI.
+                // use ApplicationBO..getAppBopCodes
+                const applicationBO = new ApplicationBO();
+                const bopIcList = await applicationBO.getAppBopCodes(applicationDocData.applicationId);
+
+                if(bopIcList?.length > 0){
                     invalid = true;
                 }
             }
