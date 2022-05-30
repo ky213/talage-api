@@ -325,7 +325,7 @@ module.exports = class AgencyLocation {
                         }
                     }
                     if(addInsurer){
-                        log.debug(`AgencyLocation Model insurer.quotingAgencyId ${insurer.quotingAgencyId}` + __location)
+                        // ${insurer.quotingAgencyId}` + __location)
                         this.insurers[insurer.id] = insurer;
                         this.insurerList.push(insurer)
                     }
