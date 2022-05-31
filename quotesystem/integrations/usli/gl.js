@@ -506,7 +506,14 @@ module.exports = class USLIGL extends Integration {
         const xml = builder.create(acord).end();
 
         // Send the XML request object to USLI's quote API
-        const host = "services.uslistage.com"; // TODO: base API path here
+        let host = "";
+        if (this.insurer.useSandbox) {
+            host = "services.uslistage.com";
+        }
+        else {
+            host = "services.usli.com";
+        }
+
         const quotePath = `/API/Quote`; // TODO: API Route path here
         const additionalHeaders = {"Content-Type": "application/xml"};
 
