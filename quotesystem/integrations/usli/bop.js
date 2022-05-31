@@ -954,7 +954,14 @@ module.exports = class USLIBOP extends Integration {
         // Get the XML structure as a string
         const xml = ACORD.end({'pretty': true});
 
-        const host = "services.uslistage.com";
+        let host = "";
+        if (this.insurer.useSandbox) {
+            host = "services.uslistage.com";
+        }
+        else {
+            host = "services.usli.com";
+        }
+        
         const quotePath = `/API/Quote`;
         const additionalHeaders = {
           "Content-Type": "application/xml"
