@@ -623,7 +623,7 @@ module.exports = class Application {
                                     //log.debug("insurer " + JSON.stringify(insurer) + __location)
                                     if (agentInsurer.id === insurer.id) {
                                         // Check the policy type
-                                        if (agentInsurer[policy.type.toLowerCase()]
+                                        if (policy.type && agentInsurer[policy.type.toLowerCase()]
                                             && agentInsurer[policy.type.toLowerCase()].enabled === true) {
                                             match_found = true;
                                         }
@@ -1386,7 +1386,7 @@ module.exports = class Application {
                 insurers = await this.get_insurers();
             }
             catch (e) {
-                if (e.toLowerCase() === 'agent does not support this request') {
+                if (e?.toLowerCase() === 'agent does not support this request') {
                     if (this.agencyLocation.wholesale) {
                         // Switching to the Talage agent
                         log.info(`Quote Application model Switching to the Talage agent appId: ${this.applicationDocData.applicationId}` + __location)

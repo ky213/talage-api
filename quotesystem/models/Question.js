@@ -32,7 +32,7 @@ module.exports = class Question{
 
         if(this.type === 'Yes/No'){
             //Yes/No anwers tend to be Yes and No. A user can break the "Higher key is always yes" rule
-            if(this.answer.toLowerCase() === 'yes' || this.answer.toLowerCase() === 'true'){
+            if(this.answer?.toLowerCase() === 'yes' || this.answer?.toLowerCase() === 'true'){
                 return true
             }
 
