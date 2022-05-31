@@ -149,7 +149,6 @@ module.exports = class Integration {
             //Normal Direct Appointment and Use All of Primary Agency (not per insurer)
             this.quotingAgencyLocationDB = app.agencyLocation.quotingAgencyLocationDB;
         }
-        
 
         // Apply WC payroll caps for Nevada
         if (this.policy.type === 'WC' && this.app.business && app.business.primary_territory === 'NV') {

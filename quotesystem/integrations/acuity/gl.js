@@ -167,16 +167,16 @@ module.exports = class AcuityGL extends Integration {
             Communications.ele('EmailInfo').ele('EmailAddr', 'info@talageins.com');
         }
         else {
-            Addr.ele('Addr1', this.app.agencyLocation.quotingAgencyLocationDB.address);
-            Addr.ele('Addr2', this.app.agencyLocation.quotingAgencyLocationDB.address2);
-            Addr.ele('City', this.app.agencyLocation.quotingAgencyLocationDB.city);
-            Addr.ele('StateProvCd', this.app.agencyLocation.quotingAgencyLocationDB.state);
-            Addr.ele('PostalCode', this.app.agencyLocation.quotingAgencyLocationDB.zipcode);
+            Addr.ele('Addr1', this.quotingAgencyLocationDB.address);
+            Addr.ele('Addr2', this.quotingAgencyLocationDB.address2);
+            Addr.ele('City', this.quotingAgencyLocationDB.city);
+            Addr.ele('StateProvCd', this.quotingAgencyLocationDB.state);
+            Addr.ele('PostalCode', this.quotingAgencyLocationDB.zip);
 
-            Communications.ele('PhoneInfo').ele('PhoneNumber', this.app.agencyLocation.agencyPhone);
-            Communications.ele('EmailInfo').ele('EmailAddr', this.app.agencyLocation.agencyEmail);
+            Communications.ele('PhoneInfo').ele('PhoneNumber', this.quotingAgencyLocationDB.phone);
+            Communications.ele('EmailInfo').ele('EmailAddr', this.quotingAgencyLocationDB.email);
 
-            NameInfo.ele('CommlName').ele('CommercialName', this.app.agencyLocation.agency.replace(/&/g, 'and'));
+            NameInfo.ele('CommlName').ele('CommercialName', this.quotingAgencyLocationDB.name.replace(/&/g, 'and'));
         }
         // </Addr>
 
