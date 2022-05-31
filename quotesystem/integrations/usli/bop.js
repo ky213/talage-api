@@ -854,6 +854,33 @@ module.exports = class USLIBOP extends Integration {
             //                         <usli:CoverageTypeId xmlns:usli="http://www.USLI.com/Standards/PC_Surety/ACORD1.30.0/xml/">5337</usli:CoverageTypeId>
             //                     </GeneralLiabilityClassification>
 
+            let exposure = null;
+            let missingExposure = false;
+            let swapPTEToParent = false;
+            // All classifications that require child classifications use FTE and PTE for exposure
+            // If either FTE or PTE is 0 on app, use the other as the primary classification 
+            if (childClassificationRequired) {
+                const exposureFTE = this.get_total_location_full_time_employees(location);
+                const exposurePTE = this.get_total_location_part_time_employees(location);
+
+                // if either FTE or PTE is 0, use the other as primary class, don't provide a child class w/ submission
+                if (!exposureFTE || !exposurePTE) {
+                    missingExposure = true;
+                    exposure = exposureFTE ? exposureFTE : exposurePTE;
+
+                    // if the FTE is 0, we need to provide PTE as primary exposure
+                    if (!exposureFTE) {
+                        swapPTEToParent = true;
+                    }
+                }
+                else {
+                    exposure = exposureFTE;
+                }
+            }
+            else {
+                exposure = this.getExposure(location);
+            }
+
             // NOTE: We include both PREM and PRDCO GL Classifications
             const GeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification').att('id', "C1").att('LocationRef', index + 1);
             const PREMCommlCoverage = GeneralLiabilityClassification.ele('CommlCoverage');
@@ -871,16 +898,14 @@ module.exports = class USLIBOP extends Integration {
             PRDCOCommlCoverage.ele('usli:FireCode', BOPPolicy.fireCode ? BOPPolicy.fireCode : 0);
             PRDCOCommlCoverage.ele('usli:IsLeasedOccupancy', 0);
             GeneralLiabilityClassification.ele('ClassCd', industryCode.attributes.GLCode); 
-            GeneralLiabilityClassification.ele('ClassCdDesc', industryCode.description);
-            const exposure = this.getExposure(location);
-            if (exposure) {
-                GeneralLiabilityClassification.ele('Exposure', exposure);
-            }
+            GeneralLiabilityClassification.ele('ClassCdDesc', !swapPTEToParent ? industryCode.description : childClassificationMap[industryCode.code].description);
+            GeneralLiabilityClassification.ele('Exposure', exposure);
             GeneralLiabilityClassification.ele('PremiumBasisCd', industryCode.attributes.ACORDPremiumBasisCode);
             GeneralLiabilityClassification.ele('IfAnyRatingBasisInd', false);
             GeneralLiabilityClassification.ele('usli:ClassId', 0);
-            GeneralLiabilityClassification.ele('usli:CoverageTypeId', industryCode.code);
-            if (childClassificationRequired) {
+            GeneralLiabilityClassification.ele('usli:CoverageTypeId', !swapPTEToParent ? industryCode.code : childClassificationMap[industryCode.code].id);
+            // NOTE: The child classification will always be PTE for exposure
+            if (childClassificationRequired && !missingExposure) {
                 const GeneralLiabilityClassificationS1 = LiabilityInfo.ele('GeneralLiabilityClassification').att('id', "S1").att('LocationRef', index + 1);
                 const PREMCommlCoverageS1 = GeneralLiabilityClassificationS1.ele('CommlCoverage');
                 PREMCommlCoverageS1.ele('CoverageCd', "PREM");
@@ -902,7 +927,7 @@ module.exports = class USLIBOP extends Integration {
                 GeneralLiabilityClassificationS1.ele('PremiumBasisCd', industryCode.attributes.ACORDPremiumBasisCode);
                 GeneralLiabilityClassificationS1.ele('IfAnyRatingBasisInd', false);
                 GeneralLiabilityClassificationS1.ele('usli:ClassId', 0);
-                GeneralLiabilityClassificationS1.ele('usli:CoverageTypeId',childClassificationMap[industryCode.code].id); // use the specific child GL code
+                GeneralLiabilityClassificationS1.ele('usli:CoverageTypeId', childClassificationMap[industryCode.code].id); // use the specific child GL code
             }
 
             if (terrorismCoverageIncluded && index + 1 === 1) {

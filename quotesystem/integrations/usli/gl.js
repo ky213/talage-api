@@ -404,23 +404,50 @@ module.exports = class USLIGL extends Integration {
                                     "usli:CoverageTypeId": 0
                                 };
 
+                                let exposure = null;
+                                let missingExposure = false;
+                                let swapPTEToParent = false;
+                                // All classifications that require child classifications use FTE and PTE for exposure
+                                // If either FTE or PTE is 0 on app, use the other as the primary classification
+                                if (childClassificationRequired) {
+                                    const exposureFTE = this.get_total_location_full_time_employees(location);
+                                    const exposurePTE = this.get_total_location_part_time_employees(location);
+
+                                    // if either FTE or PTE is 0, use the other as primary class, don't provide a child class w/ submission
+                                    if (!exposureFTE || !exposurePTE) {
+                                        missingExposure = true;
+                                        exposure = exposureFTE ? exposureFTE : exposurePTE;
+
+                                        // if the FTE is 0, we need to provide PTE as primary exposure
+                                        if (!exposureFTE) {
+                                            swapPTEToParent = true;
+                                        }
+                                    }
+                                    else {
+                                        exposure = exposureFTE;
+                                    }
+                                }
+                                else {
+                                    exposure = this.getExposure(location);
+                                }
+
                                 const classification = {
                                     "@id": "C1",
                                     "@LocationRef": `${index + 1}`,
                                     ClassCd: this.insurerIndustryCode?.attributes?.GLCode,
-                                    ClassCdDesc: this.insurerIndustryCode?.description,
-                                    Exposure: this.getExposure(location),
+                                    ClassCdDesc: !swapPTEToParent ? this.insurerIndustryCode?.description : childClassificationMap[this.insurerIndustryCode.code].description,
+                                    Exposure: exposure,
                                     PremiumBasisCd: this.insurerIndustryCode?.attributes?.ACORDPremiumBasisCode,
                                     IfAnyRatingBasisInd: false,
                                     ClassId: 0,
-                                    "usli:CoverageTypeId": this.insurerIndustryCode.code,
+                                    "usli:CoverageTypeId": !swapPTEToParent ? this.insurerIndustryCode.code : childClassificationMap[this.insurerIndustryCode.code].id,
                                     CommlCoverage: [premiseCoverage, productCoverage]
                                 };
 
                                 let childClassification = null;
                                 let TIAGeneralLiabilityClassification = null;
 
-                                if (childClassificationRequired) {
+                                if (childClassificationRequired && !missingExposure) {
                                     childClassification = {
                                         ...classification,
                                         "@id": "S1",
