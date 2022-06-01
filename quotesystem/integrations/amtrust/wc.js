@@ -888,15 +888,7 @@ module.exports = class AMTrustWC extends Integration {
                     };
                     additionalInformationRequestData.AdditionalInsureds.push(additionalInsurerJSON)
                 }
-
             });
-            // if(additionalInformationRequestData.Officers.length === 0){
-            //     additionalInformationRequestData.Officers = null;
-            // }
-
-            // if(additionalInformationRequestData.AdditionalInsureds.length === 0){
-            //     additionalInformationRequestData.AdditionalInsureds = null;
-            // }
         }
         // console.log("questionRequestData", JSON.stringify(questionRequestData, null, 4));
 
@@ -1148,24 +1140,29 @@ module.exports = class AMTrustWC extends Integration {
         // Get the available officer information
         let attempts = 0;
         let retry = false;
+        let sendOfficers = false;
         do {
             retry = false;
             // wait before making officer call (first attempt is instant)
             await Sleep(attempts === 0 ? 0 : OFFICER_RETRY_TIME);
 
             const officerInformation = await this.amtrustCallAPI('GET', accessToken, credentials.mulesoftSubscriberId, `/api/v1/quotes/${quoteId}/officer-information`);
-            // console.log("officerInformation", JSON.stringify(officerInformation, null, 4));
             // only process if there are endorsements available.
-            if (officerInformation && officerInformation.Data && officerInformation.Data?.EndorsementInformation?.Endorsements.length > 0) {
+            if (officerInformation && officerInformation.Data && officerInformation.Data[0].EndorsementInformation?.Endorsements.length > 0) {
                 // Populate the officers
                 const officersResult = this.getOfficers(officerInformation.Data, primaryLocation);
                 if (Array.isArray(officersResult)) {
                     additionalInformationRequestData.Officers = officersResult;
+                    sendOfficers = true;
                     break;
                 }
                 else {
                     retry = true;
                 }
+            }
+            else if(officerInformation && officerInformation.Data && officerInformation.Data[0].EndorsementInformation?.ValidationMessage){
+                log.warn(`${logPrefix}No Endorsements for Officer information  - ${officerInformation.Data[0].EndorsementInformation?.ValidationMessage}` + __location);
+                break;
             }
             else {
                 retry = true;
@@ -1190,8 +1187,12 @@ module.exports = class AMTrustWC extends Integration {
         }
         while (attempts <= OFFICER_MAX_RETRIES);
 
+        if(sendOfficers === false){
+            additionalInformationRequestData.Officers = [];
+        }
+
         // Send the additional information request
-        if(additionalInformationRequestData.Officers || additionalInformationRequestData.AdditionalInsureds){
+        if(additionalInformationRequestData.Officers?.length > 0 || additionalInformationRequestData.AdditionalInsureds?.length > 0){
             const additionalInformationResponse = await this.amtrustCallAPI('POST', accessToken, credentials.mulesoftSubscriberId, `/api/v2/quotes/${quoteId}/additional-information`, additionalInformationRequestData);
             if (!additionalInformationResponse) {
                 return this.client_error("The insurer's server returned an unspecified error when submitting the additional quote information.", __location);
