@@ -69,10 +69,9 @@ module.exports = class Policy {
         this.deductible = policyJSON.deductible;
         this.bopCoverage = policyJSON.coverage;
         this.effective_date = policyJSON.effectiveDate;
-        this.expiration_date = policyJSON.effectiveDate;
+        this.expiration_date = policyJSON.expirationDate;
         if(!this.expiration_date && this.effective_date){
-            log.debug(`POLICY policyJSON.effectiveDate ${policyJSON.effectiveDate}`)
-            this.expiration_date = moment(policyJSON.effectiveDate).add(1,"y");
+            this.expiration_date = moment(policyJSON.effectiveDate).add(1,"years");
         }
         this.limits = this.formatLimits(policyJSON.limits);
         this.limitArray = []
