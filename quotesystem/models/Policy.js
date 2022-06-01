@@ -98,7 +98,7 @@ module.exports = class Policy {
             if(applicationDocData.claims && applicationDocData.claims.length > 0){
                 for(let i = 0; i < applicationDocData.claims.length; i++){
                     const claimJSON = applicationDocData.claims[i];
-                    if(this.type.toLowerCase() === claimJSON.policyType.toLowerCase()){
+                    if(this.type?.toLowerCase() === claimJSON.policyType?.toLowerCase()){
                         // eslint-disable-next-line prefer-const
                         let claim = new Claim();
                         claim.load(claimJSON);
