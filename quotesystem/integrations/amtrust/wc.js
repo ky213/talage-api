@@ -1155,7 +1155,8 @@ module.exports = class AMTrustWC extends Integration {
 
             const officerInformation = await this.amtrustCallAPI('GET', accessToken, credentials.mulesoftSubscriberId, `/api/v1/quotes/${quoteId}/officer-information`);
             // console.log("officerInformation", JSON.stringify(officerInformation, null, 4));
-            if (officerInformation && officerInformation.Data) {
+            // only process if there are endorsements available.
+            if (officerInformation && officerInformation.Data && officerInformation.Data?.EndorsementInformation?.Endorsements.length > 0) {
                 // Populate the officers
                 const officersResult = this.getOfficers(officerInformation.Data, primaryLocation);
                 if (Array.isArray(officersResult)) {
@@ -1175,8 +1176,12 @@ module.exports = class AMTrustWC extends Integration {
 
                 // handling exit case here so I don't have to pull scoped variables out of do while for logging
                 if (attempts > OFFICER_MAX_RETRIES) {
-                    log.error(`Unexpected Officer response ${JSON.stringify(officerInformation)}` + __location);
-                    return this.client_error(`Unexpected Officer response ${JSON.stringify(officerInformation)}`, __location);
+                    if(officerInformation.Data?.EndorsementInformation?.Endorsements.length > 0){
+                        log.error(`Unexpected Officer response ${JSON.stringify(officerInformation)}` + __location);
+                    }
+                    //do not stop the quote.  We will get here for situations that have no endorsements.
+                    //return this.client_error(`Unexpected Officer response ${JSON.stringify(officerInformation)}`, __location);
+                    break;
                 }
                 else {
                     log.warn(`${logPrefix}Failed to get Officer information (retry attempts: ${attempts}/${OFFICER_MAX_RETRIES}), retrying...` + __location);
