@@ -70,6 +70,9 @@ module.exports = class Policy {
         this.bopCoverage = policyJSON.coverage;
         this.effective_date = policyJSON.effectiveDate;
         this.expiration_date = policyJSON.expirationDate;
+        if(!this.expiration_date && this.effective_date){
+            this.expiration_date = this.effective_date.addDate(1,"y");
+        }
         this.limits = this.formatLimits(policyJSON.limits);
         this.limitArray = []
         if(policyJSON.limits){
