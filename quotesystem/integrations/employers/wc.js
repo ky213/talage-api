@@ -823,7 +823,7 @@
                  returnStatus = "quoted";
              }
 
-             if(status === 'PENDING_REFER'){
+             if(status === 'PENDING_REFER' || status === 'PENDING_REFERRAL'){
                  if(this.amount > 0){
                      returnStatus = "referred_with_price";
                  }
