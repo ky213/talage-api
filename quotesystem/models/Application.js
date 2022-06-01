@@ -176,6 +176,15 @@ module.exports = class Application {
         try {
             for (let i = 0; i < this.applicationDocData.policies?.length; i++) {
                 const policyJSON = this.applicationDocData.policies[i];
+                if (!policyJSON.expirationDate && policyJSON.effectiveDate) {
+                    try{
+                        policyJSON.expirationDate = moment(policyJSON.effectiveDate).clone().add(1,"years");
+                        log.info(`POLICY fixed policy.expirationDate ${policyJSON.expirationDate.toISOString()}` + __location)
+                    }
+                    catch(err){
+                        log.error(`Quoting error fixing expirationDate ${err}` + __location)
+                    }
+                }
                 const p = new Policy();
                 await p.load(policyJSON, this.business, this.applicationDocData);
                 this.policies.push(p);
