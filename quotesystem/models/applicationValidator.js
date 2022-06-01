@@ -560,6 +560,13 @@ const validatePolicies = (applicationDocData,agencyNetworkJSON) => {
             if (effectiveMoment.isAfter(maxDate)) {
                 throw new Error('Invalid property: effectiveDate. The effective date cannot be more than 90 days in the future');
             }
+            if (!policy.expirationDate) {
+                policy.expirationDate = policy.effectiveDate.addDate(1,"y");
+            }
+
+            if (policy.expirationDate < policy.effectiveDate) {
+                throw new Error('Invalid property: expirationDate. The expiration date is before effective date');
+            }
         }
         else {
             throw new Error('Missing property: effectiveDate');
