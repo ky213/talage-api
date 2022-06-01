@@ -284,6 +284,7 @@ module.exports = class AcuityWC extends Integration {
             xml = acuityWCTemplate.render(this).replace(/\n\s*\n/g, '\n');
         }
         catch (error) {
+            log.debug('erro----> ' + xml);
             return this.client_error('Unable to create the request to send to the insurer', __location);
         }
 

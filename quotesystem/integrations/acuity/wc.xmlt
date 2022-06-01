@@ -26,19 +26,19 @@
                 <GeneralPartyInfo>
                     <NameInfo>
                         <CommlName>
-                            <CommercialName>{{>quotingAgencyLocation.name}}</CommercialName>
+                            <CommercialName>{{>quotingAgencyLocationDB.name}}</CommercialName>
                         </CommlName>
                     </NameInfo>
                     <Addr>
-                        <Addr1>{{>quotingAgencyLocation.address}}</Addr1>
-                        <City>{{>quotingAgencyLocation.city}}</City>
-                        <StateProvCd>{{>quotingAgencyLocation.StateProvCd}}</StateProvCd>
-                        <PostalCode>{{>quotingAgencyLocation.zip}}</PostalCode>
+                        <Addr1>{{>quotingAgencyLocationDB.address}}</Addr1>
+                        <City>{{>quotingAgencyLocationDB.city}}</City>
+                        <StateProvCd>{{>quotingAgencyLocationDB.state}}</StateProvCd>
+                        <PostalCode>{{>quotingAgencyLocationDB.zip}}</PostalCode>
                     </Addr>
                     <Communications>
                         <PhoneInfo>
                             <PhoneTypeCd>Phone</PhoneTypeCd>
-                            <PhoneNumber>{{>quotingAgencyLocation.Phone}}</PhoneNumber>
+                            <PhoneNumber>{{>quotingAgencyLocationDB.phone}}</PhoneNumber>
                         </PhoneInfo>
                     </Communications>
                 </GeneralPartyInfo>
