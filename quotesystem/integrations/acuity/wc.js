@@ -395,6 +395,7 @@ module.exports = class AcuityWC extends Integration {
             case 'com.acuity_BindableQuote':
             case "com.acuity_BindableModifiedQuote":
             case 'com.acuity_BindableReferredQuote':
+            case 'com.acuity_BindableModifiedReferredQuote':
             case 'com.acuity_NonBindableQuote':
                 // Retrieve and populate the quote amount
                 const amt = this.get_xml_child(result.ACORD, "InsuranceSvcRs.WorkCompPolicyQuoteInqRs.PolicySummaryInfo.FullTermAmt.Amt");
@@ -470,7 +471,7 @@ module.exports = class AcuityWC extends Integration {
                 })
 
                 // Check if it is a bindable quote
-                if (policyStatusCd === 'acuity_BindableQuote') {
+                if (policyStatusCd === 'com.acuity_BindableQuote') {
                     return this.client_quoted(quoteNumber, quoteLimits, premiumAmount, quoteLetter, quoteLetterMimeType);
                 }
                 // Nonbindable quote is referred

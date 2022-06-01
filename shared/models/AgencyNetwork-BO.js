@@ -596,4 +596,23 @@ module.exports = class AgencyNetworkBO{
         }
     }
 
+
+    async getListByInsurerId(insurerId) {
+        const queryProjection = {
+            name: 1,
+            systemId: 1
+        };
+        const query = {
+            insurerIds: insurerId,
+            active: true
+        };
+        try {
+            return await AgencyNetworkModel.find(query, queryProjection).lean();
+        }
+        catch (e) {
+            log.error(`Retrieval of Agency Network List based on Insurer ID ${insurerId} failed ` + __location)
+            throw e;
+        }
+    }
+
 }

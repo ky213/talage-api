@@ -452,7 +452,7 @@ module.exports = class AcuityWC extends Integration {
             "seniorLivingFacilitiesAssistedLivingIndependentLivingInd"
         ]
         for(const insurerQuestion of this.insurerQuestionList){
-            if(Object.prototype.hasOwnProperty.call(this.questions, insurerQuestion.talageQuestionId)){
+            if(insurerQuestion && Object.prototype.hasOwnProperty.call(this.questions, insurerQuestion.talageQuestionId)){
                 const question = this.questions[insurerQuestion.talageQuestionId];
                 if(!question){
                     continue;

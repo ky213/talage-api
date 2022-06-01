@@ -81,6 +81,7 @@ const QuoteSchema = new Schema({
     applicationId: {type: String},
     agencyNetworkId: {type: Number, required: false},
     agencyId: {type: Number, required: false},
+    quotingAgencyId: {type: Number, required: false},
     agencyLocationId: {type: Number, default: 0},
     policyType: {type: String, required: true},
     insurerId: {type: Number, required: true},
@@ -124,6 +125,7 @@ const QuoteSchema = new Schema({
     isManualQuote: {type: Boolean, default: false},
     addUser: {type: String},
     amsInfo: {type: amsInfoSchema},
+    referrer: {type: String, required: false}, //Same as AppDoc, for reporting.
     active: {type: Boolean, default: true}
 });
 

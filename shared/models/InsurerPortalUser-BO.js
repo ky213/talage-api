@@ -27,7 +27,7 @@ module.exports = class InsurerPortalUserBO{
         if(newObjectJSON.id){
             try {
                 const skipActiveCheck = true;
-                dbDocJSON = await this.getMongoDocbyUserId(newObjectJSON.id,false,skipActiveCheck);
+                dbDocJSON = await this.getMongoDocbyUserId(newObjectJSON.id, null, false, skipActiveCheck);
             }
             catch(err) {
                 log.error(`Error getting ${collectionName} from Database ` + err + __location);
@@ -66,8 +66,7 @@ module.exports = class InsurerPortalUserBO{
         if(!requestQueryJSON){
             requestQueryJSON = {};
         }
-        // eslint-disable-next-line prefer-const
-        let queryJSON = JSON.parse(JSON.stringify(requestQueryJSON));
+        const queryJSON = requestQueryJSON;
         const queryProjection = {
             "__v": 0,
             "_id": 0,
@@ -84,7 +83,11 @@ module.exports = class InsurerPortalUserBO{
         }
 
         var queryOptions = {};
-        queryOptions.sort = {insurerPortalUserId: 1};
+        queryOptions.sort = {};
+        if(includeDisabled) {
+            queryOptions.sort.active = -1;
+        }
+        queryOptions.sort.insurerPortalUserId = 1;
         if (queryJSON.sort) {
             var acs = 1;
             if (queryJSON.desc) {
@@ -165,7 +168,7 @@ module.exports = class InsurerPortalUserBO{
             let docList = null;
             // eslint-disable-next-line prefer-const
             try {
-                docList = await InsurerPortalUserModel.find(query,queryProjection, queryOptions)
+                docList = await InsurerPortalUserModel.find(query,queryProjection, queryOptions).lean();
             }
             catch (err) {
                 log.error(err + __location);
@@ -205,12 +208,23 @@ module.exports = class InsurerPortalUserBO{
     }
 
 
-    async getMongoDocbyUserId(insurerPortalUserId, returnMongooseModel = false, skipActiveCheck = false) {
+    async getMongoDocbyUserId(insurerPortalUserId, options = null, returnMongooseModel = false, skipActiveCheck = false) {
         if (insurerPortalUserId) {
             const query = {
                 insurerPortalUserId: insurerPortalUserId,
                 active: true
             };
+            if(options) {
+                if(options.mongoId) {
+                    query._id = options.mongoId;
+                }
+                if(options.insurerId) {
+                    query.insurerId = options.insurerId;
+                }
+                if(options.insurerPortalUserId) {
+                    query.insurerPortalUserId = options.insurerPortalUserId;
+                }
+            }
             if(skipActiveCheck){
                 delete query.active;
             }
@@ -248,8 +262,8 @@ module.exports = class InsurerPortalUserBO{
         }
     }
 
-    getById(id) {
-        return this.getMongoDocbyUserId(id);
+    getById(id, options = null) {
+        return this.getMongoDocbyUserId(id, options);
     }
 
 
@@ -272,6 +286,8 @@ module.exports = class InsurerPortalUserBO{
             if(!userDoc){
                 return null;
             }
+
+            userDoc.id = userDoc._id;
 
             return mongoUtils.objCleanup(userDoc);
 
@@ -413,7 +429,7 @@ module.exports = class InsurerPortalUserBO{
         if (id) {
             try {
                 const getDoc = true;
-                const insurerPortalUserDoc = await this.getMongoDocbyUserId(id, getDoc);
+                const insurerPortalUserDoc = await this.getMongoDocbyUserId(id, null, getDoc);
                 insurerPortalUserDoc.active = false;
                 await insurerPortalUserDoc.save();
             }
@@ -484,24 +500,22 @@ module.exports = class InsurerPortalUserBO{
     /**
      * checkForDuplicateEmail
      *
+     * @param {object} email - email to check
      * @param {object} insurerPortalUserId - new or updating userId -999 for new
-     * @param {object} chkEmail - chkEmail to check
      * @param {object} insurerId - users agency network
      * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessContact , or an Error if rejected
      */
-    async checkForDuplicateEmail(insurerPortalUserId, chkEmail, insurerId){
+    async checkForDuplicateEmail(email, insurerPortalUserId, insurerId){
         let hasDuplicate = false;
-        //new user
-        if(!insurerPortalUserId){
-            insurerPortalUserId = -999;
-        }
 
         try{
             const query = {
-                insurerPortalUserId: {$ne: insurerPortalUserId},
                 active: true,
-                email: chkEmail
+                email: email
             };
+            if(insurerPortalUserId) {
+                query.insurerPortalUserId = {$ne: insurerPortalUserId};
+            }
             if(insurerId){
                 query.insurerId = insurerId;
             }
@@ -521,10 +535,9 @@ module.exports = class InsurerPortalUserBO{
             let insurerPortalUserDoc = null;
             try {
                 const getDoc = true;
-                insurerPortalUserDoc = await this.getMongoDocbyUserId(id, getDoc);
+                insurerPortalUserDoc = await this.getMongoDocbyUserId(id, null, getDoc);
                 if(insurerPortalUserDoc){
                     insurerPortalUserDoc.password = newHashedPassword;
-                    insurerPortalUserDoc.resetRequired = false;
                     await insurerPortalUserDoc.save();
                 }
                 else {

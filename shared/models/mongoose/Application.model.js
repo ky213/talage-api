@@ -412,7 +412,7 @@ ApplicationSchema.pre('save', async function() {
 });
 
 ApplicationSchema.pre('updateOne', async function(next) {
-    log.debug(`Mongoose applicagion.model in updateOne ` + __location);
+    log.debug(`Mongoose application.model in updateOne ` + __location);
     // Populate top-level this.activityCodes array
     populateActivityCodePayroll(this);
 

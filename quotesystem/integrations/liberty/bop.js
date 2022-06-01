@@ -44,6 +44,13 @@ module.exports = class LibertySBOP extends Integration {
 
         quoteResponses = await Promise.all(quoteResponses);
         
+        //need for Tiered Quoting Checks
+        this.quoteStatusId = BOPCommercial.quoteStatusId
+        if(this.quoteStatusId <= 40 && BOPSimple.quoteStatusId > 40){
+            this.quoteStatusId = BOPSimple.quoteStatusId
+        }
+
+
         // just return the first quote response, we don't care about this information
         return quoteResponses[0];
     }

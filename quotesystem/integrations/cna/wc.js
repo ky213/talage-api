@@ -12,6 +12,8 @@
 /* eslint multiline-comment-style: 0 */
 const axios = require('axios');
 const moment = require('moment');
+const {get} = require("lodash")
+
 
 const Integration = require('../Integration.js');
 
@@ -192,7 +194,7 @@ module.exports = class CnaWC extends Integration {
 
         let agencyId = null;
         try {
-            agencyId = this.app.agencyLocation.insurers[this.insurer.id].agency_id.split("-");
+            agencyId = this.app.agencyLocation.insurers[this.insurer.id]?.agency_id?.split("-");
         }
         catch (e) {
             log.error(`${logPrefix}There was an error splitting the agency_id for insurer ${this.insurer.id}. ${e}. ` + __location);
@@ -464,8 +466,8 @@ module.exports = class CnaWC extends Integration {
 
             try {
                 const errorJSON = JSON.parse(error.response);
-                const description = errorJSON?.InsuranceSvcRs[0]?.WorkCompPolicyQuoteInqRs[0]?.MsgStatus?.MsgStatusDesc?.value
-                const extendedDescription = errorJSON?.InsuranceSvcRs[0]?.WorkCompPolicyQuoteInqRs[0]?.MsgStatus?.ExtendedStatus[0]?.ExtendedStatusDesc?.value
+                const description = get(errorJSON, "InsuranceSvcRs[0].WorkCompPolicyQuoteInqRs[0].MsgStatus.MsgStatusDesc.value")
+                const extendedDescription = get(errorJSON, "InsuranceSvcRs[0].WorkCompPolicyQuoteInqRs[0].MsgStatus.ExtendedStatus[0].ExtendedStatusDesc.value")
                 
                 errorMessage = extendedDescription || description || "An error occurred while attempting to quote."
             }
@@ -491,7 +493,7 @@ module.exports = class CnaWC extends Integration {
         let quoteMIMEType = null;
         let policyStatus = null;
 
-        const response = result.InsuranceSvcRs[0].WorkCompPolicyQuoteInqRs[0];
+        const response = get(result, "InsuranceSvcRs[0].WorkCompPolicyQuoteInqRs[0]");
         switch (response.MsgStatus.MsgStatusCd.value.toLowerCase()) {
             case "dataerror":
             case "datainvalid":
@@ -534,8 +536,10 @@ module.exports = class CnaWC extends Integration {
 
                         // get limits (required)
                         try {
-                            response.WorkCompLineBusiness.CommlCoverage[0].Limit.forEach(limit => {
-                                switch (limit.LimitAppliesToCd[0].value) {
+                            const limits = get(response, "WorkCompLineBusiness.CommlCoverage[0].Limit") || []
+
+                            limits.forEach(limit => {
+                                switch (get(limit, "LimitAppliesToCd[0].value")) {
                                     case 'BIEachOcc':
                                         quoteLimits[1] = limit.FormatInteger.value;
                                         break;
@@ -571,14 +575,14 @@ module.exports = class CnaWC extends Integration {
                             }
 
                             try {
-                                quoteLetter = quoteResult.InsuranceSvcRs[0].ViewInqRs[0].FileAttachmentInfo[0]["com.cna.AttachmentData"].value;
+                                quoteLetter = get(quoteResult, ["InsuranceSvcRs", "0", "ViewInqRs", "0", "FileAttachmentInfo", "0", "com.cna.AttachmentData", "value"])
                             }
                             catch (e) {
                                 log.error(`${logPrefix}There was an error parsing the quote letter: ${e}. ` + __location);
                             }
 
                             try {
-                                quoteMIMEType = quoteResult.InsuranceSvcRs[0].ViewInqRs[0].FileAttachmentInfo[0].MIMEEncodingTypeCd.value;
+                                quoteMIMEType = get(quoteResult, "InsuranceSvcRs[0].ViewInqRs[0].FileAttachmentInfo[0].MIMEEncodingTypeCd.value");
                             }
                             catch (e) {
                                 log.error(`${logPrefix}There was an error parsing the quote MIME type: ${e}. ` + __location);
@@ -689,7 +693,7 @@ module.exports = class CnaWC extends Integration {
                 StateProvCd: {value: location.territory},
                 WorkCompLocInfo: await this.getWorkCompLocInfo(location, parseInt(index, 10))
             };
-            const firstNCCICode = await this.get_insurer_code_for_activity_code(this.insurer.id, primaryLocation?.state, primaryLocation.activityPayrollList[0].activityCodeId);
+            const firstNCCICode = await this.get_insurer_code_for_activity_code(this.insurer.id, primaryLocation?.state, get(primaryLocation, "activityPayrollList[0].activityCodeId"));
             wcrs.GoverningClassCd = {value: firstNCCICode.code.substring(0, firstNCCICode.code.length - 1)}
             workCompRateStates.push(wcrs);
         }
@@ -709,7 +713,7 @@ module.exports = class CnaWC extends Integration {
 
         for (const activityCode of location.activityPayrollList) {
             const wcrc = {
-                RatingClassificationCd: {value: (await this.get_insurer_code_for_activity_code(this.insurer.id, location?.state, location.activityPayrollList[0].activityCodeId)).code}, 
+                RatingClassificationCd: {value: (await this.get_insurer_code_for_activity_code(this.insurer.id, location?.state, get(location, "activityPayrollList[0].activityCodeId"))).code}, 
                 Exposure: `${activityCode.payroll}`
             };
 

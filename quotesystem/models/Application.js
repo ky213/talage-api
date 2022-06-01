@@ -176,6 +176,15 @@ module.exports = class Application {
         try {
             for (let i = 0; i < this.applicationDocData.policies?.length; i++) {
                 const policyJSON = this.applicationDocData.policies[i];
+                if (!policyJSON.expirationDate && policyJSON.effectiveDate) {
+                    try{
+                        policyJSON.expirationDate = moment(policyJSON.effectiveDate).clone().add(1,"years");
+                        log.info(`POLICY fixed policy.expirationDate ${policyJSON.expirationDate.toISOString()}` + __location)
+                    }
+                    catch(err){
+                        log.error(`Quoting error fixing expirationDate ${err}` + __location)
+                    }
+                }
                 const p = new Policy();
                 await p.load(policyJSON, this.business, this.applicationDocData);
                 this.policies.push(p);
@@ -189,7 +198,7 @@ module.exports = class Application {
         //update business with policy type list.
         this.business.setPolicyTypeList(this.appPolicyTypeList);
         // Agent
-        this.agencyLocation = new AgencyLocation(this.business, this.policies);
+        this.agencyLocation = new AgencyLocation(this.business, this.policies, this.applicationDocData.applicationId);
         // Note: The front-end is sending in 'agent' but this is really a reference to the 'agency location'
         if (this.applicationDocData.agencyLocationId) {
             await this.agencyLocation.load({id: this.applicationDocData.agencyLocationId});
@@ -530,7 +539,7 @@ module.exports = class Application {
                 q.load(questionDef,this.applicationDocData.applicationId);
                 // Load the user's answer
                 //work with Application dataa
-                if (this.applicationDocData.questions) {
+                if (this.applicationDocData.questions.length > 0) {
                     const appQuestionJSON = this.applicationDocData.questions.find((appQ) => appQ.questionId === questionDef.talageQuestionId)
                     if (appQuestionJSON) {
                         try {
@@ -623,7 +632,7 @@ module.exports = class Application {
                                     //log.debug("insurer " + JSON.stringify(insurer) + __location)
                                     if (agentInsurer.id === insurer.id) {
                                         // Check the policy type
-                                        if (agentInsurer[policy.type.toLowerCase()]
+                                        if (policy.type && agentInsurer[policy.type.toLowerCase()]
                                             && agentInsurer[policy.type.toLowerCase()].enabled === true) {
                                             match_found = true;
                                         }
@@ -997,9 +1006,9 @@ module.exports = class Application {
                 }
 
                 // Update when configure Application Statuses are implemented
-                let appStatus = this.applicationDocData.status
+                let appStatus = this.applicationDocData?.status
                 for(const appStatusProp in applicationStatus){
-                    if(this.applicationDocData.status === applicationStatus[appStatusProp].appStatusDesc){
+                    if(this.applicationDocData?.status === applicationStatus[appStatusProp].appStatusDesc){
                         appStatus = applicationStatus[appStatusProp].appStatusText;
                     }
                 }
@@ -1157,7 +1166,7 @@ module.exports = class Application {
                         subject = subject.replace(/{{Agency}}/g, this.agencyLocation.agency);
                         subject = subject.replace(/{{Brand}}/g, capitalizedBrand);
                         subject = subject.replace(/{{Business Name}}/g, this.applicationDocData.businessName);
-                        if (quoteList[0].status) {
+                        if (quoteList[0] && quoteList[0].status) {
                             message = message.replace(/{{Quote Result}}/g, quoteList[0].status.charAt(0).toUpperCase() + quoteList[0].status.substring(1));
                         }
 
@@ -1386,7 +1395,7 @@ module.exports = class Application {
                 insurers = await this.get_insurers();
             }
             catch (e) {
-                if (e.toLowerCase() === 'agent does not support this request') {
+                if (e?.toLowerCase() === 'agent does not support this request') {
                     if (this.agencyLocation.wholesale) {
                         // Switching to the Talage agent
                         log.info(`Quote Application model Switching to the Talage agent appId: ${this.applicationDocData.applicationId}` + __location)

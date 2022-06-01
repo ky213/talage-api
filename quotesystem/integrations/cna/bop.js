@@ -14,7 +14,7 @@
 /* eslint multiline-comment-style: 0 */
 const axios = require('axios');
 const moment = require('moment');
-const {get, isArray} = require("lodash")
+const {get} = require("lodash")
 
 
 const Integration = require('../Integration.js');
@@ -422,7 +422,7 @@ module.exports = class CnaBOP extends Integration {
 
         let agencyId = null;
         try {
-            agencyId = this.app.agencyLocation.insurers[this.insurer.id].agencyId.split("-");
+            agencyId = this.app.agencyLocation.insurers[this.insurer.id]?.agencyId?.split("-");
         }
         catch (e) {
             log.error(`${logPrefix}There was an error splitting the agency_id for insurer ${this.insurer.id}. ${e}.` + __location);
@@ -827,14 +827,14 @@ module.exports = class CnaBOP extends Integration {
                 return this.client_error(errorMessage, __location);
             }
 
-            if (errorJSON?.InsuranceSvcRs[0]?.Status?.StatusCd === "500") {
-                const cnaErrorMessage = errorJSON?.InsuranceSvcRs[0]?.Status.StatusDesc;
+            if (get(errorJSON, "InsuranceSvcRs[0].Status.StatusCd") === "500") {
+                const cnaErrorMessage = get(errorJSON, "InsuranceSvcRs[0].Status.StatusDesc");
                 const errorMessage = `${logPrefix}CNA encountered an error and did not return a quote${cnaErrorMessage ? `: ${cnaErrorMessage}` : '.'}`;
                 log.error(errorMessage + __location);
                 return this.client_error(errorMessage, __location);
             }
 
-            if (!errorJSON?.InsuranceSvcRs[0]?.BOPPolicyQuoteInqRs[0]?.MsgStatus) {
+            if (!get(errorJSON, "InsuranceSvcRs[0].BOPPolicyQuoteInqRs[0].MsgStatus")) {
                 const errorMessage = `${logPrefix}There was an error parsing the response object: ${errorJSON}. The result structure may have changed.`;
                 log.error(errorMessage + __location);
                 return this.client_error(errorMessage, __location);
@@ -851,7 +851,7 @@ module.exports = class CnaBOP extends Integration {
         let quoteMIMEType = null;
         let policyStatus = null;
 
-        const response = result.InsuranceSvcRs[0].BOPPolicyQuoteInqRs[0];
+        const response = get(result, "InsuranceSvcRs[0].BOPPolicyQuoteInqRs[0]");
 
         if (!response) {
             const errorMessage = `${logPrefix}Unable to parse CNA's response, missing core elements.`;
@@ -937,7 +937,7 @@ module.exports = class CnaBOP extends Integration {
                         try {
                             // general limits
                             response.BOPLineBusiness.LiabilityInfo.CommlCoverage.forEach(genLim => {
-                                let description = genLim.Limit[0]?.LimitAppliesToCd ? genLim.Limit[0].LimitAppliesToCd[0].value : genLim.CoverageCd.value;
+                                let description = get(genLim, "Limit[0].LimitAppliesToCd[0].value") || genLim.CoverageCd?.value;
 
                                 // special cases:
                                 if (description === "MEDEX") {
@@ -946,7 +946,7 @@ module.exports = class CnaBOP extends Integration {
 
                                 const newCoverage = {
                                     description: description,
-                                    value: convertToDollarFormat(genLim.Limit[0].FormatInteger.value, true),
+                                    value: convertToDollarFormat(get(genLim, "Limit[0].FormatInteger.value"), true),
                                     sort: coverageSort++,
                                     category: 'General Limits',
                                     insurerIdentifier: genLim.CoverageCd.value
@@ -961,53 +961,60 @@ module.exports = class CnaBOP extends Integration {
 
                         try {
                             // property limits
-                            const commlCoverage = get(response, "BOPLineBusiness.PropertyInfo.CommlPropertyInfo[0].CommlCoverage")
-                            
-                            if(commlCoverage && isArray(commlCoverage)){
-                                commlCoverage.forEach(propLim => {
-                                    const coverageCode = propLim.CoverageCd?.value;
-                                    const descriptionsMap = {
-                                    BLDG: "Building",
-                                    BPP: "Building Personal Property",
-                                    WH: "Wind / Hail",
-                                    GLASS: "Glass"
-                                    };
-                                    const description = descriptionsMap[coverageCode] || ''
+                            const propertyInfo = get(response, "BOPLineBusiness.PropertyInfo.CommlPropertyInfo") || []
 
-                                    if (propLim.Limit) {
-                                        const limit = get(propLim, "Limit[0].FormatInteger.value")
-                                        const newCoverage = {
-                                            description: description + " Limit",
-                                            value: convertToDollarFormat(limit, true),
-                                            sort: coverageSort++,
-                                            category: 'Property Limits',
-                                            insurerIdentifier: coverageCode
+                            propertyInfo.forEach((property) => {
+                                    const commlCoverage = get(property, "CommlCoverage") || []
+                                    const address = get(property, "LocationRef.Addr.Addr1.value")
+                                    const city = get(property, "LocationRef.Addr.City.value")
+                                    const state = get(property, "LocationRef.Addr.StateProvCd.value")
+                                    const zip = get(property, "LocationRef.Addr.PostalCode.value")
+                                
+                                    commlCoverage.forEach(propLim => {
+                                        const coverageCode = propLim.CoverageCd?.value;
+                                        const descriptionsMap = {
+                                        BLDG: "Building",
+                                        BPP: "Building Personal Property",
+                                        WH: "Wind / Hail",
+                                        GLASS: "Glass"
                                         };
-        
-                                        quoteCoverages.push(newCoverage);
-                                    }
+                                        const description = descriptionsMap[coverageCode] || ''
 
-                                    if (propLim.Deductible) {
-                                        const deductibleText = get(propLim, "Deductible[0].FormatText.value")
-                                        const deductibleValue = get(propLim, "Deductible[0].FormatInteger.value")
-                                        let value = null;
-
-                                        if (deductibleText === "Policy Level") {
-                                            value = "Policy Level";
+                                        if (propLim.Limit) {
+                                            const limit = get(propLim, "Limit[0].FormatInteger.value")
+                                            const newCoverage = {
+                                                description: description + " Limit",
+                                                value: convertToDollarFormat(limit, true),
+                                                sort: coverageSort++,
+                                                category: `Property Limits for ${address} ${city} ${state} ${zip}`,
+                                                insurerIdentifier: coverageCode
+                                            };
+            
+                                            quoteCoverages.push(newCoverage);
                                         }
 
-                                        const newCoverage = {
-                                            description: description + " Deductible",
-                                            value: value ? value : convertToDollarFormat(deductibleValue, true),
-                                            sort: coverageSort++,
-                                            category: 'Property Limits',
-                                            insurerIdentifier: coverageCode
-                                        };
-        
-                                        quoteCoverages.push(newCoverage);
-                                    }
-                                });
-                            }
+                                        if (propLim.Deductible) {
+                                            const deductibleText = get(propLim, "Deductible[0].FormatText.value")
+                                            const deductibleValue = get(propLim, "Deductible[0].FormatInteger.value")
+                                            let value = null;
+
+                                            if (deductibleText === "Policy Level") {
+                                                value = "Policy Level";
+                                            }
+
+                                            const newCoverage = {
+                                                description: description + " Deductible",
+                                                value: value ? value : convertToDollarFormat(deductibleValue, true),
+                                                sort: coverageSort++,
+                                                category: `Property Limits for ${address} ${city} ${state} ${zip}`,
+                                                insurerIdentifier: coverageCode
+                                            };
+            
+                                            quoteCoverages.push(newCoverage);
+                                        }
+                                    })
+                        })
+
                         }
                         catch (e) {
                             log.error(`${logPrefix}Couldn't parse one or more property limit values from the response: ${e}.` + __location);
@@ -1032,14 +1039,14 @@ module.exports = class CnaBOP extends Integration {
                             }
                             else {
                                 try {
-                                    quoteLetter = quoteResult.InsuranceSvcRs[0].ViewInqRs[0].FileAttachmentInfo[0]["com.cna.AttachmentData"].value;
+                                    quoteLetter = get(quoteResult, ["InsuranceSvcRs", "0", "ViewInqRs", "0", "FileAttachmentInfo", "0", "com.cna.AttachmentData", "value"]);
                                 }
                                 catch (e) {
                                     log.error(`${logPrefix}There was an error parsing the quote letter: ${e}.` + __location);
                                 }
     
                                 try {
-                                    quoteMIMEType = quoteResult.InsuranceSvcRs[0].ViewInqRs[0].FileAttachmentInfo[0].MIMEEncodingTypeCd.value;
+                                    quoteMIMEType = get(quoteResult, "InsuranceSvcRs[0].ViewInqRs[0].FileAttachmentInfo[0].MIMEEncodingTypeCd.value");
                                 }
                                 catch (e) {
                                     log.error(`${logPrefix}There was an error parsing the quote MIME type: ${e}.` + __location);
@@ -1094,7 +1101,7 @@ module.exports = class CnaBOP extends Integration {
 
                 if (fullLocation) {
                     // agency information
-                    locationObj.ItemIdInfo = {AgencyId: {value: `${this.app.agencyLocation.insurers[this.insurer.id].agencyId}`}};
+                    locationObj.ItemIdInfo = {AgencyId: {value: `${this.app.agencyLocation.insurers[this.insurer.id]?.agencyId}`}};
 
                     // sub location information
                     locationObj.SubLocation = [{...locationObj}];
@@ -2014,7 +2021,7 @@ module.exports = class CnaBOP extends Integration {
                 Limit: [
                     {
                         FormatInteger: {
-                            value: limits[0]
+                            value: get(limits, "0")
                         },
                         LimitAppliesToCd: [
                             {

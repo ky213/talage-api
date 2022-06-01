@@ -121,7 +121,9 @@ function mergeLandingPageContent(agencyLandingPageContent, agencyNetworkLandingP
     if(agencyLandingPageContent && agencyLandingPageContent.faq && agencyLandingPageContent.faq.length > 0){
         landingPageContent.faq = JSON.parse(JSON.stringify(agencyLandingPageContent.faq));
     }
-
+    if(agencyNetworkLandingPageContent.showFaq === false){
+        landingPageContent.faq = [];
+    }
     return landingPageContent;
 }
 
@@ -320,6 +322,10 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
                 agencyWebInfo.footer_logo = agencyNetworkJSONDefault.footer_logo;
             }
         }
+        if(agencyNetworkJSON?.landing_page_content?.showFaq === false){
+            agencyWebInfo.landingPageContent.faq = [];
+        }
+
         // grab the first page for agency network if custom flow exists
         let customFlowObj = null;
         customFlowObj = agencyNetworkJSON.quoteAppCustomRouting;

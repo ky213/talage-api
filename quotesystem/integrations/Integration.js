@@ -119,6 +119,8 @@ module.exports = class Integration {
         this.talageInsurerPaymentPlans = null; //standardized Talage InsurerPaymentPlan structure
         this.insurerPolicyInfo = null;
         this.productDesc = '';
+        this.quoteTierLevel = 1;
+        this.quoteStatusId = 0;
 
 
         // quoteId will be passed in if a parent integration was instantiated first and passes its quoteId through
@@ -1436,7 +1438,7 @@ module.exports = class Integration {
      * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
      */
     quote() {
-        log.info(`QUOTING Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Quote Started (mode: ${this.insurer.useSandbox ? 'sandbox' : 'production'})`);
+        log.info(`QUOTING Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Quote Started (mode: ${this.insurer.useSandbox ? 'sandbox' : 'production'}) Tier: ${this.quoteTierLevel}`);
         return new Promise(async(fulfill) => {
 
             if (!this.quoteId) {
@@ -1574,7 +1576,7 @@ module.exports = class Integration {
                         else if(insurerQuestion.universal && insurerQuestion.allTerritories){
                             log.warn(`Appid ${this.applicationDocData.applicationId} insurer ${this.insurer.id}: No app question for universal insurer q:  ${insurerQuestion.insurerQuestionId}: ${insurerQuestion.identifier} talageQuestionId ${insurerQuestion.talageQuestionId}` + __location);
                         }
-                        else if(insurerQuestion.universal && insurerQuestion){
+                        else if(insurerQuestion?.universal){
                             const qForTerritory = insurerQuestion.territoryList.some(r => territoryList.includes(r))
                             if(qForTerritory){
                                 log.warn(`Appid ${this.applicationDocData.applicationId} insurer ${this.insurer.id}: No app question for universal insurer q:  ${insurerQuestion.insurerQuestionId}: ${insurerQuestion.identifier} talageQuestionId ${insurerQuestion.talageQuestionId}` + __location);
@@ -1877,12 +1879,16 @@ module.exports = class Integration {
         const quoteJSON = {
             applicationId: this.applicationDocData.applicationId,
             agencyId: this.applicationDocData.agencyId,
+            agencyLocationId: this.applicationDocData.agencyLocationId,
             agencyNetworkId: this.applicationDocData.agencyNetworkId,
+            quotingAgencyId: this.app.agencyLocation.insurers[this.insurer.id].quotingAgencyId,
             insurerId: this.insurer.id,
             log: this.log,
             policyType: policyType,
-            quoteTimeSeconds: this.seconds
+            quoteTimeSeconds: this.seconds,
+            referrer: this.applicationDocData.referrer
         }
+        log.debug(`Integrations record_quote quoteJSON.quotingAgencyId ${quoteJSON.quotingAgencyId}` + __location)
         // if this is a new quote, set its quotingStartedDate to now
         if (apiResult === quoteStatus.initiated.description) {
             quoteJSON.quotingStartedDate = moment.utc();
@@ -1991,8 +1997,16 @@ module.exports = class Integration {
         // quoteStatusId and quoteStatusDescription
         const status = getQuoteStatus(false, '', apiResult);
         quoteJSON.quoteStatusId = status.id;
+        this.quoteStatusId = quoteJSON.quoteStatusId
         quoteJSON.quoteStatusDescription = status.description;
-
+        //handle bad return_result from quoting.
+        if(this.quoteStatusId === 0 && (this.amount > 0 || amount > 0)){
+            this.quoteStatusId = quoteStatus.quoted_referred.id;
+        }
+        else if(!this.quoteStatusId === 0){
+            this.quoteStatusId = quoteStatus.error.id;
+        }
+       
         try{
             // Set up quote limits for old-style hydration (should be deprecated eventually)
             if (this.limits && Object.keys(this.limits).length) {

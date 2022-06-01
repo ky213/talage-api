@@ -12,6 +12,7 @@ var FastJsonParse = require('fast-json-parse')
 var AgencyEmail = global.mongoose.AgencyEmail;
 
 var AgencyModel = global.mongoose.Agency;
+var AgencyLocationModel = global.mongoose.AgencyLocation;
 var AgencyAmsCredModel = global.mongoose.AgencyAmsCred;
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
@@ -1313,6 +1314,84 @@ module.exports = class AgencyBO {
             log.warn(`updateRedisCache bad agencyJSON ${typeof agencyJSON} ` + __location);
         }
         return false;
+    }
+
+    async getListByInsurerId(requestQueryJSON, insurerId) {
+
+        insurerId = parseInt(insurerId,10)
+        let agencyNetworkList = null;
+        const agencyNetworkBO = new AgencyNetworkBO();
+        try {
+            agencyNetworkList = await agencyNetworkBO.getList({});
+        }
+        catch (err) {
+            log.error("Error getting Agency Network List " + err + __location);
+            throw err;
+        }
+
+        const queryAL = [
+            {$match:
+                {
+                    "insurers.insurerId": insurerId,
+                    "useAgencyPrime": {$ne: true},
+                    "insurers.talageWholesale": {$ne: true},
+                    "insurers.useAgencyPrime": {$ne: true}
+                }},
+            {$group:
+                {_id:
+                    {agencyId: "$agencyId"}}},
+            {$lookup:
+                {
+                    from: "agencies",
+                    localField: "_id.agencyId",
+                    foreignField: "systemId",
+                    as: "agency"
+                }},
+            {$project:
+                {
+                    "agency._id": 0,
+                    "agency.additionalInfo": 0,
+                    "agency.mysqlId": 0
+                }},
+            {$unwind:
+                {path: "$agency"}},
+            {$replaceRoot:
+                {newRoot: "$agency"}}
+        ];
+
+        // const queryProjection = {
+        //     _id: 1,
+        //     systemId: 1,
+        //     agencyId: 1,
+        //     agencyNetworkId: 1,
+        //     name: 1,
+        //     appCount: 1,
+        //     active: 1,
+        //     firstName: 1,
+        //     lastName: 1,
+        //     email: 1,
+        //     phone: 1
+        // };
+        // const queryOptions = {sort: {
+        //     active: -1,
+        //     name: 1
+        // }};
+        try {
+            const docList = await AgencyLocationModel.aggregate(queryAL);
+            log.debug(`AgencyBO.getListByInsurerId Agency list count ${docList.length} `)
+            docList.forEach((agency) => {
+                agency.agencyId = agency.systemId;
+                agency.fullName = `${agency.firstName} ${agency.lastName}`
+                agency.agencyNetworkName = agencyNetworkList.find(agencyNetwork => agencyNetwork.agencyNetworkId === agency.agencyNetworkId).name
+            })
+
+
+            return mongoUtils.objListCleanup(docList);
+        }
+        catch (err) {
+            log.error("Error getting Agency List " + err + __location);
+            throw err;
+        }
     }
 
 

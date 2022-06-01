@@ -16,6 +16,33 @@ const tracker = global.requireShared('./helpers/tracker.js');
 const opts = {toJSON: {virtuals: true}};
 const optsNoId = {toJSON: {virtuals: true},id: false, _id: false};
 
+
+const faqSchema = new Schema({
+    question: {type: String, required: false, default: ""},
+    answer: {type: String, required: false, default: ""}
+
+}, optsNoId);
+
+const landingPageSchema = new Schema({
+    bannerHeadingDefault: {type: String, required: false, default: ""},
+    showFaq:{type: Boolean, required: false, default: true},
+    faq: [faqSchema],
+    meta: {
+        title: {type: String, required: false, default: ""},
+        description: {type: String, required: false, default: ""}
+    },
+    workflow: {
+        heading: {type: String, required: false, default: ""},
+        section1Heading: {type: String, required: false, default: ""},
+        section1Content: {type: String, required: false, default: ""},
+        section2Heading: {type: String, required: false, default: ""},
+        section2Content: {type: String, required: false, default: ""},
+        section3Heading: {type: String, required: false, default: ""},
+        section3Content: {type: String, required: false, default: ""},
+        subtext: {type: String, required: false, default: ""}
+    }
+}, optsNoId)
+
 const startAndEndThresholdsSchema = new Schema({
     start: {type: Number, required: true, default: 1},
     end: {type: Number, required: true, default: 90}
@@ -63,6 +90,8 @@ const featureSchema = new Schema({
     showAgencyTierFields: {type: Boolean, required: true, default: false},
     requestToBindButtonText: {type: String, required: true, default: 'Submit to UW'},
     requestToBindProcessedText: {type: String, required: true, default: 'Submitted to UW'},
+    requestToBindReferredProcessedText: {type: String, required: true, default: '*Submitted to UW'},
+    requestToBindReferredProcessedSearchText: {type: String, required: true, default: 'Referred Submitted to UW'},
     requireMFA: {type: Boolean, required: true, default: true},
     showTalageUniversityLink: {type: Boolean, required: true, default: true},
     enableApiKeys: {type: Boolean, required: true, default: false},
@@ -72,6 +101,9 @@ const featureSchema = new Schema({
     enableEmployersAutoAddForGhostPolicy: {type: Boolean, required: true, default: false},
     enableGhostPolicyAgencyPortalSelection: {type: Boolean, required: true, default: false},
     enableAcordOcr: {type: Boolean, required: true, default: false},
+    enableTieredQuoting: {type: Boolean, required: true, default: false},
+    enableTieredQuotingAgencyLevel: {type: Boolean, required: true, default: false},
+    premiumReportGraphs: {type: Boolean, required: true, default: false},
     policyEffectiveDateThresholds:
     {
         type: policyEffectiveDateThresholdsSchema,
@@ -100,7 +132,7 @@ const AgencyNetworkSchema = new Schema({
     fname: {type: String, required: false},
     lname: {type: String, required: false},
     help_text: {type: String, required: false},
-    landing_page_content: {type: Schema.Types.Mixed},
+    landing_page_content: {type: landingPageSchema},
     custom_emails: {type: Schema.Types.Mixed},
     phone: {type: String, required: false},
     quoteAppCustomRouting: {type: Object, required: false},

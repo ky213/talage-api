@@ -27,7 +27,7 @@ const jwt = require('jsonwebtoken');
 const moment = require('moment');
 const {Error} = require('mongoose');
 const {applicationStatus} = global.requireShared('./models/status/applicationStatus.js');
-const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
+const {quoteStatus, QuoteStatusDesc} = global.requireShared('./models/status/quoteStatus.js');
 const ActivityCodeSvc = global.requireShared('services/activitycodesvc.js');
 const appLinkCreator = global.requireShared('./services/application-link-svc.js');
 const requiredFieldSvc = global.requireShared('./services/required-app-fields-svc.js');
@@ -159,6 +159,47 @@ async function getApplication(req, res, next) {
         let paymentPlanList = null;
         const PaymentPlanSvc = global.requireShared('services/paymentplansvc.js');
         paymentPlanList = PaymentPlanSvc.getList();
+
+        // need agencyNetwork feature controling status text
+        let agencyNetworkList = null;
+        const agencyNetworkBO = new AgencyNetworkBO();
+        try {
+            agencyNetworkList = await agencyNetworkBO.getList({});
+        }
+        catch (err) {
+            log.error("Error getting Agency Network List " + err + __location);
+            throw err;
+        }
+
+
+        const delimiter = ' '
+        applicationJSON.displayStatus = applicationJSON.status.replace('_referred', '*').replace(/_/g, ' ')
+        applicationJSON.displayStatus = applicationJSON.displayStatus.toLowerCase().split(delimiter).map((s) => `${s.charAt(0).toUpperCase()}${s.substring(1)}`).join(' ');
+        applicationJSON.displayStatus = applicationJSON.displayStatus.replace('Uw', 'UW')
+
+        if(applicationJSON.agencyNetworkId === 4 && (applicationJSON.appStatusId === applicationStatus.requestToBind.appStatusId || applicationJSON.appStatusId === applicationStatus.requestToBindReferred.appStatusId)){
+            applicationJSON.status = "submitted_to_uw";
+            applicationJSON.displayStatus = 'Submitted To UW';
+        }
+
+
+        //? titleCase(data.item.displayStatus.replace('_referred', '*').replace(/_/g, ' ')).replace('Uw', 'UW')
+        const agencyNetworkDoc = agencyNetworkList.find((an) => an.agencyNetworkId === applicationJSON.agencyNetworkId)
+        if(applicationJSON.agencyNetworkId > 1 && (applicationJSON.appStatusId === applicationStatus.requestToBind.appStatusId || applicationJSON.appStatusId === applicationStatus.requestToBindReferred.appStatusId)){
+            if(applicationJSON.agencyNetworkId === 4){
+                // quoteJSON.status = "Submitted To UW";
+                applicationJSON.displayStatus = 'Submitted To UW';
+            }
+            else if(agencyNetworkDoc?.featureJson?.requestToBindProcessedText.length > 3 && applicationJSON.appStatusId === applicationStatus.requestToBind.appStatusId){
+                applicationJSON.displayStatus = agencyNetworkDoc.featureJson.requestToBindProcessedText;
+                //quoteJSON.displayStatus = appAgencyNetwork.featureJson.requestToBindProcessedText;
+            }
+            else if(agencyNetworkDoc?.featureJson?.requestToBindReferredProcessedText.length > 3 && applicationJSON.appStatusId === applicationStatus.requestToBindReferred.appStatusId){
+                applicationJSON.displayStatus = agencyNetworkDoc.featureJson.requestToBindReferredProcessedText;
+                //quoteJSON.displayStatus = appAgencyNetwork.featureJson.requestToBindReferredProcessedText;
+            }
+        }
+        log.debug(`applicationJSON.displayStatus ${applicationJSON.displayStatus}`)
        
         for (let i = 0; i < quoteList.length; i++) {
             // eslint-disable-next-line prefer-const
@@ -167,19 +208,11 @@ async function getApplication(req, res, next) {
             if(quoteJSON.quoteLetter){
                 quoteJSON.quote_letter = quoteJSON.quoteLetter;
             }
-            //apiResult is obsolete 
-            // if (!quoteJSON.status && quoteJSON.apiResult) {
-            //     // if quoteStatus is error, but apiResult is initiated, we likely hit a timeout and should use quoteStatus over apiResult
-            //     if (quoteJSON.quoteStatusId === quoteStatus.error.id && quoteJSON.apiResult === quoteStatus.initiated.description) {
-            //         quoteJSON.status = quoteStatus.error.description;
-            //     }
-            //     else {
-            //         quoteJSON.status = quoteJSON.apiResult;
-            //     }
-            // }
+           
             if(quoteJSON.quoteStatusDescription){
                 quoteJSON.status = quoteJSON.quoteStatusDescription
             }
+            quoteJSON.displayStatus = QuoteStatusDesc(quoteJSON.quoteStatusId)
             quoteJSON.number = quoteJSON.quoteNumber;
             //filter out referred with price that is 55.
             if (quoteJSON.quoteStatusId === quoteStatus.quoted.id || quoteJSON.quoteStatusId > quoteStatus.quoted_referred.id || quoteJSON.bound){
@@ -193,14 +226,27 @@ async function getApplication(req, res, next) {
                 quoteJSON.status = 'Out of Market';
                 quoteJSON.displayStatus = 'Out of Market';
             }
-            else if(typeof quoteJSON.status === 'string'){
+            else if(!quoteJSON.displayStatus && typeof quoteJSON.status === 'string'){
                 //ucase word
                 const wrkingString = stringFunctions.strUnderscoretoSpace(quoteJSON.status)
                 quoteJSON.displayStatus = stringFunctions.ucwords(wrkingString)
             }
-            if(applicationJSON.agencyNetworkId === 4 && (quoteJSON.quoteStatusId === quoteStatus.bind_requested.id || quoteJSON.quoteStatusId === quoteStatus.bind_requested_referred.id)){
-                quoteJSON.status = "Submitted To UW";
-                quoteJSON.displayStatus = 'Submitted To UW';
+
+            const appAgencyNetwork = agencyNetworkList.find((an) => an.agencyNetworkId === applicationJSON.agencyNetworkId)
+            //Look up Agency Network's Request to Bind Text
+            if(applicationJSON.agencyNetworkId > 1 && (quoteJSON.quoteStatusId === quoteStatus.bind_requested.id || quoteJSON.quoteStatusId === quoteStatus.bind_requested_referred.id)){
+                if(applicationJSON.agencyNetworkId === 4){
+                    quoteJSON.status = "Submitted To UW";
+                    quoteJSON.displayStatus = 'Submitted To UW';
+                }
+                else if(appAgencyNetwork?.featureJson?.requestToBindProcessedText.length > 3 && quoteJSON.quoteStatusId === quoteStatus.bind_requested.id){
+                    quoteJSON.status = appAgencyNetwork.featureJson.requestToBindProcessedText;
+                    quoteJSON.displayStatus = appAgencyNetwork.featureJson.requestToBindProcessedText;
+                } 
+                else if(appAgencyNetwork?.featureJson?.requestToBindReferredProcessedText.length > 3 && quoteJSON.quoteStatusId === quoteStatus.bind_requested_referred.id){
+                    quoteJSON.status = appAgencyNetwork.featureJson.requestToBindReferredProcessedText;
+                    quoteJSON.displayStatus = appAgencyNetwork.featureJson.requestToBindReferredProcessedText;
+                }
             }
 
             // can see log?
@@ -2719,6 +2765,23 @@ async function amsGetPolicies(req, res, next){
 
     if(!applicationDB.amsInfo?.clientId){
         // TODO do an auto lookup 
+        const oldClientList = await nextsureClient.clientSearch(applicationDB.agencyId, applicationDB.businessName, applicationDB.primaryState);
+        if(oldClientList?.length > 0){
+            const clientId = oldClientList[0].clientId;
+            log.info(`calling Nextsure create client found existing client ${clientId} for appId ${applicationDB.applicationId}` + __location)
+            try{
+                const amsJSON = {amsInfo : {
+                    "amsType" : "Nextsure",
+                    clientId: clientId
+                }};
+                await applicationBO.updateMongo(applicationDB.applicationId, amsJSON);
+                applicationDB.amsInfo = amsJSON;   
+            }
+            catch(err){
+                log.error(`Nextsure createClientFromAppDoc updating App Doc error ${err}` + __location)
+            }
+            
+        }
         log.error(`AP: amsCreateClient No AMS client Id on application for agencyId ${applicationDB.agencyId} appId: ${applicationId} ` + __location);
         return next(serverHelper.requestError('No AMS ClientId not set on application.'));
     }

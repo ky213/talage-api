@@ -32,7 +32,7 @@ module.exports = class Question{
 
         if(this.type === 'Yes/No'){
             //Yes/No anwers tend to be Yes and No. A user can break the "Higher key is always yes" rule
-            if(this.answer.toLowerCase() === 'yes' || this.answer.toLowerCase() === 'true'){
+            if(this.answer?.toLowerCase() === 'yes' || this.answer?.toLowerCase() === 'true'){
                 return true
             }
 
@@ -208,18 +208,22 @@ module.exports = class Question{
                     foundAnswer = true;
                 }
             }
+            if(!foundAnswer && !this.parent){
+                //should have an answerId
+                const errorMessage = `AppId ${this.applicationId} Invalid answer provided - non number -  for Question ${this.id}. (${htmlentities.decode(this.text)}) answerId ${this.answer_id} typeof answerId ${typeof this.answer_id} appQuestionJSON  ${JSON.stringify(appQuestionJSON)}`
+                log.error(errorMessage + __location);
+            }
             if(!foundAnswer) {
                 //issues are logged in calling methods.  It has the applicationId
                 // If the answer wasn't numeric, it is wrong
                 if (!this.parent && typeof answerTest !== 'number') {
-                    const errorMessage = `AppId ${this.applicationId} Invalid answer provided - non number -  for Question ${this.id}. (${htmlentities.decode(this.text)}) answerId ${answerTest} typeof answerId ${typeof answerTest} appQuestionJSON  ${JSON.stringify(appQuestionJSON)}`
-                    log.error(errorMessage + __location);
+                    const errorMessageValue = `AppId ${this.applicationId} Invalid answer provided - non number -  for Question ${this.id}. (${htmlentities.decode(this.text)}) answerValue ${answerTest} typeof answerValue ${typeof answerTest} appQuestionJSON  ${JSON.stringify(appQuestionJSON)}`
+                    log.error(errorMessageValue + __location);
                     //throw new Error(`Invalid answer provided - non number - for Question ${this.id}. (${htmlentities.decode(this.text)})`);
                 }
-
-                // If the answer isn't one of those that are possible
-                //possible answers is suspect....
-                if(!Object.prototype.hasOwnProperty.call(this.possible_answers, answerTest)){
+                else if(!Object.prototype.hasOwnProperty.call(this.possible_answers, answerTest)){
+                    // If the answer isn't one of those that are possible
+                    //possible answers is suspect....
                     //check answertext
                     let found = false;
                     // eslint-disable-next-line guard-for-in

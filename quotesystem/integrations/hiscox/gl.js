@@ -30,17 +30,23 @@ module.exports = class HiscoxGL extends Integration {
 	 *
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
-    _insurer_quote() {
+    async _insurer_quote() {
         // const v4SwitchDate = new Date(2023, 3, 28);
         // const today = new Date();
         // remove environment check to go live in production.
         if (global.settings.ENV && global.settings.ENV === 'production' || global.settings.ENV && global.settings.ENV === 'demo') {
             const GLXML = new HiscoxGLXML(this.app, this.insurer, this.policy, this.quoteId, this.applicationDocData);
+            //need for Tiered Quoting Checks
+            this.quoteStatusId = GLXML.quoteStatusId
             return GLXML.quote();
         }
         else {
             const GLJSON = new HiscoxGLJSON(this.app, this.insurer, this.policy, this.quoteId, this.applicationDocData);
-            return GLJSON.quote();
+            const response = await GLJSON.quote();
+            //need for Tiered Quoting Checks
+            this.quoteStatusId = GLJSON.quoteStatusId
+            return response
         }
+
     }
 };

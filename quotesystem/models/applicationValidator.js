@@ -7,6 +7,7 @@
 const validator = global.requireShared('./helpers/validator');
 const moment = require('moment');
 
+const ApplicationBO = global.requireShared('./models/Application-BO.js');
 
 /**
  * Checks that the data supplied is valid - Rejection should be done inside the Insurer Integration files.
@@ -559,6 +560,13 @@ const validatePolicies = (applicationDocData,agencyNetworkJSON) => {
             if (effectiveMoment.isAfter(maxDate)) {
                 throw new Error('Invalid property: effectiveDate. The effective date cannot be more than 90 days in the future');
             }
+            if (!policy.expirationDate) {
+                policy.expirationDate = effectiveMoment.clone().add(1,"y");
+            }
+
+            if (policy.expirationDate < policy.effectiveDate) {
+                throw new Error('Invalid property: expirationDate. The expiration date is before effective date');
+            }
         }
         else {
             throw new Error('Missing property: effectiveDate');
@@ -673,14 +681,12 @@ const validateBOPPolicies = async(applicationDocData,insurerList) => {
             let invalid = false;
             //Does industryCode have any BOPCode children.
             try{
-                var IndustryCode = global.mongoose.IndustryCode;
-                const industryCodeId = parseInt(applicationDocData.industryCode,10)
-                const query = {
-                    parentIndustryCodeId: industryCodeId,
-                    codeGroupList: "BOP"
-                }
-                const icBopCount = await IndustryCode.countDocuments(query);
-                if(icBopCount > 0){
+                //TODO change this to a insurer based BOCCode lookup like UI.
+                // use ApplicationBO..getAppBopCodes
+                const applicationBO = new ApplicationBO();
+                const bopIcList = await applicationBO.getAppBopCodes(applicationDocData.applicationId);
+
+                if(bopIcList?.length > 0){
                     invalid = true;
                 }
             }
@@ -947,10 +953,12 @@ const validateAgencyLocation = async(applicationDocData, agencyLocationModel) =>
                     }
                 }
                 if(!gotHit){
+                    log.debug(`Application's Agency Location does not cover -  ${policy.policyType} AL model \n ${JSON.stringify(agencyLocationModel)} `)
                     throw new Error(`Application's Agency Location does not cover -  ${policy.policyType}  `)
                 }
             }
             else {
+                log.debug(`Application's Agency Location does not cover -  ${policy.policyType} does not have insurers  AL model \n ${JSON.stringify(agencyLocationModel)} `)
                 log.error(`AGency: ${agencyLocationModel.agencyId} locId ${agencyLocationModel.systemId} does not have insurers ` + __location);
                 throw new Error(`Application's Agency Location does not cover -  ${policy.policyType}  `)
             }

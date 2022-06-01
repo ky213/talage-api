@@ -28,7 +28,10 @@ module.exports = class CompwestWC extends Integration {
         const integration = new gl(this.app, this.insurer, this.policy, this.quoteId);
 
         // Run the quote
-        return integration.quote();
+        const response = await integration.quote();
+        //For tier quoting check
+        this.quoteStatusId = integration.quoteStatusId
+        return response;
     }
 
 }

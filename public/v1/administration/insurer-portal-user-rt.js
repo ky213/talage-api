@@ -1,4 +1,5 @@
 const InsurerPortalUserBO = global.requireShared('./models/InsurerPortalUser-BO.js');
+const InsurerPortalUserGroupBO = global.requireShared('./models/InsurerPortalUserGroup-BO.js');
 const crypt = global.requireShared('./services/crypt.js');
 
 const serverHelper = global.requireRootPath('server.js');
@@ -13,13 +14,12 @@ async function findAll(req, res, next) {
     let rows = null;
     try {
         const insurerPortalUserBO = new InsurerPortalUserBO();
-        rows = await insurerPortalUserBO.getList(req.query)
+        rows = await insurerPortalUserBO.getList(req.query);
     }
     catch(err) {
         return next(err);
     }
     if (rows) {
-
         res.send(200, rows);
         return next();
     }
@@ -99,7 +99,6 @@ async function add(req, res, next) {
         'password',
         'email',
         'insurerPortalUserGroupId',
-        'resetRequired',
         'timezone',
         'insurerId'
     ];
@@ -112,8 +111,31 @@ async function add(req, res, next) {
         }
     }
 
+    try {
+        const insurerPortalUserGroupBO = new InsurerPortalUserGroupBO();
+        const insurerPortalUserGroup = await insurerPortalUserGroupBO.getById(insertJSON.insurerPortalUserGroupId);
+        if(insurerPortalUserGroup.permissions?.globalUser && !/@talageins.com$/.test(insertJSON.email)) {
+            log.warn("Can't add non-talage email user as a global user " + __location);
+            return next(serverHelper.requestError('Non-talage email cannot be a global user'));
+        }
+    }
+    catch(err) {
+        log.error("insurerPortalUserBO load error " + err + __location);
+        return next(err);
+    }
+
     if(needToUpdate){
         const insurerPortalUserBO = new InsurerPortalUserBO();
+        try {
+            const hasDuplicate = await insurerPortalUserBO.checkForDuplicateEmail(insertJSON.email);
+            if(hasDuplicate) {
+                return next(serverHelper.requestError('Email Address is already in use'));
+            }
+        }
+        catch(err) {
+            log.error("insurerPortalUserBO load error " + err + __location);
+            return next(err);
+        }
         try {
             await insurerPortalUserBO.saveModel(insertJSON);
         }
@@ -158,7 +180,6 @@ async function update(req, res, next) {
         'email',
         'insurerPortalUserGroupId',
         'requireSet',
-        'resetRequired',
         'canSign',
         'timezone'
     ];
@@ -172,11 +193,34 @@ async function update(req, res, next) {
         }
     }
 
+    try {
+        const insurerPortalUserGroupBO = new InsurerPortalUserGroupBO();
+        const insurerPortalUserGroup = await insurerPortalUserGroupBO.getById(updateJSON.insurerPortalUserGroupId);
+        if(insurerPortalUserGroup.permissions?.globalUser && !/@talageins.com$/.test(updateJSON.email)) {
+            log.warn("Can't add non-talage email user as a global user " + __location);
+            return next(serverHelper.requestError('Non-talage email cannot be a global user'));
+        }
+    }
+    catch(err) {
+        log.error("insurerPortalUserBO load error " + err + __location);
+        return next(err);
+    }
+
     if(needToUpdate){
         if(updateJSON.email){
             updateJSON.clear_email = req.body.email;
         }
         const insurerPortalUserBO = new InsurerPortalUserBO();
+        try {
+            const hasDuplicate = await insurerPortalUserBO.checkForDuplicateEmail(updateJSON.email, id);
+            if(hasDuplicate) {
+                return next(serverHelper.requestError('Email Address is already in use'));
+            }
+        }
+        catch(err) {
+            log.error("insurerPortalUserBO load error " + err + __location);
+            return next(err);
+        }
         let userJSON = null;
         try {
             await insurerPortalUserBO.saveModel(updateJSON)
@@ -218,7 +262,6 @@ async function deleteUser(req, res, next) {
     return next();
 
 }
-
 
 exports.registerEndpoint = (server, basePath) => {
     server.addGetAuthAdmin('GET Insurer Portal Users list', `${basePath}/insurer-portal/user`, findAll, 'administration', 'all');
