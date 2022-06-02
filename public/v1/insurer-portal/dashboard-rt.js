@@ -17,31 +17,43 @@ async function getDashboard(req, res, next){
     const insurerId = parseInt(req.authentication.insurerId, 10);
 
     const startDate = moment(req.query.startDate, 'YYYY/MM/DD').tz("America/Los_Angeles").startOf('day').toDate();
-    const endDate = moment(req.query.endDate, 'YYYY/MM/DD').tz("America/Los_Angeles").startOf('day').toDate();
+    const endDate = moment(req.query.endDate, 'YYYY/MM/DD').tz("America/Los_Angeles").endOf('day').toDate();
 
     const queryMatch = {
-        insurerId: insurerId,
-        createdAt: {
-            $gte: startDate,
-            $lte: endDate
-        }
+        insurerId: insurerId
     };
     if (req.query.amount) {
         queryMatch.amount = {$gte: parseFloat(req.query.amount)}
     }
-    if (req.query.status) {
-        switch (req.query.status) {
-            case 'Request to Bind':
-                queryMatch.quoteStatusId = {$gte: 60};
-                break;
-            case 'Bound':
-                queryMatch.quoteStatusId = {$gte: 100};
-                break;
-            case 'Quoted':
-            default:
-                queryMatch.quoteStatusId = {$gte: 50};
-                break;
-        }
+    switch (req.query.status) {
+        case 'Quoted':
+            queryMatch.quoteStatusId = {$gte: 50};
+            break;
+        case 'Bound':
+            queryMatch.quoteStatusId = {$gte: 100};
+            break;
+        case 'Price Indication':
+            queryMatch.quoteStatusId = {$gte: 25};
+            break;
+        case 'Request to Bind':
+        default:
+            queryMatch.quoteStatusId = {$gte: 60};
+            break;
+    }
+
+    switch (req.query.status) {
+        case 'Bound':
+            queryMatch.boundDate = {
+                $gte: startDate,
+                $lte: endDate
+            }
+            break;
+        default:
+            queryMatch.createdAt = {
+                $gte: startDate,
+                $lte: endDate
+            }
+            break;
     }
 
     // Carrier industry name needs to be returned.
@@ -54,7 +66,7 @@ async function getDashboard(req, res, next){
             foreignField: "applicationId",
             as: "application"
         }},
-        // This is a hack because industryId is often a string in the application collection but
+        // This is a hack because industryCode is a string in the application collection but
         // an integer in the industrycodes collection. So we need to cast it to int first.
         {$project:
         {
