@@ -645,6 +645,12 @@ module.exports = class LibertyGL extends Integration{
                 return this.return_result('declined');
             }
 
+            // change the quote status from Error to Decline since the data was handed over to eCLIQ.
+            if(extendedStatusDesc?.includes('the data has been bridged to eCLIQ')) {
+                this.reasons.push(`${extendedStatusDesc}`);
+                return this.return_result('declined');
+            }
+
             // This was some other sort of error
             this.reasons.push(`${res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusCd[0]}: ${extendedStatusDesc}`);
             return this.return_result('error');
