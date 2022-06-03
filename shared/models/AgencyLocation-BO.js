@@ -669,6 +669,41 @@ module.exports = class AgencyLocationBO{
 
     }
 
+    async getQuotingAgencyId(agencyLocationId, insurerId, agencyNetworkId){
+        let quotingAgencyId = null;
+        // look at AGencyLocation to see if the insure is setup for Talage Wholesale or the AgencyNetworl's primary Agency.
+        const agencyLocationBO = new AgencyLocationBO();
+        const getChildren = true;
+        const addAgencyPrimaryLocation = true;
+        const agencyLocationJSON = await agencyLocationBO.getById(agencyLocationId, getChildren, addAgencyPrimaryLocation).catch(function(err) {
+            log.error(`Error getQuotingAgencyId getting Agency Location ${agencyLocationId} ${err}` + __location)
+        });
+        if(agencyLocationJSON){
+            for(const insurer of agencyLocationJSON.insurers){
+                if(insurer.insurerId === insurerId){
+                    quotingAgencyId = agencyLocationJSON.agencyId;
+                    if(insurer.talageWholesale){
+                        quotingAgencyId = 1;
+                    }
+                    else if(insurer.useAgencyPrime){
+                        if(agencyNetworkId === 1){
+                            quotingAgencyId = 1;
+                        }
+                        else {
+                            //look up primary agency.
+                            const primeAgencyLocation = await this.getAgencyPrimeLocation(agencyLocationJSON.agencyId, agencyNetworkId);
+                            if(primeAgencyLocation?.agencyId > 0){
+                                quotingAgencyId = primeAgencyLocation.agencyId;
+                            }
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+        return quotingAgencyId;
+    }
+
     async getPolicyInfo(agencyLocationId, insurerId){
         let policyInfoJSON = null;
         try{

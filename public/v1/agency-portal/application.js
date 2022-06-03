@@ -563,9 +563,9 @@ async function setupReturnedApplicationJSON(applicationJSON, quoteList){
         if(amsCred?.amsType){
             applicationJSON.showAmsButton = true;
             //TODO Switch when more AMS's added
-            if(amsCred?.amsType === "Nextsure"){
-                applicationJSON.AmsButtonText = "Push to Nextsure";
-                applicationJSON.AmsName = "Nextsure";
+            if(amsCred?.amsType === "Nexsure"){
+                applicationJSON.AmsButtonText = "Push to Nexsure";
+                applicationJSON.AmsName = "Nexsure";
             }
         }
     }
@@ -2340,11 +2340,54 @@ async function manualQuote(req, res, next) {
             log.warn(`Manual Quote bad policy type ${req.body.policyType} appId ${req.body.policyType} ` + __location);
             return next(serverHelper.requestError('Invalid data - policy type. Please check the documentation.'));
         }
-
         const quoteJSON = JSON.parse(JSON.stringify(req.body))
+        //Determine quotingAgencyId (Wholesalers)
+        const quoteInsurerId = parseInt(req.body.insurerId,10);
+        let quotingAgencyId = applicationDoc.agencyId
+        let gotHit = false;
+        // look at AGencyLocation to see if the insure is setup for Talage Wholesale or the AgencyNetworl's primary Agency.
+        const agencyLocationBO = new AgencyLocationBO();
+        const testQuotingAgencyId = await agencyLocationBO.getQuotingAgencyId(applicationDoc.agencyLocationId, quoteInsurerId).catch(function(err) {
+            log.error(`Error Manual Quotec getting Agency Location ${applicationDoc.agencyLocationId} ${err}` + __location)
+        });
+        if(testQuotingAgencyId){
+            gotHit = true;
+            quotingAgencyId = testQuotingAgencyId;
+            if(quotingAgencyId === 1 && applicationDoc.agencyId > 1){
+                quoteJSON.talageWholesale = true;
+                quoteJSON.handledByTalage = true;
+            }
+        }
+                
+        log.debug(`Manual Quote gotHit ${gotHit} quotingAgencyId ${quotingAgencyId} `)
+        //If nothing found at AgencyLocation insurer level.
+        // Look to see if user is an agency nework user and that network is Wheelhouse or a wholesaler.
+        if(!gotHit){
+            if(req.authentication.isAgencyNetworkUser
+                && req.authentication.agencyNetworkId === 1
+                && req.authentication.permissions.talageStaff === true
+                && applicationDoc.agencyNetworkId === 1){
+                quotingAgencyId = 1;
+                quoteJSON.talageWholesale = true;
+                quoteJSON.handledByTalage = true;
+
+            }
+            else if(req.authentication.isAgencyNetworkUser){
+                const primaryAgencyLocation = await agencyLocationBO.getByAgencyPrimary(applicationDoc.agencyId).catch(function(err) {
+                    log.error(`Error Manual Quotec getting Agency Location ${applicationDoc.agencyLocationId} ${err}` + __location)
+                });
+                if(primaryAgencyLocation){
+                    quotingAgencyId = primaryAgencyLocation.agencyId;
+                }
+            }
+        }
+
+        
         quoteJSON.isManualQuote = true;
         quoteJSON.log = "Manual Quote";
+        quoteJSON.quotingAgencyId = quotingAgencyId;
         quoteJSON.agencyId = applicationDoc.agencyId
+        quoteJSON.agencyLocationId = applicationDoc.agencyLocationId
         quoteJSON.agencyNetworkId = applicationDoc.agencyNetworkId;
         quoteJSON.quotedPremium = quoteJSON.amount;
         quoteJSON.quoteStatusId = quoteStatus.quoted.id
@@ -2352,6 +2395,7 @@ async function manualQuote(req, res, next) {
         if(quoteJSON.bound){
             quoteJSON.quoteStatusId = quoteStatus.bound.id
             quoteJSON.quoteStatusDescription = quoteStatus.bound.description
+            //req.authentication.userID
         }
         //direct to mongose model
         var QuoteModel = global.mongoose.Quote;
@@ -2653,7 +2697,7 @@ async function amsCreateClient(req, res, next){
     const agencyAmsCredJson = await AgencyAmsCredModel.findOne(query, '-__v').lean();
     if(!agencyAmsCredJson && talageWholesaleUser){
         ///TODO check agencyLocation has talageWholes setup
-        log.debug(`Nextsure using Talage Agency ` + __location)
+        log.debug(`Nexsure using Talage Agency ` + __location)
         amsAgencyId = 1;
     }
     else if(!amsCreateClient) {
@@ -2662,10 +2706,10 @@ async function amsCreateClient(req, res, next){
     }
     
 
-    const nextsureClient = global.requireRootPath('ams-integrations/nextsure/nextsure-client.js')
+    const nexsureClient = global.requireRootPath('ams-integrations/nexsure/nexsure-client.js')
 
-    log.debug(`calling Nextsure to create client` + __location);
-    const newClientJSON = await nextsureClient.createClientFromAppDoc(amsAgencyId,applicationDB);
+    log.debug(`calling Nexsure to create client` + __location);
+    const newClientJSON = await nexsureClient.createClientFromAppDoc(amsAgencyId,applicationDB);
 
 
     // Send back mark status.
@@ -2676,7 +2720,7 @@ async function amsCreateClient(req, res, next){
         res.send({'message': `Failed to create client record in AMS. resonse: ${newClientJSON.message}`});
     }
     else {
-        log.debug(`unexpected response from nextsureClient.createClientFromAppDoc ${JSON.stringify(newClientJSON)}`)
+        log.debug(`unexpected response from nexsureClient.createClientFromAppDoc ${JSON.stringify(newClientJSON)}`)
         res.send({'message': 'Failed to create client record in AMS.'});
     }
     return next();
@@ -2751,7 +2795,7 @@ async function amsGetPolicies(req, res, next){
     const agencyAmsCredJson = await AgencyAmsCredModel.findOne(query, '-__v').lean();
     if(!agencyAmsCredJson && talageWholesaleUser){
         ///TODO check agencyLocation has talageWholes setup
-        log.debug(`Nextsure using Talage Agency ` + __location)
+        log.debug(`Nexsure using Talage Agency ` + __location)
         amsAgencyId = 1;
     }
     else {
@@ -2760,25 +2804,25 @@ async function amsGetPolicies(req, res, next){
     }
     
 
-    const nextsureClient = global.requireRootPath('ams-integrations/nextsure/nextsure-client.js')
+    const nexsureClient = global.requireRootPath('ams-integrations/nexsure/nexsure-client.js')
 
 
     if(!applicationDB.amsInfo?.clientId){
         // TODO do an auto lookup 
-        const oldClientList = await nextsureClient.clientSearch(applicationDB.agencyId, applicationDB.businessName, applicationDB.primaryState);
+        const oldClientList = await nexsureClient.clientSearch(applicationDB.agencyId, applicationDB.businessName, applicationDB.primaryState);
         if(oldClientList?.length > 0){
             const clientId = oldClientList[0].clientId;
-            log.info(`calling Nextsure create client found existing client ${clientId} for appId ${applicationDB.applicationId}` + __location)
+            log.info(`calling Nexsure create client found existing client ${clientId} for appId ${applicationDB.applicationId}` + __location)
             try{
                 const amsJSON = {amsInfo : {
-                    "amsType" : "Nextsure",
+                    "amsType" : "Nexsure",
                     clientId: clientId
                 }};
                 await applicationBO.updateMongo(applicationDB.applicationId, amsJSON);
                 applicationDB.amsInfo = amsJSON;   
             }
             catch(err){
-                log.error(`Nextsure createClientFromAppDoc updating App Doc error ${err}` + __location)
+                log.error(`Nexsure createClientFromAppDoc updating App Doc error ${err}` + __location)
             }
             
         }
@@ -2787,7 +2831,7 @@ async function amsGetPolicies(req, res, next){
     }
 
 
-    const policies = await nextsureClient.getPoliciesByClientId(amsAgencyId,applicationDB.amsInfo?.clientId, applicationDB, req.body.processBound);
+    const policies = await nexsureClient.getPoliciesByClientId(amsAgencyId,applicationDB.amsInfo?.clientId, applicationDB, req.body.processBound);
 
 
     // Send back mark status.
