@@ -6,7 +6,7 @@ const ApplicationNotesBO = global.requireShared('models/ApplicationNotes-BO.js')
 const AgencyBO = global.requireShared('models/Agency-BO.js');
 const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
 const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
-const InsurerBO = global.requireShared('models/Insurer-BO.js');
+const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
 const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
@@ -110,7 +110,7 @@ async function createApplicationNote(req, res, next){
         const appNotes = await applicationNotesBO.getByApplicationId(req.body.applicationId);
         res.send(200, {applicationNotes: appNotes});
         // call the send-email routine here
-        await notifyUsersOfApplicationNote(applicationDB, req.body);
+        await notifyUsersOfApplicationNote(applicationDB, appNotes);
 
         return next();
 
@@ -168,7 +168,20 @@ async function notifyUsersOfApplicationNote(applicationDoc, applicationNotes){
             return false
         }
 
-        log.debug('email content json >>> ' + JSON.stringify(applicationNotes.noteContents, '', 4));
+        //find the subscribers to this agency
+        let agencyNotificationList = []
+        const agencyPortalUserBO = new AgencyPortalUserBO;
+        try{
+            agencyNotificationList = await agencyPortalUserBO.getList({
+                'agencyNotificationList' : {$in : [applicationDoc.agencyId]}
+            });
+        }
+        catch(err){
+            log.error("Error getting agencyNotifications List " + err + __location);
+            return false            
+        }
+
+        log.debug('email subscriber list json >>> ' + JSON.stringify(agencyNotificationList, '', 4));
 
         //get AgencyLocationBO
         const agencyLocationBO = new AgencyLocationBO();
@@ -181,24 +194,15 @@ async function notifyUsersOfApplicationNote(applicationDoc, applicationNotes){
             return false
         }
 
-        let agencyLocationEmail = '';
+        let agencyLocationEmail = agencyNotificationList.map(e => e.email);
         //decrypt info...
         if(agencyLocationJSON.email){
-            agencyLocationEmail = agencyLocationJSON.email
+            agencyLocationEmail.push(agencyLocationJSON.email)
         }
         else if(agencyJSON.email){
-            agencyLocationEmail = agencyJSON.email;
+            agencyLocationEmail.push(agencyJSON.email);
         }
 
-        //Insurer
-        // let insurerJson = {};
-        // const insurerBO = new InsurerBO();
-        // try{
-        //     insurerJson = await insurerBO.getById(quoteDoc.insurerId);
-        // }
-        // catch(err){
-        //     log.error("Error get Insurer " + err + __location)
-        // }
 
         let industryCodeDesc = '';
         const industryCodeBO = new IndustryCodeBO();
@@ -212,7 +216,6 @@ async function notifyUsersOfApplicationNote(applicationDoc, applicationNotes){
             log.error("Error getting industryCodeBO " + err + __location);
         }
 
-
         const customerContact = applicationDoc.contacts.find(contactTest => contactTest.primary === true);
         let customerPhone = '';
         if (customerContact.phone) {
@@ -225,26 +228,23 @@ async function notifyUsersOfApplicationNote(applicationDoc, applicationNotes){
             agencyPhone = formatPhone(agencyLocationJSON.phone);
         }
 
-        // let quoteResult = stringFunctions.ucwords(quoteDoc.apiResult);
-        // if (quoteResult.indexOf('_') > 0) {
-        //     quoteResult = quoteResult.substring(0, quoteResult.indexOf('_'));
-        // }
-
-
 
         const keyData = {'applicationDoc': applicationDoc};
         let message = emailContentJSON.agencyMessage;
         let subject = emailContentJSON.agencySubject;
-        let contentx = applicationNotes.noteContents;
+        let contentx = applicationNotes[0].noteContents;
         let content2 = contentx.content.map(e => e.content.map(x => x.text));
         let content3 = flattenDeep(content2)
+
+        log.debug('email ap user >>> ' + JSON.stringify(content3, '', 4));
 
         // TO AGENCY
         if(agencyNetworkDB.featureJson.quoteEmailsAgency === true){
             // message = message.replace(/{{Agent Login URL}}/g, insurerJson.agent_login);
             message = message.replace(/{{Business Name}}/g, applicationDoc.businessName);
+            message = message.replace(/{{AP User Email}}/g, applicationNotes[0].agencyPortalCreatedUser);
             message = message.replace(/\n/g, '<br>');
-            // message = message.replace(/{{Carrier}}/g, insurerJson.name);
+            message = message.replace(/{{AP User Name}} or /g, '');
             message = message.replace(/{{Industry}}/g, industryCodeDesc);
             message = message.replace(/{{Brand}}/g, emailContentJSON.emailBrand);
             message = message.replace(/{{Agency}}/g, agencyJSON.name);
@@ -259,8 +259,8 @@ async function notifyUsersOfApplicationNote(applicationDoc, applicationNotes){
             if(messageUpdate){
                 message = messageUpdate
             }
-            // Special policyType processing b/c it should only show
-            // for the one quote not the full applications.
+
+            // update the policy type
             const updatedEmailObject = await emailTemplateProceSvc.policyTypeProcessor(applicationDoc, '', message, subject)
             if(updatedEmailObject.message){
                 message = updatedEmailObject.message
@@ -280,23 +280,9 @@ async function notifyUsersOfApplicationNote(applicationDoc, applicationNotes){
                 branding: branding,
                 recipients: agencyLocationEmail
             }
-            // const hookName = 'request-bind-email-agency'
-            // try{
-            //     await global.hookLoader.loadhook(hookName, applicationDoc.agencyNetworkId, dataPackageJSON);
-            //     message = dataPackageJSON.htmlBody
-            //     subject = dataPackageJSON.emailSubject
-            //     branding = dataPackageJSON.branding
-            //     // agencyLocationEmail = dataPackageJSON.recipients
-            //     agencyLocationEmail = ['carlo@talageins.com']
-            // }
-            // catch(err){
-            //     log.error(`Error ${hookName} hook call error ${err}` + __location);
-            // }
-
 
             // Send the email
-            log.debug('email content subject >>> ' + JSON.stringify(applicationNotes, '', 4));
-            log.debug('find content  >>> ' + JSON.stringify(applicationNotes.noteContents.content[0].content[0].text, '',4));
+            log.debug('email content message >>> ' + JSON.stringify(agencyLocationEmail, '', 4));
 
             if (agencyLocationEmail) {
                 const emailResp = await emailSvc.send('carlo@talageins.com', subject, message, keyData, agencyNetworkId, branding);
