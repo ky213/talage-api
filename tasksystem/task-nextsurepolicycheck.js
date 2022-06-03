@@ -5,7 +5,7 @@
 const moment = require('moment');
 //const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
 //const {applicationStatus} = global.requireShared('./models/status/applicationStatus.js');
-const nextsureClient = require('../ams-integrations/nextsure/nextsure-client.js');
+const nextsureClient = require('../ams-integrations/nexsure/nexsure-client.js');
 const ApplicationBO = global.requireShared('models/Application-BO.js');
 
 /**
@@ -33,16 +33,16 @@ async function processtask(queueMessage){
             error = err;
         });
         if(error){
-            log.error("Error Nextsure policy check deleteTaskQueueItem " + error + __location);
+            log.error("Error Nexsure policy check deleteTaskQueueItem " + error + __location);
         }
 
         return;
     }
     else {
-        log.info('removing old Nextsure policycheck Message from queue');
+        log.info('removing old Nexsure policycheck Message from queue');
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(err => error = err)
         if(error){
-            log.error("Error Nextsure policycheck deleteTaskQueueItem old " + error + __location);
+            log.error("Error Nexsure policycheck deleteTaskQueueItem old " + error + __location);
         }
         return;
     }
@@ -52,7 +52,7 @@ async function processtask(queueMessage){
 async function policyCheck(taskBodyJSON){
     try {
         if(!taskBodyJSON.maxDaysInPast && !taskBodyJSON.quoteId){
-            log.error(`Nextsure policycheck missing maxDaysInPast ` + __location);
+            log.error(`Nexsure policycheck missing maxDaysInPast ` + __location);
             return;
         }
         let query = {insurerId: -1}// return nothing
@@ -62,14 +62,14 @@ async function policyCheck(taskBodyJSON){
         // }
         // else {
         const AgencyAmsCred = global.mongoose.AgencyAmsCred;
-        const AgencyAmsCredQuery = {amsType: "Nextsure"};
+        const AgencyAmsCredQuery = {amsType: "Nexsure"};
         if(taskBodyJSON.agencyId){
             AgencyAmsCredQuery.agencyId = taskBodyJSON.agencyId
         }
 
         const agencyAmsCredList = await AgencyAmsCred.find(AgencyAmsCredQuery)
         if(agencyAmsCredList.length === 0){
-            log.info("Nextsure PolicyCheck no agencies to check " + __location)
+            log.info("Nexsure PolicyCheck no agencies to check " + __location)
             return;
         }
 
@@ -137,17 +137,17 @@ async function policyCheck(taskBodyJSON){
                                 const oldClientList = await nextsureClient.clientSearch(appDoc.agencyId, appDoc.businessName, appDoc.primaryState);
                                 if(oldClientList?.length > 0){
                                     const clientId = oldClientList[0].clientId;
-                                    log.info(`calling Nextsure client search found existing client ${clientId} for appId ${appDoc.applicationId}` + __location)
+                                    log.info(`calling Nexsure client search found existing client ${clientId} for appId ${appDoc.applicationId}` + __location)
                                     try{
                                         const appAmsJSON = {amsInfo: {
-                                            "amsType" : "Nextsure",
+                                            "amsType" : "Nexsure",
                                             clientId: clientId
                                         }};
                                         await applicationBO.updateMongo(appDoc.applicationId, appAmsJSON);
                                         appDoc.amsInfo = appAmsJSON.amsInfo;
                                     }
                                     catch(err){
-                                        log.error(`Nextsure createClientFromAppDoc updating App Doc error ${err}` + __location)
+                                        log.error(`Nexsure createClientFromAppDoc updating App Doc error ${err}` + __location)
                                     }
                                     // if(oldClientList[0].ClientStage === "Prospect"){
                                     //     log.debug(`appDoc.businessName is still a Prospect`)
@@ -158,7 +158,7 @@ async function policyCheck(taskBodyJSON){
                             if(appDoc.amsInfo?.clientId){
                                 log.info(`Nextsture Policy Check for ${agencyAmsCred.agencyId} application ${appDoc.applicationId} get policies  ` + __location)
                                 const policies = await nextsureClient.getPoliciesByClientId(agencyAmsCred.agencyId, appDoc.amsInfo?.clientId, appDoc, PROCESS_BOUND);
-                                // log.debug(`AppId: ${appDoc.applicationId} nextsure policies\n ${JSON.stringify(policies)}`)
+                                // log.debug(`AppId: ${appDoc.applicationId} nexsure policies\n ${JSON.stringify(policies)}`)
                                 for(const amsPolicy of policies){
                                     if(amsPolicy.PolicyStatus === "In Force" || amsPolicy.PolicyStatus === "Future"){
                                         const amsEffectiveDate = moment(amsPolicy.CovEffDate)
@@ -167,7 +167,7 @@ async function policyCheck(taskBodyJSON){
                                             amsPolicy.applicationId = appDoc.applicationId;
                                             enforcedPolicyList.push(amsPolicy)
                                             if(amsPolicy.PolicyStatus === "Future"){
-                                                log.debug(`AppId: ${appDoc.applicationId} nextsure has policy\n ${JSON.stringify(amsPolicy)}`)
+                                                log.debug(`AppId: ${appDoc.applicationId} nexsure has policy\n ${JSON.stringify(amsPolicy)}`)
                                             }
 
                                             if(amsEffectiveDate > moment()){
@@ -209,16 +209,16 @@ async function policyCheck(taskBodyJSON){
                             }
                         }
                         catch(err){
-                            log.error(`Nextsure PolicyCheck from agencyId ${agencyAmsCred.agencyId} appId ${appDoc?.applicationId} error ${err}` + __location)
+                            log.error(`Nexsure PolicyCheck from agencyId ${agencyAmsCred.agencyId} appId ${appDoc?.applicationId} error ${err}` + __location)
                         }
                     }
                 }
                 else {
-                    log.info(`Nextsure PolicyCheck no application to check from agencyId ${agencyAmsCred.agencyId}` + __location)
+                    log.info(`Nexsure PolicyCheck no application to check from agencyId ${agencyAmsCred.agencyId}` + __location)
                 }
             }
             catch(err){
-                log.error(`Nextsure PolicyCheck from agencyId ${agencyAmsCred.agencyId} error ${err}` + __location)
+                log.error(`Nexsure PolicyCheck from agencyId ${agencyAmsCred.agencyId} error ${err}` + __location)
             }
         }
         log.debug(`Enforce policies \n${JSON.stringify(enforcedPolicyList)}\n\n`)

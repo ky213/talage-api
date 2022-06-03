@@ -563,9 +563,9 @@ async function setupReturnedApplicationJSON(applicationJSON, quoteList){
         if(amsCred?.amsType){
             applicationJSON.showAmsButton = true;
             //TODO Switch when more AMS's added
-            if(amsCred?.amsType === "Nextsure"){
-                applicationJSON.AmsButtonText = "Push to Nextsure";
-                applicationJSON.AmsName = "Nextsure";
+            if(amsCred?.amsType === "Nexsure"){
+                applicationJSON.AmsButtonText = "Push to Nexsure";
+                applicationJSON.AmsName = "Nexsure";
             }
         }
     }
@@ -2697,7 +2697,7 @@ async function amsCreateClient(req, res, next){
     const agencyAmsCredJson = await AgencyAmsCredModel.findOne(query, '-__v').lean();
     if(!agencyAmsCredJson && talageWholesaleUser){
         ///TODO check agencyLocation has talageWholes setup
-        log.debug(`Nextsure using Talage Agency ` + __location)
+        log.debug(`Nexsure using Talage Agency ` + __location)
         amsAgencyId = 1;
     }
     else if(!amsCreateClient) {
@@ -2706,10 +2706,10 @@ async function amsCreateClient(req, res, next){
     }
     
 
-    const nextsureClient = global.requireRootPath('ams-integrations/nextsure/nextsure-client.js')
+    const nexsureClient = global.requireRootPath('ams-integrations/nexsure/nexsure-client.js')
 
-    log.debug(`calling Nextsure to create client` + __location);
-    const newClientJSON = await nextsureClient.createClientFromAppDoc(amsAgencyId,applicationDB);
+    log.debug(`calling Nexsure to create client` + __location);
+    const newClientJSON = await nexsureClient.createClientFromAppDoc(amsAgencyId,applicationDB);
 
 
     // Send back mark status.
@@ -2720,7 +2720,7 @@ async function amsCreateClient(req, res, next){
         res.send({'message': `Failed to create client record in AMS. resonse: ${newClientJSON.message}`});
     }
     else {
-        log.debug(`unexpected response from nextsureClient.createClientFromAppDoc ${JSON.stringify(newClientJSON)}`)
+        log.debug(`unexpected response from nexsureClient.createClientFromAppDoc ${JSON.stringify(newClientJSON)}`)
         res.send({'message': 'Failed to create client record in AMS.'});
     }
     return next();
@@ -2795,7 +2795,7 @@ async function amsGetPolicies(req, res, next){
     const agencyAmsCredJson = await AgencyAmsCredModel.findOne(query, '-__v').lean();
     if(!agencyAmsCredJson && talageWholesaleUser){
         ///TODO check agencyLocation has talageWholes setup
-        log.debug(`Nextsure using Talage Agency ` + __location)
+        log.debug(`Nexsure using Talage Agency ` + __location)
         amsAgencyId = 1;
     }
     else {
@@ -2804,25 +2804,25 @@ async function amsGetPolicies(req, res, next){
     }
     
 
-    const nextsureClient = global.requireRootPath('ams-integrations/nextsure/nextsure-client.js')
+    const nexsureClient = global.requireRootPath('ams-integrations/nexsure/nexsure-client.js')
 
 
     if(!applicationDB.amsInfo?.clientId){
         // TODO do an auto lookup 
-        const oldClientList = await nextsureClient.clientSearch(applicationDB.agencyId, applicationDB.businessName, applicationDB.primaryState);
+        const oldClientList = await nexsureClient.clientSearch(applicationDB.agencyId, applicationDB.businessName, applicationDB.primaryState);
         if(oldClientList?.length > 0){
             const clientId = oldClientList[0].clientId;
-            log.info(`calling Nextsure create client found existing client ${clientId} for appId ${applicationDB.applicationId}` + __location)
+            log.info(`calling Nexsure create client found existing client ${clientId} for appId ${applicationDB.applicationId}` + __location)
             try{
                 const amsJSON = {amsInfo : {
-                    "amsType" : "Nextsure",
+                    "amsType" : "Nexsure",
                     clientId: clientId
                 }};
                 await applicationBO.updateMongo(applicationDB.applicationId, amsJSON);
                 applicationDB.amsInfo = amsJSON;   
             }
             catch(err){
-                log.error(`Nextsure createClientFromAppDoc updating App Doc error ${err}` + __location)
+                log.error(`Nexsure createClientFromAppDoc updating App Doc error ${err}` + __location)
             }
             
         }
@@ -2831,7 +2831,7 @@ async function amsGetPolicies(req, res, next){
     }
 
 
-    const policies = await nextsureClient.getPoliciesByClientId(amsAgencyId,applicationDB.amsInfo?.clientId, applicationDB, req.body.processBound);
+    const policies = await nexsureClient.getPoliciesByClientId(amsAgencyId,applicationDB.amsInfo?.clientId, applicationDB, req.body.processBound);
 
 
     // Send back mark status.

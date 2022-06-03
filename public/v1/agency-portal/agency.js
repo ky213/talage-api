@@ -1178,9 +1178,9 @@ async function getAgencyAmsSearch(req, res, next) {
     let clientList = [];
 
     // TODO when 2nd AMS change to use a routing layer.
-    const nextsureClient = global.requireRootPath('ams-integrations/nextsure/nextsure-client.js')
+    const nexsureClient = global.requireRootPath('ams-integrations/nexsure/nexsure-client.js')
 
-    clientList = await nextsureClient.clientSearch(agencyId,req.body.clientname, req.body.territory)
+    clientList = await nexsureClient.clientSearch(agencyId,req.body.clientname, req.body.territory)
 
 
     // Build the response
@@ -1281,12 +1281,12 @@ async function getAgencyAmsCreateApp(req, res, next) {
     }
 
     // TODO when 2nd AMS change to use a routing layer.
-    const nextsureClient = global.requireRootPath('ams-integrations/nextsure/nextsure-client.js')
+    const nexsureClient = global.requireRootPath('ams-integrations/nexsure/nexsure-client.js')
 
     const agencyLocationId = req.body.agencyLocationId > 0 ? req.body.agencyLocationId : null;
     const clientId = req.body.clientId;
 
-    const newAppId = await nextsureClient.createApplicationFromClientId(agencyId,clientId,req.authentication.userID, agencyLocationId)
+    const newAppId = await nexsureClient.createApplicationFromClientId(agencyId,clientId,req.authentication.userID, agencyLocationId)
 
     if(newAppId){
         // Build the response
