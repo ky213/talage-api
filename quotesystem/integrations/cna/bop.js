@@ -981,10 +981,10 @@ module.exports = class CnaBOP extends Integration {
                                         const description = descriptionsMap[coverageCode] || ''
 
                                         if (propLim.Limit) {
-                                            const limit = get(propLim, "Limit[0].FormatInteger.value")
+                                            const limit = get(propLim, "Limit[0].FormatInteger.value") || ''
                                             const newCoverage = {
                                                 description: description + " Limit",
-                                                value: convertToDollarFormat(limit, true),
+                                                value: convertToDollarFormat(`${limit}`, true),
                                                 sort: coverageSort++,
                                                 category: `Property Limits for ${address} ${city} ${state} ${zip}`,
                                                 insurerIdentifier: coverageCode
@@ -995,7 +995,7 @@ module.exports = class CnaBOP extends Integration {
 
                                         if (propLim.Deductible) {
                                             const deductibleText = get(propLim, "Deductible[0].FormatText.value")
-                                            const deductibleValue = get(propLim, "Deductible[0].FormatInteger.value")
+                                            const deductibleValue = get(propLim, "Deductible[0].FormatInteger.value") || ''
                                             let value = null;
 
                                             if (deductibleText === "Policy Level") {
@@ -1004,7 +1004,7 @@ module.exports = class CnaBOP extends Integration {
 
                                             const newCoverage = {
                                                 description: description + " Deductible",
-                                                value: value ? value : convertToDollarFormat(deductibleValue, true),
+                                                value:  value || convertToDollarFormat(`${deductibleValue}`, true),
                                                 sort: coverageSort++,
                                                 category: `Property Limits for ${address} ${city} ${state} ${zip}`,
                                                 insurerIdentifier: coverageCode
