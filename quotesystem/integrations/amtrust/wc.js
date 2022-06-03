@@ -441,6 +441,14 @@ module.exports = class AMTrustWC extends Integration {
         if(!appDoc.founded){
             yearsInBusiness = 4;
         }
+        //no mailing address, send primary as mailing address
+        if(!this.app.business.mailing_address){
+            this.app.business.mailing_address = primaryLocation.address
+            this.app.business.mailing_address2 = primaryLocation.address2
+            this.app.business.mailing_city = primaryLocation.city
+            this.app.business.mailing_state_abbr = primaryLocation.state
+            this.app.business.mailing_zipcode = primaryLocation.zipcode
+        }
 
         const primaryAddressLine = primaryLocation.address + (primaryLocation.address2 ? ", " + primaryLocation.address2 : "");
         const mailingAddressLine = this.app.business.mailing_address + (this.app.business.mailing_address2 ? ", " + this.app.business.mailing_address2 : "");
@@ -773,6 +781,15 @@ module.exports = class AMTrustWC extends Integration {
         if (!this.app.business.contacts[0].phone || this.app.business.contacts[0].phone.length === 0) {
             log.error(`AMtrust WC (application ${this.app.id}): Phone number is required for AMTrust submission.`);
             return this.client_error(`AMTrust submission requires phone number.`);
+        }
+
+        //no mailing address, send primary as mailing address
+        if(!this.app.business.mailing_address){
+            this.app.business.mailing_address = primaryLocation.address
+            this.app.business.mailing_address2 = primaryLocation.address2
+            this.app.business.mailing_city = primaryLocation.city
+            this.app.business.mailing_state_abbr = primaryLocation.state
+            this.app.business.mailing_zipcode = primaryLocation.zipcode
         }
 
         const primaryAddressLine = primaryLocation?.address + (primaryLocation?.address2 ? ", " + primaryLocation?.address2 : "");
