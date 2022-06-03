@@ -117,13 +117,7 @@ async function getAgencies(req, res, next){
                             65,
                             100]]},
                         "$Premium",
-                        null]},
-                        bound : {$cond : [{$eq : ["$quoteStatusId", 100]},
-                            "$count",
-                            null]},
-                        boundPremium : {$cond : [{$eq : ["$quoteStatusId", 100]},
-                            "$Premium",
-                            null]}
+                        null]}
 
                     }},
                     {$group : {
@@ -131,18 +125,14 @@ async function getAgencies(req, res, next){
                         premium: {$sum: '$amount'},
                         quoteRequestsCount : {$sum : "$quoteRequests"},
                         quotedCount : {$sum : "$quoted"},
-                        quotedPremiumAmount:{$sum: "$quotedPremium"},
-                        boundCount : {$sum : "$bound"},
-                        boundPremiumAmount : {$sum : "$boundPremium"}
+                        quotedPremiumAmount:{$sum: "$quotedPremium"}
                     }},
                     {$sort: {'_id.insurerId': 1}},
                     {$replaceRoot: {"newRoot":
                         {"$mergeObjects": ["$_id", {
                             "quoteRequests": "$quoteRequestsCount" ,
                             "quotedCount": "$quotedCount" ,
-                            "quotedPremium": "$quotedPremiumAmount" ,
-                            "boundCount": "$boundCount" ,
-                            "BoundPremium": "$boundPremiumAmount"
+                            "quotedPremium": "$quotedPremiumAmount"
                         }]}}}
 
                 ];
@@ -159,10 +149,71 @@ async function getAgencies(req, res, next){
                 }
                 agencyResplist.push(agencytest);
                 if(quoteNumbers?.length > 0){
-                    agencytest.premiumBound = quoteNumbers[0].BoundPremium
-                    agencytest.boundApps = quoteNumbers[0].boundCount
                     agencytest.premiumQuoted = quoteNumbers[0].quotedPremium
                     agencytest.quotedApps = quoteNumbers[0].quotedCount
+                }
+
+                // Bound aggregations need to use boundDate instead of createdAt
+                const boundResults = await QuoteMongooseModel.aggregate([
+                    {$match: {
+                        quotingAgencyId: agency.agencyId,
+                        bound: true,
+                        boundDate: {
+                            $gte: startPeriod.toDate(),
+                            $lte: endPeriod.toDate()
+                        }
+                    }},
+                    {$project: {
+                        quoteStatusId: 1,
+                        quoteStatusDescription: 1,
+                        quotingAgencyId: 1,
+                        amount: 1
+                    }},
+                    {$group: {
+                        _id: {
+                            quoteStatusId: '$quoteStatusId',
+                            quoteStatusDescription: '$quoteStatusDescription',
+                            quotingAgencyId: '$quotingAgencyId'
+                        },
+                        count: {$sum: 1},
+                        premium: {$sum: '$amount'}
+                    }},
+                    {$sort: {
+                        '_id.quoteStatusId': 1,
+                        '_id.quoteStatusDescription': 1
+                    }},
+                    {$replaceRoot: {"newRoot":
+                        {"$mergeObjects": ["$_id", {
+                            "count": "$count" ,
+                            "Premium": "$premium"
+                        }]}}},
+                    {$project: {
+                        quoteStatusId: 1,
+                        quotingAgencyId: 1,
+                        bound : {$cond : [{$eq : ["$quoteStatusId", 100]},
+                            "$count",
+                            null]},
+                        boundPremium : {$cond : [{$eq : ["$quoteStatusId", 100]},
+                            "$Premium",
+                            null]}
+
+                    }},
+                    {$group : {
+                        _id: {quotingAgencyId: '$quotingAgencyId'},
+                        boundCount : {$sum : "$bound"},
+                        boundPremiumAmount : {$sum : "$boundPremium"}
+                    }},
+                    {$sort: {'_id.quotingAgencyId': 1}},
+                    {$replaceRoot: {"newRoot":
+                        {"$mergeObjects": ["$_id", {
+                            "boundCount": "$boundCount" ,
+                            "BoundPremium": "$boundPremiumAmount"
+                        }]}}}
+
+                ]);
+                if(boundResults?.length > 0){
+                    agencytest.boundApps = boundResults[0].boundCount;
+                    agencytest.premiumBound = boundResults[0].BoundPremium;
                 }
 
                 const quoteAgencyTotalCountQuery = [
@@ -235,9 +286,6 @@ async function getAgencies(req, res, next){
                             100]]},
                         "$Premium",
                         null]},
-                        bound : {$cond : [{$eq : ["$quoteStatusId", 100]},
-                            "$count",
-                            null]},
                         boundPremium : {$cond : [{$eq : ["$quoteStatusId", 100]},
                             "$Premium",
                             null]}
@@ -249,7 +297,6 @@ async function getAgencies(req, res, next){
                         quoteRequestsCount : {$sum : "$quoteRequests"},
                         quotedCount : {$sum : "$quoted"},
                         quotedPremiumAmount:{$sum: "$quotedPremium"},
-                        boundCount : {$sum : "$bound"},
                         boundPremiumAmount : {$sum : "$boundPremium"}
                     }},
                     {$sort: {'_id.quotingAgencyId': 1}},
@@ -258,18 +305,82 @@ async function getAgencies(req, res, next){
                             "quoteRequests": "$quoteRequestsCount" ,
                             "quotedCount": "$quotedCount" ,
                             "quotedPremium": "$quotedPremiumAmount" ,
-                            "boundCount": "$boundCount" ,
                             "BoundPremium": "$boundPremiumAmount"
                         }]}}}
 
                 ];
 
-
                 const quoteNumbersTotal = await QuoteMongooseModel.aggregate(quoteAgencyTotalCountQuery);
                 if(quoteNumbersTotal?.length > 0){
                     agencytest.totalQuotedApps = quoteNumbersTotal[0].quotedCount
-                    agencytest.totalBoundApps = quoteNumbersTotal[0].boundCount
                 }
+
+                // Bound aggregations need to use boundDate instead of createdAt
+                const boundQuoteAgencyTotalCountQuery = [
+                    {$match: {
+                        quotingAgencyId: agency.agencyId,
+                        boundDate: {
+                            $gte: startPeriod.toDate(),
+                            $lte: endPeriod.toDate()
+                        }
+                    }},
+                    {$project: {
+                        quoteStatusId: 1,
+                        quoteStatusDescription: 1,
+                        quotingAgencyId: 1,
+                        amount: 1
+                    }},
+                    {$group: {
+                        _id: {
+                            quoteStatusId: '$quoteStatusId',
+                            quoteStatusDescription: '$quoteStatusDescription',
+                            quotingAgencyId: '$quotingAgencyId'
+                        },
+                        count: {$sum: 1},
+                        premium: {$sum: '$amount'}
+                    }},
+                    {$sort: {
+                        '_id.quoteStatusId': 1,
+                        '_id.quoteStatusDescription': 1
+                    }},
+                    {$replaceRoot: {"newRoot":
+                        {"$mergeObjects": ["$_id", {
+                            "count": "$count" ,
+                            "Premium": "$premium"
+                        }]}}},
+                    {$project: {
+                        quoteStatusId: 1,
+                        quoteStatusDescription: 1,
+                        quotingAgencyId: 1,
+                        count: 1,
+                        Premium: 1,
+                        bound : {$cond : [{$eq : ["$quoteStatusId", 100]},
+                            "$count",
+                            null]},
+                        boundPremium : {$cond : [{$eq : ["$quoteStatusId", 100]},
+                            "$Premium",
+                            null]}
+
+                    }},
+                    {$group : {
+                        _id: {quotingAgencyId: '$quotingAgencyId'},
+                        boundCount : {$sum : "$bound"},
+                        boundPremiumAmount : {$sum : "$boundPremium"}
+                    }},
+                    {$sort: {'_id.quotingAgencyId': 1}},
+                    {$replaceRoot: {"newRoot":
+                        {"$mergeObjects": ["$_id", {
+                            "boundCount": "$boundCount" ,
+                            "BoundPremium": "$boundPremiumAmount"
+                        }]}}}
+
+                ];
+                const boundquoteNumberTotal = await QuoteMongooseModel.aggregate(boundQuoteAgencyTotalCountQuery);
+                if(boundquoteNumberTotal?.length > 0){
+                    agencytest.totalBoundApps = boundquoteNumberTotal[0].boundCount;
+                }
+
+
             }
             catch(err){
                 log.error("getAgencies load error " + err + __location);

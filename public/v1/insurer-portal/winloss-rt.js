@@ -134,7 +134,7 @@ async function winlossWC(req, res, next) {
     }
     log.debug(`query ${JSON.stringify(query)}` + __location)
 
-    const metricsList = [];
+    let metricsList = [];
     const quoteLlist = await QuoteMongooseModel.find(query);
 
     for(const quoteDoc of quoteLlist){
@@ -262,7 +262,6 @@ async function winlossWC(req, res, next) {
     }
     log.debug(`Prepping report.`)
 
-
     for(const mi of metricsList){
         if(mi.lossCount > 0){
             mi.avgPremiumLost = mi.missedPremiumLost / mi.lossCount
@@ -283,6 +282,16 @@ async function winlossWC(req, res, next) {
         delete mi.percentLost
 
     }
+
+    metricsList = metricsList.sort((a, b) => {
+        if (a.primaryState !== b.primaryState) {
+            return a.primaryState > b.primaryState ? 1 : -1;
+        }
+        if (a.classCode !== b.classCode) {
+            return a.classCode > b.classCode ? 1 : -1;
+        }
+        return a.quoteStatusId > b.quoteStatusId ? 1 : -1;
+    });
 
     if(req.query.cvsreturn){
         var options = {
@@ -349,7 +358,7 @@ async function winlossBOP(req, res, next) {
         }
     }
     //log.debug(`query ${JSON.stringify(query)}` + __location)
-    const metricsList = [];
+    let metricsList = [];
     const quoteLlist = await QuoteMongooseModel.find(query);
 
     log.debug(`Reading quotes... ${quoteLlist.length}`)
@@ -513,6 +522,16 @@ async function winlossBOP(req, res, next) {
         delete mi.percentLost
 
     }
+
+    metricsList = metricsList.sort((a, b) => {
+        if (a.primaryState !== b.primaryState) {
+            return a.primaryState > b.primaryState ? 1 : -1;
+        }
+        if (a.classCode !== b.classCode) {
+            return a.classCode > b.classCode ? 1 : -1;
+        }
+        return a.quoteStatusId > b.quoteStatusId ? 1 : -1;
+    });
 
     if(req.query.cvsreturn){
         var options = {
