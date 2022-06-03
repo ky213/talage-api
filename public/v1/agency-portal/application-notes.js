@@ -221,8 +221,7 @@ async function notifyUsersOfApplicationNote(applicationDoc, applicationNotes){
     const content3 = flattenDeep(content2);
 
     // TO AGENCY
-    if(agencyNetworkDB.featureJson.quoteEmailsAgency === true){
-        // message = message.replace(/{{Agent Login URL}}/g, insurerJson.agent_login);
+    if(agencyNetworkDB.featureJson.quoteEmailsAgency){
         message = message.replace(/{{Business Name}}/g, applicationDoc.businessName);
         message = message.replace(/{{AP User Email}}/g, applicationNotes[0].agencyPortalCreatedUser);
         message = message.replace(/\n/g, '<br>');
