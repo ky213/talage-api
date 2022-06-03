@@ -150,124 +150,121 @@ async function notifyUsersOfApplicationNote(applicationDoc, applicationNotes){
 
     // find the template for the agency
     const agencyBO = new AgencyBO();
-    const emailContentJSON = await agencyBO.getEmailContentAgencyAndCustomer(applicationDoc.agencyId, "agency_portal_notes_notification", "policy_purchase_customer").catch(function(err){
+    let emailContentJSON = {};
+    try{
+        emailContentJSON = await agencyBO.getEmailContentAgencyAndCustomer(applicationDoc.agencyId, "agency_portal_notes_notification", "policy_purchase_customer");
+    }
+    catch(err){
         log.error(`Unable to get email content for application Notes notification on agency. appid: ${applicationDoc.applicationId}.  error: ${err}` + __location);
         return false
-    });
-
-    if (emailContentJSON) {
-        //get AgencyBO
-        let agencyJSON = {};
-        try{
-            agencyJSON = await agencyBO.getById(applicationDoc.agencyId)
-        }
-        catch(err){
-            log.error("Error getting agencyBO " + err + __location);
-            return false
-        }
-
-        //find the subscribers to this agency
-        let agencyNotificationList = []
-        const agencyPortalUserBO = new AgencyPortalUserBO();
-        try{
-            agencyNotificationList = await agencyPortalUserBO.getList({'agencyNotificationList' : {$in : [applicationDoc.agencyId]}});
-        }
-        catch(err){
-            log.error("Error getting agencyNotifications List " + err + __location);
-            return false
-        }
-
-        //get AgencyLocationBO
-        const agencyLocationBO = new AgencyLocationBO();
-        let agencyLocationJSON = null;
-        try{
-            agencyLocationJSON = await agencyLocationBO.getById(applicationDoc.agencyLocationId)
-        }
-        catch(err){
-            log.error("Error getting agencyLocationBO " + err + __location);
-            return false
-        }
-
-        let agencyLocationEmail = agencyNotificationList.map(e => e.email);
-        //decrypt info...
-        if(agencyLocationJSON.email){
-            agencyLocationEmail.push(agencyLocationJSON.email)
-        }
-        else if(agencyJSON.email){
-            agencyLocationEmail.push(agencyJSON.email);
-        }
-        agencyLocationEmail = JSON.stringify(agencyLocationEmail);
-
-        let industryCodeDesc = '';
-        const industryCodeBO = new IndustryCodeBO();
-        try{
-            const industryCodeJson = await industryCodeBO.getById(applicationDoc.industryCode);
-            if(industryCodeJson){
-                industryCodeDesc = industryCodeJson.description;
-            }
-        }
-        catch(err){
-            log.error("Error getting industryCodeBO " + err + __location);
-        }
-
-        const keyData = {'applicationDoc': applicationDoc};
-        let message = emailContentJSON.agencyMessage;
-        let subject = emailContentJSON.agencySubject;
-        const contentx = applicationNotes[0].noteContents;
-        const content2 = contentx.content.map(e => e.content.map(x => x.text));
-        const content3 = flattenDeep(content2);
-
-        // TO AGENCY
-        if(agencyNetworkDB.featureJson.quoteEmailsAgency === true){
-            // message = message.replace(/{{Agent Login URL}}/g, insurerJson.agent_login);
-            message = message.replace(/{{Business Name}}/g, applicationDoc.businessName);
-            message = message.replace(/{{AP User Email}}/g, applicationNotes[0].agencyPortalCreatedUser);
-            message = message.replace(/\n/g, '<br>');
-            message = message.replace(/{{AP User Name}} or /g, '');
-            message = message.replace(/{{Industry}}/g, industryCodeDesc);
-            message = message.replace(/{{Brand}}/g, emailContentJSON.emailBrand);
-            message = message.replace(/{{Agency}}/g, agencyJSON.name);
-            message = message.replace(/{{apNotesContent}}/g, content3.join('<br><br>'));
-
-            subject = subject.replace(/{{Business Name}}/g, applicationDoc.businessName);
-
-            const messageUpdate = await emailTemplateProceSvc.applinkProcessor(applicationDoc, agencyNetworkDB, message)
-            if(messageUpdate){
-                message = messageUpdate
-            }
-
-            // update the policy type
-            const updatedEmailObject = await emailTemplateProceSvc.policyTypeProcessor(applicationDoc, '', message, subject)
-            if(updatedEmailObject.message){
-                message = updatedEmailObject.message
-            }
-            if(updatedEmailObject.subject){
-                subject = updatedEmailObject.subject
-            }
-
-            // Software hook
-            const branding = "Networkdefault";
-
-            log.debug('Consolidated Email addresses to notify ->> ' + agencyLocationEmail);
-
-            // Send the email
-            if (agencyLocationEmail) {
-                const emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData, agencyNetworkId, branding);
-                if (emailResp === false) {
-                    slack.send('#alerts', 'warning', `The system failed to inform an agency of the latest application Notes in application ID ${applicationDoc.applicationId}. Please follow-up manually.`);
-                }
-            }
-            else {
-                log.error(`Application Notes notification has no email address for appId: ${applicationDoc.applicationId} ` + __location);
-            }
-        }
-        return true;
-    }
-    else {
-        log.error('Application Notes is missiing an Email List for agencynetwork: ' + agencyNetworkId + __location);
-        return false;
     }
 
+    //get AgencyBO
+    let agencyJSON = {};
+    try{
+        agencyJSON = await agencyBO.getById(applicationDoc.agencyId)
+    }
+    catch(err){
+        log.error("Error getting agencyBO " + err + __location);
+        return false
+    }
+
+    //find the subscribers to this agency
+    let agencyNotificationList = []
+    const agencyPortalUserBO = new AgencyPortalUserBO();
+    try{
+        agencyNotificationList = await agencyPortalUserBO.getList({'agencyNotificationList' : {$in : [applicationDoc.agencyId]}});
+    }
+    catch(err){
+        log.error("Error getting agencyNotifications List " + err + __location);
+        return false
+    }
+
+    //get AgencyLocationBO
+    const agencyLocationBO = new AgencyLocationBO();
+    let agencyLocationJSON = null;
+    try{
+        agencyLocationJSON = await agencyLocationBO.getById(applicationDoc.agencyLocationId)
+    }
+    catch(err){
+        log.error("Error getting agencyLocationBO " + err + __location);
+        return false
+    }
+
+    let agencyLocationEmail = agencyNotificationList.map(e => e.email);
+    //decrypt info...
+    if(agencyLocationJSON.email){
+        agencyLocationEmail.push(agencyLocationJSON.email)
+    }
+    else if(agencyJSON.email){
+        agencyLocationEmail.push(agencyJSON.email);
+    }
+    agencyLocationEmail = JSON.stringify(agencyLocationEmail);
+
+    let industryCodeDesc = '';
+    const industryCodeBO = new IndustryCodeBO();
+    try{
+        const industryCodeJson = await industryCodeBO.getById(applicationDoc.industryCode);
+        if(industryCodeJson){
+            industryCodeDesc = industryCodeJson.description;
+        }
+    }
+    catch(err){
+        log.error("Error getting industryCodeBO " + err + __location);
+    }
+
+    const keyData = {'applicationDoc': applicationDoc};
+    let message = emailContentJSON.agencyMessage;
+    let subject = emailContentJSON.agencySubject;
+    const contentx = applicationNotes[0].noteContents;
+    const content2 = contentx.content.map(e => e.content.map(x => x.text));
+    const content3 = flattenDeep(content2);
+
+    // TO AGENCY
+    if(agencyNetworkDB.featureJson.quoteEmailsAgency === true){
+        // message = message.replace(/{{Agent Login URL}}/g, insurerJson.agent_login);
+        message = message.replace(/{{Business Name}}/g, applicationDoc.businessName);
+        message = message.replace(/{{AP User Email}}/g, applicationNotes[0].agencyPortalCreatedUser);
+        message = message.replace(/\n/g, '<br>');
+        message = message.replace(/{{AP User Name}} or /g, '');
+        message = message.replace(/{{Industry}}/g, industryCodeDesc);
+        message = message.replace(/{{Brand}}/g, emailContentJSON.emailBrand);
+        message = message.replace(/{{Agency}}/g, agencyJSON.name);
+        message = message.replace(/{{apNotesContent}}/g, content3.join('<br><br>'));
+
+        subject = subject.replace(/{{Business Name}}/g, applicationDoc.businessName);
+
+        const messageUpdate = await emailTemplateProceSvc.applinkProcessor(applicationDoc, agencyNetworkDB, message)
+        if(messageUpdate){
+            message = messageUpdate
+        }
+
+        // update the policy type
+        const updatedEmailObject = await emailTemplateProceSvc.policyTypeProcessor(applicationDoc, '', message, subject)
+        if(updatedEmailObject.message){
+            message = updatedEmailObject.message
+        }
+        if(updatedEmailObject.subject){
+            subject = updatedEmailObject.subject
+        }
+
+        // Software hook
+        const branding = "Networkdefault";
+
+        log.debug('Consolidated Email addresses to notify ->> ' + agencyLocationEmail);
+
+        // Send the email
+        if (agencyLocationEmail) {
+            const emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData, agencyNetworkId, branding);
+            if (emailResp === false) {
+                slack.send('#alerts', 'warning', `The system failed to inform an agency of the latest application Notes in application ID ${applicationDoc.applicationId}. Please follow-up manually.`);
+            }
+        }
+        else {
+            log.error(`Application Notes notification has no email address for appId: ${applicationDoc.applicationId} ` + __location);
+        }
+    }
+    return true;
 }
 
 exports.registerEndpoint = (server, basePath) => {
