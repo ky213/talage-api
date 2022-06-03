@@ -2340,11 +2340,54 @@ async function manualQuote(req, res, next) {
             log.warn(`Manual Quote bad policy type ${req.body.policyType} appId ${req.body.policyType} ` + __location);
             return next(serverHelper.requestError('Invalid data - policy type. Please check the documentation.'));
         }
-
         const quoteJSON = JSON.parse(JSON.stringify(req.body))
+        //Determine quotingAgencyId (Wholesalers)
+        const quoteInsurerId = parseInt(req.body.insurerId,10);
+        let quotingAgencyId = applicationDoc.agencyId
+        let gotHit = false;
+        // look at AGencyLocation to see if the insure is setup for Talage Wholesale or the AgencyNetworl's primary Agency.
+        const agencyLocationBO = new AgencyLocationBO();
+        const testQuotingAgencyId = await agencyLocationBO.getQuotingAgencyId(applicationDoc.agencyLocationId, quoteInsurerId).catch(function(err) {
+            log.error(`Error Manual Quotec getting Agency Location ${applicationDoc.agencyLocationId} ${err}` + __location)
+        });
+        if(testQuotingAgencyId){
+            gotHit = true;
+            quotingAgencyId = testQuotingAgencyId;
+            if(quotingAgencyId === 1 && applicationDoc.agencyId > 1){
+                quoteJSON.talageWholesale = true;
+                quoteJSON.handledByTalage = true;
+            }
+        }
+                
+        log.debug(`Manual Quote gotHit ${gotHit} quotingAgencyId ${quotingAgencyId} `)
+        //If nothing found at AgencyLocation insurer level.
+        // Look to see if user is an agency nework user and that network is Wheelhouse or a wholesaler.
+        if(!gotHit){
+            if(req.authentication.isAgencyNetworkUser
+                && req.authentication.agencyNetworkId === 1
+                && req.authentication.permissions.talageStaff === true
+                && applicationDoc.agencyNetworkId === 1){
+                quotingAgencyId = 1;
+                quoteJSON.talageWholesale = true;
+                quoteJSON.handledByTalage = true;
+
+            }
+            else if(req.authentication.isAgencyNetworkUser){
+                const primaryAgencyLocation = await agencyLocationBO.getByAgencyPrimary(applicationDoc.agencyId).catch(function(err) {
+                    log.error(`Error Manual Quotec getting Agency Location ${applicationDoc.agencyLocationId} ${err}` + __location)
+                });
+                if(primaryAgencyLocation){
+                    quotingAgencyId = primaryAgencyLocation.agencyId;
+                }
+            }
+        }
+
+        
         quoteJSON.isManualQuote = true;
         quoteJSON.log = "Manual Quote";
+        quoteJSON.quotingAgencyId = quotingAgencyId;
         quoteJSON.agencyId = applicationDoc.agencyId
+        quoteJSON.agencyLocationId = applicationDoc.agencyLocationId
         quoteJSON.agencyNetworkId = applicationDoc.agencyNetworkId;
         quoteJSON.quotedPremium = quoteJSON.amount;
         quoteJSON.quoteStatusId = quoteStatus.quoted.id
@@ -2352,6 +2395,7 @@ async function manualQuote(req, res, next) {
         if(quoteJSON.bound){
             quoteJSON.quoteStatusId = quoteStatus.bound.id
             quoteJSON.quoteStatusDescription = quoteStatus.bound.description
+            //req.authentication.userID
         }
         //direct to mongose model
         var QuoteModel = global.mongoose.Quote;
