@@ -19,9 +19,7 @@ async function getDashboard(req, res, next){
     const startDate = moment(req.query.startDate, 'YYYY/MM/DD').tz("America/Los_Angeles").startOf('day').toDate();
     const endDate = moment(req.query.endDate, 'YYYY/MM/DD').tz("America/Los_Angeles").endOf('day').toDate();
 
-    const queryMatch = {
-        insurerId: insurerId
-    };
+    const queryMatch = {insurerId: insurerId};
     if (req.query.amount) {
         queryMatch.amount = {$gte: parseFloat(req.query.amount)}
     }
