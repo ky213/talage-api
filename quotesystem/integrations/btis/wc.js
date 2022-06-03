@@ -10,6 +10,8 @@
 const Integration = require('../Integration.js');
 const moment = require('moment');
 const util = require('util');
+const axios = require('axios');
+const htmlentities = require('html-entities').Html5Entities;
 
 // this is for question "Any prior coverage declined/cancelled/non-renewed/expired (last 3 yrs.)? (Not applicable for Missouri risks)"
 // this is a checkbox question, so multiple answers can be selected
@@ -97,16 +99,16 @@ const entityTypes = [
     }
 ];
 
-const skippedQuestionIds = [
-    "parent_18", "btis.general.yearsIndustryExperience"
-];
+// const skippedQuestionIds = [
+//     "parent_18"
+// ];
 
 const AUTH_URL = '/v1/authentication/connect/token';
-const LIMITS_URL = '/WC/v1/gateway/lookup/limits?stateName={STATE_NAME}';
+const LIMITS_URL = '/WC/v1/gateway/lookup/limits?stateName=STATE_NAME';
 const QUOTE_URL = '/Common/v1/crosssell/WC/Quote ';
 
 // Uses Acuity WC as a proxy to utilize existing NCCI activity codes
-module.exports = class AcuityWC extends Integration {
+module.exports = class BtisWC extends Integration {
 
     /**
      * Initializes this integration.
@@ -114,8 +116,8 @@ module.exports = class AcuityWC extends Integration {
      * @returns {void}
      */
     _insurer_init() {
-        this.requiresInsurerIndustryCodes = true;
-        this.requiresInsurerActivityCodes = true;
+        this.requiresInsurerIndustryCodes = false;
+        this.requiresInsurerActivityCodes = false;
     }
 
     /**
@@ -164,11 +166,21 @@ module.exports = class AcuityWC extends Integration {
             client_id: this.username
         };
 
+        const authHeaders = {headers: {'Content-Type': 'application/json'}};
+
         let token_response = null;
         try {
-            // Send request
-            token_response = await this.send_json_request(host, AUTH_URL, authBody);
+            let formattedString = authBody;
+            const formattedJSONString = this.get_formatted_json_string(authBody);
+            if (formattedJSONString) {
+                formattedString = formattedJSONString;
+            }
 
+            // Send request
+            this.log += `--------======= Sending ${authHeaders} =======--------<br><br>`;
+            this.log += `URL: ${host}${AUTH_URL} - POST<br><br>`;
+            this.log += `<pre>${htmlentities.encode(formattedString)}</pre><br><br>`;
+            token_response = await axios.post(host + AUTH_URL, JSON.stringify(authBody), authHeaders);
         }
         catch (e) {
             errorMessage = `${e} ${e.response ? e.response : ""}`
@@ -177,26 +189,29 @@ module.exports = class AcuityWC extends Integration {
         }
 
         // Check the response is what we're expecting
-        if (!token_response.success || !token_response.token) {
+        if (!token_response.data.success || !token_response.data.token) {
             this.reasons.push('BTIS auth returned an unexpected response or error.');
-            if(token_response.message && token_response.message.length > 0){
-                errorMessage = token_response.message;
+            if(token_response.data.message && token_response.data.message.length > 0){
+                errorMessage = token_response.data.message;
             }
             this.reasons.push(`BTIS auth returned an unexpected response or error - unable to authenticate.`);
             return this.client_error(`${logPrefix}BTIS auth returned an unexpected response or error. ${errorMessage}. ` + __location);
         }
 
         // format the token the way BTIS expects it
-        const token = {'x-access-token': token_response.token};
+        const token = {headers: {'x-access-token': token_response.data.token}};
 
         // Prep limits URL arguments
-        const limitsURL = LIMITS_URL.replace('STATE_NAME', this.app.business.primary_territory).replace('EFFECTIVE_DATE', this.policy.effective_date.format('YYYY-MM-DD'));
+        const limitsURL = LIMITS_URL.replace('STATE_NAME', this.app.business.primary_territory);
 
         let carrierLimitsList = null;
         let btisLimitsId = null;
 
         try {
-            carrierLimitsList = await this.send_json_request(host, limitsURL, null, token);
+            // Send request
+            this.log += `--------======= Sending ${token} =======--------<br><br>`;
+            this.log += `URL: ${host}${limitsURL} - GET<br><br>`;
+            carrierLimitsList = await axios.get(host + limitsURL, token);
         }
         catch (e) {
             this.reasons.push('Limits could not be retrieved from BTIS, defaulted to $1M Occurrence, $2M Aggregate.');
@@ -204,18 +219,17 @@ module.exports = class AcuityWC extends Integration {
         }
 
         // If we successfully retrieved limit information from the carrier, process it to find the limit ID
-        if (carrierLimitsList) {
-            // Filter out all carriers except victory (victory and clearspring have the same limit IDs so we only need victory)
-            carrierLimitsList = carrierLimitsList.filter(limit => limit.carrier === 'victory')
+        if (carrierLimitsList && carrierLimitsList.data) {
+            carrierLimitsList = carrierLimitsList.data;
 
             // Get the limit that most closely fits the user's request that the carrier supports
             const bestLimit = this.getBestLimits(carrierLimitsList.map(function(limit) {
-                return limit.value.replace(/,/g, '');
+                return limit.text.replace(/,/g, '');
             }));
 
             if(bestLimit){
                 // Determine the BTIS ID of the bestLimit
-                btisLimitsId = carrierLimitsList.find(limit => bestLimit.join('/') === limit.value.replace(/,/g, '')).key;
+                btisLimitsId = carrierLimitsList.find(limit => bestLimit.join('/') === limit.text.replace(/,/g, '')).limits.limitId;
             }
         }
 
@@ -240,32 +254,13 @@ module.exports = class AcuityWC extends Integration {
             return this.client_autodeclined(errorMessage);
         }
 
-        const acordQuestions = this.insurerQuestionList.filter(insurerQuestion => !insurerQuestion.identifer.includes("child_"));
-        const explanationQuestions = this.insurerQuestionList.filter(insurerQuestion => insurerQuestion.identifer.includes("child_"));
+        const acordQuestions = this.insurerQuestionList.filter(insurerQuestion => !insurerQuestion.identifier.includes("child_"));
+        const explanationQuestions = this.insurerQuestionList.filter(insurerQuestion => insurerQuestion.identifier.includes("child_"));
         const appQuestions = [];
-
-        // find custom question for years of industry experience
-        let yearBusinessStarted = null;
-        const yearBusinessStartedQuestion = acordQuestions.find(insurerQuestion => insurerQuestion.identifier === "btis.general.yearBusinessStarted");
-        if (yearBusinessStartedQuestion) {
-            let yearBusinessStartedAnswer = null
-            try {
-                yearBusinessStartedAnswer = this.determine_question_answer(yearBusinessStartedQuestion);
-            }
-            catch (e) {
-                log.error(`${logPrefix}Could not determine answer for Years of Industry Experience (identifier: btis.general.yearsIndustryExperience): ${e}. Defaulting to 0. ` + __location);
-            }
-
-            yearBusinessStartedAnswer = parseInt(yearBusinessStartedAnswer, 10);
-            if (!isNaN(yearBusinessStartedAnswer)) {
-                yearBusinessStarted = yearBusinessStartedAnswer;
-            }
-        }
 
         // first, create the acord questions in the format BTIS is expecting
         for (const insurerQuestion of acordQuestions) {
-            if (skippedQuestionIds.includes(insurerQuestion.identifier) || insurerQuestion.talageQuestionId) {
-
+            if (!insurerQuestion.talageQuestionId) {
                 continue;
             }
 
@@ -284,8 +279,16 @@ module.exports = class AcuityWC extends Integration {
                 continue;
             }
 
+            if (!answer) {
+                continue;
+            }
+
+            if (insurerQuestion.identifier === "parent_18") {
+                continue;
+            }
+
             appQuestions.push({
-                QuestionId: question.identifier,
+                QuestionId: insurerQuestion.identifier,
                 Answer: answer,
                 explanation: null
             });
@@ -308,16 +311,21 @@ module.exports = class AcuityWC extends Integration {
                 continue;
             }
 
+            if (!answer) {
+                continue;
+            }
+
             const parentQuestionId = insurerQuestion.identifier.replace("child_", "");
             const acordQuestion = appQuestions.find(q => q.QuestionId === parentQuestionId);
 
             if (!acordQuestion) {
-                log.warn(`${logPrefix}Unable to find parent question for explanation question ${question.id}. Skipping... ` + __location)
+                log.warn(`${logPrefix}Unable to find parent question ${parentQuestionId} for explanation question ${question.id}. Skipping... ` + __location)
                 continue;
             }
 
             acordQuestion.explanation = answer;
         }
+
 
         const primaryAddress = appDoc.locations.find(location => location.primary);
 
@@ -347,7 +355,7 @@ module.exports = class AcuityWC extends Integration {
                     LegalEntity: entityTypeId,
                     DBA: appDoc.dba ? appDoc.dba : "",
                     FEIN: appDoc.ein,
-                    YearBusinessStarted: yearBusinessStarted,
+                    YearBusinessStarted: moment(appDoc.founded).format('YYYY'),
                     YearsOfIndustryExperience: yearsOfExperience,
                     Website: null,
                     DescriptionOfOperations: this.get_operation_description(),
@@ -425,13 +433,24 @@ module.exports = class AcuityWC extends Integration {
         };
 
         console.log(JSON.stringify(data, null, 4));
-        console.log(JSON.stringify(appDoc, null, 4));
-        process.exit(0);
+        return this.client_error("testing");
 
         // Send JSON to the insurer
+        const quoteHeaders = {headers: {'Content-Type': 'application/json'}};
+
         let quoteResult = null;
         try{
-            quoteResult = await this.send_json_request(host, QUOTE_URL, JSON.stringify(data), token, 'POST');
+            let formattedString = data;
+            const formattedJSONString = this.get_formatted_json_string(data);
+            if (formattedJSONString) {
+                formattedString = formattedJSONString;
+            }
+
+            // Send request
+            this.log += `--------======= Sending application/json =======--------<br><br>`;
+            this.log += `URL: ${host}${QUOTE_URL} - POST<br><br>`;
+            this.log += `<pre>${htmlentities.encode(formattedString)}</pre><br><br>`;
+            quoteResult = await axios.post(host + QUOTE_URL, JSON.stringify(data), quoteHeaders);
         }
         catch(error){
             log.error(`${logPrefix} Quote Endpoint Returned Error ${util.inspect(error, false, null)}` + __location);
@@ -446,6 +465,9 @@ module.exports = class AcuityWC extends Integration {
                 return this.return_result('autodeclined');
             }
         }
+
+        quoteResult = quoteResult.data;
+
         //BTIS put each potential carrier in it own Property
         // With Multi-Carrier we will just to the lowest quote back.
         // but it will come in the that carriers node.
