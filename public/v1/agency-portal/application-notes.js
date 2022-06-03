@@ -188,7 +188,7 @@ async function notifyUsersOfApplicationNote(applicationDoc, applicationNotes){
             return false
         }
 
-        const agencyLocationEmail = agencyNotificationList.map(e => e.email);
+        let agencyLocationEmail = agencyNotificationList.map(e => e.email);
         //decrypt info...
         if(agencyLocationJSON.email){
             agencyLocationEmail.push(agencyLocationJSON.email)
@@ -196,6 +196,7 @@ async function notifyUsersOfApplicationNote(applicationDoc, applicationNotes){
         else if(agencyJSON.email){
             agencyLocationEmail.push(agencyJSON.email);
         }
+        agencyLocationEmail = JSON.stringify(agencyLocationEmail);
 
         let industryCodeDesc = '';
         const industryCodeBO = new IndustryCodeBO();
@@ -214,9 +215,7 @@ async function notifyUsersOfApplicationNote(applicationDoc, applicationNotes){
         let subject = emailContentJSON.agencySubject;
         const contentx = applicationNotes[0].noteContents;
         const content2 = contentx.content.map(e => e.content.map(x => x.text));
-        const content3 = flattenDeep(content2)
-
-        log.debug('email ap user >>> ' + JSON.stringify(content3, '', 4));
+        const content3 = flattenDeep(content2);
 
         // TO AGENCY
         if(agencyNetworkDB.featureJson.quoteEmailsAgency === true){
@@ -248,6 +247,8 @@ async function notifyUsersOfApplicationNote(applicationDoc, applicationNotes){
 
             // Software hook
             const branding = "Networkdefault";
+
+            log.debug('Consolidated Email addresses to notify ->> ' + agencyLocationEmail);
 
             // Send the email
             if (agencyLocationEmail) {
