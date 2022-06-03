@@ -8,7 +8,7 @@ const moment = require('moment');
 const moment_timezone = require('moment-timezone');
 
 /**
- * Responds to get unique quotes for current insurer id the application page
+ * Returns quote info to populate the "Live Applications" page on insurer-portal.
  *
  * @param {object} req - HTTP request object
  * @param {object} res - HTTP response object
@@ -16,15 +16,19 @@ const moment_timezone = require('moment-timezone');
  *
  * @returns {void}
  */
-async function getUniqueQuotes(req, res, next){
+async function getApplications(req, res, next){
+    const startDate = moment(req.query.startDate, 'YYYY/MM/DD').tz("America/Los_Angeles").startOf('day').toDate();
+    const endDate = moment(req.query.endDate, 'YYYY/MM/DD').tz("America/Los_Angeles").endOf('day').toDate();
 
-
-    const begin90DayAgo = moment().tz("America/Los_Angeles").subtract(90,'d').startOf('day');
     const agrQuery = [
         {$match:
             {
                 insurerId: parseInt(req.authentication.insurerId, 10),
-                createdAt: {$gte: begin90DayAgo.toDate()}
+                createdAt: {
+                    $gte: startDate,
+                    $lte: endDate
+                }
+                // Note: date fields and quoteStatus filter are below.
             }},
         {$group:
             {_id:
@@ -77,8 +81,9 @@ async function getUniqueQuotes(req, res, next){
             {'quote.createdAt': -1}}
     ]
 
-    if(req.query && req.query.quoteStatus){
-        agrQuery[0].$match.quoteStatusDescription = {$in: req.query.quoteStatus}
+
+    if(req?.query?.quoteStatus){
+        agrQuery[0].$match.quoteStatusDescription = {$in: req.query.quoteStatus};
     }
     try {
         const insurerUniqueQuotes = await Quote.aggregate(agrQuery);
@@ -95,5 +100,5 @@ async function getUniqueQuotes(req, res, next){
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
-    server.addGetInsurerPortalAuth('Get Unique Quotes by InsurerId', `${basePath}/applications/getuniquequotes`, getUniqueQuotes, 'applications', 'view');
+    server.addGetInsurerPortalAuth('Get Unique Quotes by InsurerId', `${basePath}/applications`, getApplications, 'applications', 'view');
 };
