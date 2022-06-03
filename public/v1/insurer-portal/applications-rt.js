@@ -81,14 +81,9 @@ async function getApplications(req, res, next){
             {'quote.createdAt': -1}}
     ]
 
-    const begin90DayAgo = moment().tz("America/Los_Angeles").subtract(90,'d').startOf('day');
-    if(req?.query?.quoteStatus && req?.query?.quoteStatus.includes('Bound')){
-        agrQuery[0].$match.boundDate = {$gte: begin90DayAgo.toDate()}
-    } else {
-        agrQuery[0].$match.createdAt = {$gte: begin90DayAgo.toDate()}
-    }
+
     if(req?.query?.quoteStatus){
-        agrQuery[0].$match.quoteStatusDescription = {$in: req.query.quoteStatus}
+        agrQuery[0].$match.quoteStatusDescription = {$in: req.query.quoteStatus};
     }
     try {
         const insurerUniqueQuotes = await Quote.aggregate(agrQuery);
