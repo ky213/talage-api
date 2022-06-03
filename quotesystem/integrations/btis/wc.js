@@ -9,9 +9,10 @@
 
 const Integration = require('../Integration.js');
 const moment = require('moment');
-const util = require('util');
 const axios = require('axios');
 const htmlentities = require('html-entities').Html5Entities;
+const {convertToDollarFormat} = global.requireShared("./helpers/stringFunctions.js");
+
 
 // this is for question "Any prior coverage declined/cancelled/non-renewed/expired (last 3 yrs.)? (Not applicable for Missouri risks)"
 // this is a checkbox question, so multiple answers can be selected
@@ -170,16 +171,10 @@ module.exports = class BtisWC extends Integration {
 
         let token_response = null;
         try {
-            let formattedString = authBody;
-            const formattedJSONString = this.get_formatted_json_string(authBody);
-            if (formattedJSONString) {
-                formattedString = formattedJSONString;
-            }
-
             // Send request
-            this.log += `--------======= Sending ${authHeaders} =======--------<br><br>`;
+            this.log += `--------======= Sending ${authHeaders.headers}} =======--------<br><br>`;
             this.log += `URL: ${host}${AUTH_URL} - POST<br><br>`;
-            this.log += `<pre>${htmlentities.encode(formattedString)}</pre><br><br>`;
+            this.log += `<pre>${htmlentities.encode(JSON.stringify(authBody, null, 4))}</pre><br><br>`;
             token_response = await axios.post(host + AUTH_URL, JSON.stringify(authBody), authHeaders);
         }
         catch (e) {
@@ -199,17 +194,20 @@ module.exports = class BtisWC extends Integration {
         }
 
         // format the token the way BTIS expects it
-        const token = {headers: {'x-access-token': token_response.data.token}};
+        const token = {headers: {
+            'Content-Type': 'application/json',
+            'x-access-token': token_response.data.token
+        }};
 
         // Prep limits URL arguments
         const limitsURL = LIMITS_URL.replace('STATE_NAME', this.app.business.primary_territory);
 
         let carrierLimitsList = null;
-        let btisLimitsId = null;
+        let btisLimit = null
 
         try {
             // Send request
-            this.log += `--------======= Sending ${token} =======--------<br><br>`;
+            this.log += `--------======= Sending ${token.headers} =======--------<br><br>`;
             this.log += `URL: ${host}${limitsURL} - GET<br><br>`;
             carrierLimitsList = await axios.get(host + limitsURL, token);
         }
@@ -222,6 +220,9 @@ module.exports = class BtisWC extends Integration {
         if (carrierLimitsList && carrierLimitsList.data) {
             carrierLimitsList = carrierLimitsList.data;
 
+            this.log += `--------======= Limits response =======--------<br><br>`;
+            this.log += `<pre>${htmlentities.encode(JSON.stringify(carrierLimitsList, null, 4))}</pre><br><br>`;
+
             // Get the limit that most closely fits the user's request that the carrier supports
             const bestLimit = this.getBestLimits(carrierLimitsList.map(function(limit) {
                 return limit.text.replace(/,/g, '');
@@ -229,7 +230,7 @@ module.exports = class BtisWC extends Integration {
 
             if(bestLimit){
                 // Determine the BTIS ID of the bestLimit
-                btisLimitsId = carrierLimitsList.find(limit => bestLimit.join('/') === limit.text.replace(/,/g, '')).limits.limitId;
+                btisLimit = carrierLimitsList.find(limit => bestLimit.join('/') === limit.text.replace(/,/g, ''));
             }
         }
 
@@ -346,14 +347,14 @@ module.exports = class BtisWC extends Integration {
                 AgencyId: null,
                 ProposedEffectiveDate: moment(WCPolicy.effectiveDate).format('YYYY-MM-DDTHH:MM:SS'),
                 ProposedExpirationDate: moment(WCPolicy.expirationDate).format('YYYY-MM-DDTHH:MM:SS'),
-                LimitId: btisLimitsId,
+                LimitId: btisLimit?.limits?.limitId,
                 ProgramCode: "QMWC",
                 Applicant: {
                     InsuredFirstName: insuredInformation.firstName,
                     InsuredLastName: insuredInformation.lastName,
                     LegalEntityName: appDoc.businessName,
                     LegalEntity: entityTypeId,
-                    DBA: appDoc.dba ? appDoc.dba : "",
+                    DBA: appDoc.dba ? appDoc.dba : "Not Provided",
                     FEIN: appDoc.ein,
                     YearBusinessStarted: moment(appDoc.founded).format('YYYY'),
                     YearsOfIndustryExperience: yearsOfExperience,
@@ -432,138 +433,97 @@ module.exports = class BtisWC extends Integration {
             ]
         };
 
-        console.log(JSON.stringify(data, null, 4));
-        return this.client_error("testing");
-
         // Send JSON to the insurer
-        const quoteHeaders = {headers: {'Content-Type': 'application/json'}};
-
         let quoteResult = null;
         try{
-            let formattedString = data;
-            const formattedJSONString = this.get_formatted_json_string(data);
-            if (formattedJSONString) {
-                formattedString = formattedJSONString;
-            }
-
             // Send request
             this.log += `--------======= Sending application/json =======--------<br><br>`;
             this.log += `URL: ${host}${QUOTE_URL} - POST<br><br>`;
-            this.log += `<pre>${htmlentities.encode(formattedString)}</pre><br><br>`;
-            quoteResult = await axios.post(host + QUOTE_URL, JSON.stringify(data), quoteHeaders);
+            this.log += `<pre>${htmlentities.encode(JSON.stringify(data, null, 4))}</pre><br><br>`;
+            quoteResult = await axios.post(host + QUOTE_URL, JSON.stringify(data), token);
         }
         catch(error){
-            log.error(`${logPrefix} Quote Endpoint Returned Error ${util.inspect(error, false, null)}` + __location);
-            const errorString = JSON.stringify(error);
-            if(errorString.indexOf("No Carrier found for passed state and class code") > -1){
-                this.reasons.push('BTIS response with: No Carrier found for passed state and class code ');
-                return this.return_result('declined');
+            errorMessage = `Encountered an error while attempting to quote. `;
+            if (error?.response?.data) {
+                for (const key of Object.keys(error.response.data)) {
+                    if (Array.isArray(error.response.data[key])) {
+                        error.response.data[key].forEach(reason => this.reasons.push(reason));
+                    }
+                    else {
+                        this.reasons.push(error.response.data[key]);
+                    }
+                }
             }
-            else {
-                errorMessage = `${error} ${error.response ? error.response : ""}`
-                this.reasons.push('Problem connecting to insurer BTIS ' + errorMessage);
-                return this.return_result('autodeclined');
-            }
+            log.error(`${logPrefix}${errorMessage}${this.reasons}` + __location);
+            return this.client_error(errorMessage + this.reasons, __location);
         }
 
         quoteResult = quoteResult.data;
 
-        //BTIS put each potential carrier in it own Property
-        // With Multi-Carrier we will just to the lowest quote back.
-        // but it will come in the that carriers node.
-        // For backward compatible clearspring should be checked last.
-        // eslint-disable-next-line array-element-newline
-        const carrierNodeList = ["cna", "hiscox", "cbic", "clearspring", "victory"];
-        let lowestQuote = 999999;
-        let gotQuote = false;
-        let gotRefferal = false;
-        let gotSuccessFalse = false;
-        for(let i = 0; i < carrierNodeList.length; i++){
-            const currentCarrier = carrierNodeList[i]
-            // clearspring - The result can be under either clearspring or victory, checking for success
-            if (quoteResult[currentCarrier] && quoteResult[currentCarrier].success === true) {
-                let makeItTheQuote = false;
-                const quoteInfo = quoteResult[currentCarrier];
+        this.log += `--------======= Quote response =======--------<br><br>`;
+        this.log += `<pre>${htmlentities.encode(JSON.stringify(quoteResult, null, 4))}</pre><br><br>`;
 
-                // Get the quote amount
-                if(quoteInfo.quote && quoteInfo.quote.results
-                    && quoteInfo.quote.results.total_premium
-                    ){
-                        if(parseInt(quoteInfo.quote.results.total_premium,10) < lowestQuote){
-                            this.amount = parseInt(quoteInfo.quote.results.total_premium,10);
-                            lowestQuote = quoteInfo.quote.results.total_premium;
-                            makeItTheQuote = true;
-                        }
-                }
-                else{
-                    log.error(`${logPrefix} Integration Error: Quote structure changed. Unable to get quote amount from insurer. ` + __location);
-                    this.reasons.push('A quote was generated but our API was unable to isolate it.');
-                    //return this.return_error('error');
-                }
-                if(makeItTheQuote){
-                    //Get the quote link
-                    this.quoteLink = quoteInfo.bridge_url ? quoteInfo.bridge_url : null;
-                    gotQuote = true;
-                    // Get the quote limits
-                    if(quoteInfo.quote.criteria && quoteInfo.quote.criteria.limits){
-                        const limitsString = quoteInfo.quote.criteria.limits.replace(/,/g, '');
-                        const limitsArray = limitsString.replace(/,/g, "").split('/');
-                        this.limits = {
-                            '4': parseInt(limitsArray[0],10),
-                            '8': parseInt(limitsArray[1],10),
-                            '9': parseInt(limitsArray[2],10)
-                        }
-                        this.limits[4] = parseInt(limitsArray[0],10);
-                        this.limits[8] = parseInt(limitsArray[1],10);
-                        this.limits[9] = parseInt(limitsArray[2],10);
-                        this.limits[12] = requestDeductible;
-                    }
-                    else{
-                        if(this.reasons.includes('The subcontractor costs are above the maximum allowed') || subcontractorCosts > 100_000){
-                            this.reasons = ['The subcontractor costs are above the maximum allowed ($100,000)']
-                            return this.return_result('declined')
-                        }
+        if (`${quoteResult.Status}` !== "200") {
+            errorMessage = `Returned status ${quoteResult.Status}: ${quoteResult.StatusDescription}. `;
+            log.error(`${logPrefix}${errorMessage}` + __location);
+            return this.client_error(errorMessage, __location);
+        }
 
-                        log.error(`${logPrefix} Integration Error: Quote structure changed. Unable to find limits.  ${JSON.stringify(quoteInfo)}` + __location);
-                        this.reasons.push('Quote structure changed. Unable to find limits.');
-                    }
-                    // Return the quote
-                    //TODO once fully on multi carrier API we can break out of the loop after an success === true
-                    break;
-                }
-            //  return this.return_result('referred_with_price');
+        const quote = quoteResult?.Response?.Premium.find(q => q.Carrier === "CLEARSPRING");
+
+        if (!quote) {
+            errorMessage = `No quote found for Clearspring. `;
+            log.error(`${logPrefix}${errorMessage}` + __location);
+            return this.client_error(errorMessage, __location);
+        }
+
+        // quote response properties
+        const quoteNumber = quoteResult?.Response?.QuoteNumber;
+        const premium = quote?.Price;
+        const quoteCoverages = [];
+
+        let coverageSort = 0;
+        Object.keys(btisLimit.limits).forEach(key => {
+            if (key !== "limitId") {
+                quoteCoverages.push({
+                    description: key,
+                    value: convertToDollarFormat(btisLimit.limits[key], true),
+                    sort: coverageSort++,
+                    category: "BTIS Workers' Compensation Limits"
+                });
             }
-            // Checking for referral with reasons
-            else if(quoteResult[currentCarrier] && quoteResult[currentCarrier].success === false && gotQuote === false){
-                const declinedInfo = quoteResult[currentCarrier];
-                if(declinedInfo.referral_reasons){
-                    declinedInfo.referral_reasons.forEach((reason) => {
-                        this.reasons.push(reason);
-                    });
-                    gotRefferal = true
-                }
-                else if(gotRefferal === false) {
-                    gotSuccessFalse = true;
-                }
-            }
-            //error is not processed Until we understand how it works in multicarrier response.
+        });
 
+        if (quoteResult.Error) {
+            this.reasons.push(quoteResult.Error);
         }
-        if(gotQuote){
-            return this.return_result('referred_with_price');
+
+        if (quoteResult.Response.Message) {
+            this.reasons.push(quoteResult.Response.Message);
         }
-        else if(gotRefferal){
-            return this.return_result('referred');
+
+        if (quote.Errors) {
+            if (Array.isArray(quote.Errors)) {
+                quote.Errors.forEach(error => this.reasons.push(error));
+            }
+            else {
+                this.reasons.push(quote.Errors);
+            }
         }
-        else if(gotSuccessFalse){
-            //return this.return_result('referred');
-            return this.return_result('declined');
-        }
-        else{
-            //
-            // If we made it this far, they declined
-            this.reasons.push(`BTIS has indicated it will not cover ${this.app.business.industry_code_description.replace('&', 'and')} in territory ${primaryAddress.territory} at this time.`);
-            return this.return_result('declined');
+
+        // TODO: Figure out all Submission Status'
+        switch (quote?.CarrierResponse?.SubmissionStatus) {
+            case "Quoted":
+                if (premium) {
+                    return this.client_quoted(quoteNumber, [], premium, null, null, quoteCoverages);
+                }
+                else {
+                    return this.client_referred(quoteNumber, [], null, null, null, quoteCoverages);
+                }
+            default:
+                errorMessage = `Unhandled submission status ${quote?.CarrierResponse?.SubmissionStatus} was returned. `;
+                log.error(`${logPrefix}${errorMessage}` + __location);
+                return this.client_error(errorMessage, __location);
         }
     }
  }
