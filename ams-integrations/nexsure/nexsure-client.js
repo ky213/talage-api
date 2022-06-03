@@ -420,10 +420,10 @@ async function createApplicationFromClientId(agencyId, clientId, agencyPortalUse
         }
         if (!response.data.Client) {
             log.error(`Nexsure getclientbyid no response.data.Client in response ` + __location)
-            log.error(`ClientSearch NextSure no Client response ${JSON.stringify(response.data)}` + __location)
+            log.error(`ClientSearch Nexsure no Client response ${JSON.stringify(response.data)}` + __location)
             return null;
         }
-        //log.debug(`ClientSearch NextSure response ${JSON.stringify(response.data)}` + __location)
+        //log.debug(`ClientSearch Nexsure response ${JSON.stringify(response.data)}` + __location)
         const appId = await createApplication(agencyId, response.data.Client, agencyPortalUserId, agencyLocationId)
 
         return appId;
@@ -475,7 +475,7 @@ async function getPoliciesByClientId(agencyId, clientId, appDoc, processBound = 
         }
         if (!response.data.Policies?.Policy) {
             log.error(`Nexsure getPoliciesByClientId no response.data.Policies.Policy in response ` + __location)
-            log.error(`ClientSearch NextSure no Client response ${JSON.stringify(response.data)}` + __location)
+            log.error(`ClientSearch Nexsure no Client response ${JSON.stringify(response.data)}` + __location)
             return null;
         }
         const returnedJSON = response.data;
@@ -688,7 +688,7 @@ async function createClientFromAppDoc(agencyId, appDoc, quoteDoc){
         }
         if (!response.data.Client) {
             log.error(`Nexsure createClientFromAppDoc no response.data.Client in response ` + __location)
-            log.error(`ClientSearch NextSure no Client response ${JSON.stringify(response.data)}` + __location)
+            log.error(`ClientSearch Nexsure no Client response ${JSON.stringify(response.data)}` + __location)
             newClientJSON.message = "No Client Id returned"
             return newClientJSON;
         }
