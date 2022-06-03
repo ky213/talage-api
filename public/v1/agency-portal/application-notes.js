@@ -1,6 +1,7 @@
 /* eslint-disable require-jsdoc */
 const auth = require('./helpers/auth-agencyportal.js');
 const serverHelper = global.requireRootPath('server.js');
+const slack = global.requireShared('./services/slacksvc.js');
 const ApplicationBO = global.requireShared('models/Application-BO.js');
 const ApplicationNotesBO = global.requireShared('models/ApplicationNotes-BO.js');
 const AgencyBO = global.requireShared('models/Agency-BO.js');
@@ -8,8 +9,6 @@ const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
 const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
 const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
 const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
-const formatPhone = global.requireShared('./helpers/formatPhone.js');
-const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const emailTemplateProceSvc = global.requireShared('./services/emailtemplatesvc.js');
 const emailSvc = global.requireShared('./services/emailsvc.js');
 const flattenDeep = require('lodash.flattendeep');
@@ -129,12 +128,11 @@ async function createApplicationNote(req, res, next){
 async function notifyUsersOfApplicationNote(applicationDoc, applicationNotes){
     if (!applicationDoc) {
         log.error('Bad application information - notification not sent ' + __location);
-        log.error('this is the application card ' + JSON.stringify(this.applicationDoc, '',4))
         return false
     }
 
     if (!applicationNotes) {
-        log.error('Bad application Notes information - notification was not sent ' + __location );
+        log.error('Bad application Notes information - notification was not sent ' + __location);
         return false
     }
 
@@ -153,7 +151,7 @@ async function notifyUsersOfApplicationNote(applicationDoc, applicationNotes){
     // find the template for the agency
     const agencyBO = new AgencyBO();
     const emailContentJSON = await agencyBO.getEmailContentAgencyAndCustomer(applicationDoc.agencyId, "agency_portal_notes_notification", "policy_purchase_customer").catch(function(err){
-        log.error(`Email content Error Unable to get email content for app notification on agency. appid: ${applicationId}.  error: ${err}` + __location);
+        log.error(`Unable to get email content for application Notes notification on agency. appid: ${applicationDoc.applicationId}.  error: ${err}` + __location);
         return false
     });
 
@@ -170,18 +168,14 @@ async function notifyUsersOfApplicationNote(applicationDoc, applicationNotes){
 
         //find the subscribers to this agency
         let agencyNotificationList = []
-        const agencyPortalUserBO = new AgencyPortalUserBO;
+        const agencyPortalUserBO = new AgencyPortalUserBO();
         try{
-            agencyNotificationList = await agencyPortalUserBO.getList({
-                'agencyNotificationList' : {$in : [applicationDoc.agencyId]}
-            });
+            agencyNotificationList = await agencyPortalUserBO.getList({'agencyNotificationList' : {$in : [applicationDoc.agencyId]}});
         }
         catch(err){
             log.error("Error getting agencyNotifications List " + err + __location);
-            return false            
+            return false
         }
-
-        log.debug('email subscriber list json >>> ' + JSON.stringify(agencyNotificationList, '', 4));
 
         //get AgencyLocationBO
         const agencyLocationBO = new AgencyLocationBO();
@@ -194,7 +188,7 @@ async function notifyUsersOfApplicationNote(applicationDoc, applicationNotes){
             return false
         }
 
-        let agencyLocationEmail = agencyNotificationList.map(e => e.email);
+        const agencyLocationEmail = agencyNotificationList.map(e => e.email);
         //decrypt info...
         if(agencyLocationJSON.email){
             agencyLocationEmail.push(agencyLocationJSON.email)
@@ -202,7 +196,6 @@ async function notifyUsersOfApplicationNote(applicationDoc, applicationNotes){
         else if(agencyJSON.email){
             agencyLocationEmail.push(agencyJSON.email);
         }
-
 
         let industryCodeDesc = '';
         const industryCodeBO = new IndustryCodeBO();
@@ -216,25 +209,12 @@ async function notifyUsersOfApplicationNote(applicationDoc, applicationNotes){
             log.error("Error getting industryCodeBO " + err + __location);
         }
 
-        const customerContact = applicationDoc.contacts.find(contactTest => contactTest.primary === true);
-        let customerPhone = '';
-        if (customerContact.phone) {
-            customerPhone = formatPhone(customerContact.phone);
-        }
-        const fullName = stringFunctions.ucwords(stringFunctions.strtolower(customerContact.firstName) + ' ' + stringFunctions.strtolower(customerContact.lastName));
-
-        let agencyPhone = '';
-        if (agencyLocationJSON.phone) {
-            agencyPhone = formatPhone(agencyLocationJSON.phone);
-        }
-
-
         const keyData = {'applicationDoc': applicationDoc};
         let message = emailContentJSON.agencyMessage;
         let subject = emailContentJSON.agencySubject;
-        let contentx = applicationNotes[0].noteContents;
-        let content2 = contentx.content.map(e => e.content.map(x => x.text));
-        let content3 = flattenDeep(content2)
+        const contentx = applicationNotes[0].noteContents;
+        const content2 = contentx.content.map(e => e.content.map(x => x.text));
+        const content3 = flattenDeep(content2)
 
         log.debug('email ap user >>> ' + JSON.stringify(content3, '', 4));
 
@@ -252,9 +232,6 @@ async function notifyUsersOfApplicationNote(applicationDoc, applicationNotes){
 
             subject = subject.replace(/{{Business Name}}/g, applicationDoc.businessName);
 
-            log.debug('email content message >>> ' + JSON.stringify(message, '', 4));
-            log.debug('email content subject >>> ' + subject);
-
             const messageUpdate = await emailTemplateProceSvc.applinkProcessor(applicationDoc, agencyNetworkDB, message)
             if(messageUpdate){
                 message = messageUpdate
@@ -270,36 +247,23 @@ async function notifyUsersOfApplicationNote(applicationDoc, applicationNotes){
             }
 
             // Software hook
-            let branding = "Networkdefault"
-            // Sofware Hook
-            const dataPackageJSON = {
-                appDoc: applicationDoc,
-                agencyNetworkDB: agencyNetworkDB,
-                htmlBody: message,
-                emailSubject: subject,
-                branding: branding,
-                recipients: agencyLocationEmail
-            }
+            const branding = "Networkdefault";
 
             // Send the email
-            log.debug('email content message >>> ' + JSON.stringify(agencyLocationEmail, '', 4));
-
             if (agencyLocationEmail) {
-                const emailResp = await emailSvc.send('carlo@talageins.com', subject, message, keyData, agencyNetworkId, branding);
+                const emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData, agencyNetworkId, branding);
                 if (emailResp === false) {
-                    slack.send('#alerts', 'warning', `The system failed to inform an agency of the emailbindagency for application ${applicationId}. Please follow-up manually.`);
+                    slack.send('#alerts', 'warning', `The system failed to inform an agency of the latest application Notes in application ID ${applicationDoc.applicationId}. Please follow-up manually.`);
                 }
             }
             else {
-                log.error(`emailbindagency no email address for appId: ${applicationId} ` + __location);
+                log.error(`Application Notes notification has no email address for appId: ${applicationDoc.applicationId} ` + __location);
             }
         }
-
-
         return true;
     }
     else {
-        log.error('emailbindagency missing emailcontent for agencynetwork: ' + agencyNetworkId + __location);
+        log.error('Application Notes is missiing an Email List for agencynetwork: ' + agencyNetworkId + __location);
         return false;
     }
 
