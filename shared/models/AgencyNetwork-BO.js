@@ -431,12 +431,13 @@ module.exports = class AgencyNetworkBO{
 
                 const customermessage = customerEmailData && customerEmailData.message ? customerEmailData.message : defaultCustomerEmailData.message;
                 const customersubject = customerEmailData && customerEmailData.subject ? customerEmailData.subject : defaultCustomerEmailData.subject;
-
+         
                 const agencyEmailData = agencyNetworkJSON.custom_emails[agencyContentProperty];
+
                 const defaultAgencyEmailData = wheelHouseAgencyNetworkJSON.custom_emails[agencyContentProperty];
                 const agencyMessage = agencyEmailData && agencyEmailData.message ? agencyEmailData.message : defaultAgencyEmailData.message;
                 const agencySubject = agencyEmailData && agencyEmailData.subject ? agencyEmailData.subject : defaultAgencyEmailData.subject;
-
+    
 
                 emailTemplateJSON = {
                     "brandName": agencyNetworkJSON.name,
