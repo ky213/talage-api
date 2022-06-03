@@ -84,10 +84,11 @@ module.exports = class AcuityBOP extends Integration {
             log.error(`Acuity (application ${this.app.id}): Could not find ACUITYNAICSCode for industry code ${this.industry_code.id} ${__location}`);
             return this.return_result('autodeclined');
         }
-        let quickQuote = false;
-        if (this.industry_code.attributes.acuityNAICSCode.split('-')[1] === '000') {
-            quickQuote = true;
-        }
+        //Controlls RC1 vs Rc2. Only RC1 for now
+        const quickQuote = true;
+        // if (this.industry_code.attributes.acuityNAICSCode.split('-')[1] === '000') {
+        //     quickQuote = true;
+        // }
 
         // Acuity has us define our own Request ID
         this.request_id = this.generate_uuid();
