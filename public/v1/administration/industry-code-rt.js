@@ -43,6 +43,12 @@ async function findAll(req, res, next) {
         delete req.query.insurerId
     }
 
+    let queryPolicyType = null
+    if(req.query.policyType){
+        queryPolicyType = req.query.policyType
+        delete req.query.policyType;
+    }
+
     if(req.query.unmapped){
         delete req.query.unmapped
         log.debug("in unmapped");
@@ -73,6 +79,9 @@ async function findAll(req, res, next) {
                 log.error("bad query");
             }
         }
+        if(queryPolicyType){
+            iicQuery.policyTypeList = queryPolicyType
+        }
         for(let i = 0; i < industryCodeList.length; i++){
             const industryCodeJSON = industryCodeList[i];
             iicQuery.talageIndustryCodeIdList = industryCodeJSON.id
@@ -99,6 +108,9 @@ async function findAll(req, res, next) {
         iicQuery.insurerId = queryInsurerId;
         if(queryTerritory){
             iicQuery.territoryList = queryTerritory;
+        }
+        if(queryPolicyType){
+            iicQuery.policyTypeList = queryPolicyType
         }
         const iicList = await global.mongoose.InsurerIndustryCode.find(iicQuery);
         for(const iic of iicList){
@@ -155,6 +167,9 @@ async function findAll(req, res, next) {
             catch(err){
                 log.error("bad query");
             }
+        }
+        if(queryPolicyType){
+            iicQuery.policyTypeList = queryPolicyType
         }
         //Build list that have nothing mapped in insurerActivityCodes collection
         for(let i = 0; i < industryCodeList.length; i++){
