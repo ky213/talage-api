@@ -91,47 +91,36 @@ async function findAll(req, res, next) {
             req.query.industryCodeId = notMappedList;
         }
     }
-    else if(req.query.multipleMappings){
+    else if(req.query.multipleMappings && queryInsurerId){
         delete req.query.multipleMappings;
-        //TODO optimize by going just to IAC collection
-        //get all activityCodes that are activity.
-        const industryCodeList = await industryCodeBO.getList(req.query).catch(function(err) {
-            error = err;
-        })
-        if (error) {
-            return next(error);
-        }
-        let mappedtoInsurerList = [];
-        let iicQuery = {count: true};
-        if(queryInsurerId){
-            try{
-                iicQuery.insurerId = queryInsurerId;
-            }
-            catch(err){
-                log.error("bad query");
-            }
-        }
-        if(queryTerritory){
-            try{
-                iicQuery.territoryList = queryTerritory;
-            }
-            catch(err){
-                log.error("bad query");
-            }
-        }
-        //Build list that have nothing mapped in insurerActivityCodes collection
-        for(let i = 0; i < industryCodeList.length; i++){
-            const industryCodeJSON = industryCodeList[i];
-            iicQuery.talageIndustryCodeIdList = industryCodeJSON.id
-            const respJson = await insurerIndustryCodeBO.getList(iicQuery).catch(function(err) {
-                log.error("admin insurerIndustryCodeBO error: " + err + __location);
-                error = err;
-            });
 
-            if(respJson.count > 1){
-                mappedtoInsurerList.push(industryCodeJSON.id);
+        let mappedtoInsurerList = [];
+        let iicQuery = {};
+        iicQuery.insurerId = queryInsurerId;
+        if(queryTerritory){
+            iicQuery.territoryList = queryTerritory;
+        }
+        const iicList = await global.mongoose.InsurerIndustryCode.find(iicQuery);
+        for(const iic of iicList){
+            if(iic.talageIndustryCodeIdList?.length > 0){
+                const possibleDup = iicList.find((iicTest) => iic.talageIndustryCodeIdList.some(r => iicTest.talageIndustryCodeIdList?.includes(r) && iic.insurerIndustryCodeId !== iicTest.insurerIndustryCodeId))
+                if(possibleDup){
+                    //check for overlapping territories and policytypes
+                    const checkTerritory = iic.territoryList.some(r => possibleDup.territoryList.includes(r));
+                    const checkpolicyType = iic.policyTypeList.some(r => possibleDup.policyTypeList.includes(r));
+                    if(checkTerritory && checkpolicyType){
+                        //determine the industrycodes that overlap and add them.
+                        const overlapIndustryCodesId = iic.talageIndustryCodeIdList.filter(icId => possibleDup.talageIndustryCodeIdList.includes(icId))
+                        for(const checkIcId of overlapIndustryCodesId){
+                            if(mappedtoInsurerList.indexOf(checkIcId) === -1){
+                                mappedtoInsurerList.push(checkIcId)
+                            }
+                        }
+                    }
+                }
             }
         }
+
         //filter user query on the notMappedList.
         if(mappedtoInsurerList.length > 0){
             req.query.industryCodeId = mappedtoInsurerList;
