@@ -168,11 +168,12 @@ function shouldMergeWheelhouse(agencyWebInfo){
  * Retrieves the agency information from a given agency/page slug.
  *
  * @param {string} agencySlug - agency slug
- * @param {object} pageSlug - page slug (optional)
+ * @param {object} pageSlug - page slug
  *
+ * @param {boolean} incrementHits - true: increment hits, false: no not increment hits
  * @returns {object} agency
  */
-async function getAgencyFromSlugs(agencySlug, pageSlug) {
+async function getAgencyFromSlugs(agencySlug, pageSlug, incrementHits = true) {
     if(!agencySlug){
         log.error(`No slug supplied getAgencyFromSlugsquote engine agency ${agencySlug} (${pageSlug ? 'page ' + pageSlug : 'no page'}): ${__location}`);
         return null;
@@ -417,11 +418,13 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
         log.error("Error processing Agency locations " + err + __location);
     }
 
-    try{
-        await agencyLandingPageBO.addPageHit(agencyWebInfo.landingPageID)
-    }
-    catch(err){
-        log.error(`Error update hits continue landingPageID ${agencyWebInfo.landingPageID}` + __location)
+    if(incrementHits) {
+        try{
+            await agencyLandingPageBO.addPageHit(agencyWebInfo.landingPageID)
+        }
+        catch(err){
+            log.error(`Error update hits continue landingPageID ${agencyWebInfo.landingPageID}` + __location)
+        }
     }
 
     // log.debug("final agencyWebInfo " + JSON.stringify(agencyWebInfo) + __location);
