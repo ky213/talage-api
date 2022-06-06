@@ -186,7 +186,8 @@ async function notifyUsersOfApplicationNote(applicationDoc, applicationNotes, us
     try{
         currentUser = await agencyPortalUserBO.getById(userId);
         if(currentUser){
-            currentUserName = currentUser.firstName != null ? currentUser.firstName : '' + ' ' + currentUser.lastName != null ? currentUser.lastName : '';
+            currentUserName = currentUser.firstName === '' || currentUser.firstName === null ? '' : currentUser.firstName;
+            currentUserName += ' ' + currentUser.lastName === '' || currentUser.lastName === null ? '' : currentUser.lastName;
         }
     }
     catch(err){
