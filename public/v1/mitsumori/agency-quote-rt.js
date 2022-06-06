@@ -567,7 +567,7 @@ async function getAgencyMetadata(req, res, next) {
 
     let agencyJson = null;
     try {
-        agencyJson = await getAgencyFromSlugs(agencySlug, pageSlug);
+        agencyJson = await getAgencyFromSlugs(agencySlug, pageSlug, false);
     }
     catch (err) {
         log.error(`Error retrieving Agency in quote engine agencySlug ${agencySlug} pageSlug ${pageSlug} url ${req.query.url}: ${err} ${__location}`);
