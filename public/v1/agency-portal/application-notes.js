@@ -109,7 +109,7 @@ async function createApplicationNote(req, res, next){
         const appNotes = await applicationNotesBO.getByApplicationId(req.body.applicationId);
         res.send(200, {applicationNotes: appNotes});
         // call the send-email routine here
-        await notifyUsersOfApplicationNote(applicationDB, appNotes);
+        await notifyUsersOfApplicationNote(applicationDB, appNotes, userId);
 
         return next();
 
@@ -125,7 +125,7 @@ async function createApplicationNote(req, res, next){
 //  @return = true, email sent successfully
 //  @return = false, email had an error
 // **
-async function notifyUsersOfApplicationNote(applicationDoc, applicationNotes){
+async function notifyUsersOfApplicationNote(applicationDoc, applicationNotes, userId){
     if (!applicationDoc) {
         log.error('Bad application information - notification not sent ' + __location);
         return false
@@ -180,6 +180,19 @@ async function notifyUsersOfApplicationNote(applicationDoc, applicationNotes){
         return false
     }
 
+    //find the current user who submitted the application note
+    let currentUser = {};
+    let currentUserName = '';
+    try{
+        currentUser = await agencyPortalUserBO.getById(userId);
+        if(currentUser){
+            currentUserName = currentUser.firstName != null ? currentUser.firstName : '' + ' ' + currentUser.lastName != null ? currentUser.lastName : '';
+        }
+    }
+    catch(err){
+        log.error("Error retrieving current user info " + err + __location);
+    }
+
     //get AgencyLocationBO
     const agencyLocationBO = new AgencyLocationBO();
     let agencyLocationJSON = null;
@@ -225,7 +238,7 @@ async function notifyUsersOfApplicationNote(applicationDoc, applicationNotes){
         message = message.replace(/{{Business Name}}/g, applicationDoc.businessName);
         message = message.replace(/{{AP User Email}}/g, applicationNotes[0].agencyPortalCreatedUser);
         message = message.replace(/\n/g, '<br>');
-        message = message.replace(/{{AP User Name}} or /g, '');
+        message = message.replace(/{{AP User Name}}/g, currentUserName);
         message = message.replace(/{{Industry}}/g, industryCodeDesc);
         message = message.replace(/{{Brand}}/g, emailContentJSON.emailBrand);
         message = message.replace(/{{Agency}}/g, agencyJSON.name);
