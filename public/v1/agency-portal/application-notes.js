@@ -241,9 +241,11 @@ async function notifyUsersOfApplicationNote(applicationDoc, applicationNotes){
         }
         try{
             currentUserList = await agencyPortalUserBO.getList(userQueryJSON);
-            if(currentUserList[0]){
-                currentUserName = currentUserList[0].firstName === '' || currentUserList[0].firstName === null ? '' : currentUserList[0].firstName;
-                currentUserName += ' ' + currentUserList[0].lastName === '' || currentUserList[0].lastName === null ? '' : currentUserList[0].lastName;
+            if(currentUserList[0] && currentUserList[0].firstName){
+                currentUserName = currentUserList[0].firstName === '' || currentUserList[0].firstName === null ? '' : currentUserList[0].firstName + ' ';
+            }
+            if(currentUserList[0] && currentUserList[0].lastName){
+                currentUserName += "  " + currentUserList[0].lastName === '' || currentUserList[0].lastName === null ? '' : currentUserList[0].lastName;
             }
         }
         catch(err){
@@ -281,7 +283,7 @@ async function notifyUsersOfApplicationNote(applicationDoc, applicationNotes){
     message = message.replace(/{{Business Name}}/g, applicationDoc.businessName);
     message = message.replace(/{{AP User Email}}/g, applicationNotes[0].agencyPortalCreatedUser);
     message = message.replace(/\n/g, '<br>');
-    message = message.replace(/{{AP User Name}}/g, currentUserName);
+    message = message.replace(/{{AP User Name}} or/g, currentUserName);
     message = message.replace(/{{Industry}}/g, industryCodeDesc);
     message = message.replace(/{{Brand}}/g, emailContentJSON.emailBrand);
     message = message.replace(/{{Agency}}/g, agencyJSON.name);
