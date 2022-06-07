@@ -539,6 +539,9 @@ module.exports = class Integration {
             if (Array.isArray(question.answer)) {
                 // Loop over each possible answer
                 for (let answer_id of question.answer) {
+                    if (isNaN(answer_id)) {
+                        continue;
+                    }
                     // Make sure the answer is permitted
 
                     // Ensure that the answer_id is a string, not a number.
@@ -558,7 +561,6 @@ module.exports = class Integration {
                         }
                         return false;
                     }
-
                     // Add the answer to the answers array
                     answers.push(question.possible_answers[answer_id].answer);
                 }

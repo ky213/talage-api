@@ -47,6 +47,12 @@ async function checkAppetite(policyTypeCd, policyEffectiveDate, activityCodeIdLi
             }
             insurerIdList.push(9);
         }
+
+        // add BTIS (11) as NCCI (9) if it's not already there
+        if (insurerIdList.includes(11) && !insurerIdList.includes(9)) {
+            insurerIdList.push(9);
+        }
+
         log.debug(`insurerIdList ${insurerIdList}` + __location)
 
         if(!activityCodeIdList || activityCodeIdList.length === 0){
