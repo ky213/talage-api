@@ -523,6 +523,15 @@ module.exports = class AcuityBOP extends Integration {
         // </Limit>
         // </CommlCoverage>
 
+        // Deductible
+        const deductible = this.policy.deductible ? this.policy.deductible : 0
+
+        // /CommlCoverage/Deductible/DeductibleAppliesToCd
+        // /CommlCoverage/Deductible/FormatInteger
+        // /CommlCoverage/Deductible/FormatPct
+        const DeductibleAgg = CommlCoverage.ele('Deductible');
+        DeductibleAgg.ele('FormatInteger', deductible);
+
         // <CommlCoverage>
         CommlCoverage = LiabilityInfo.ele('CommlCoverage');
         CommlCoverage.ele('CoverageCd', 'PRDCO');
@@ -531,8 +540,7 @@ module.exports = class AcuityBOP extends Integration {
         Limit = CommlCoverage.ele('Limit');
         Limit.ele('LimitAppliesToCd', 'PRDCO');
         Limit.ele('FormatInteger', limits[2]);
-        // </Limit>
-        // </CommlCoverage>
+
 
         // Exposures
         if (this.insurerIndustryCode?.attributes?.premiumBasis?.code) {
@@ -609,6 +617,8 @@ module.exports = class AcuityBOP extends Integration {
             'AcuityBOPDistanceFireStation',
             'AcuityBOPDistanceHydrant'
         ]
+
+
         appDoc.locations.forEach((location, index) => {
             // <CommlCoverage>
             if (location.businessPersonalPropertyLimit) {
@@ -622,7 +632,7 @@ module.exports = class AcuityBOP extends Integration {
                 Limit = CommlCoverage.ele('Limit');
                 Limit.ele('FormatInteger', location.businessPersonalPropertyLimit);
                 const Deductible = CommlCoverage.ele('Deductible');
-                Deductible.ele('FormatInteger', 0);
+                Deductible.ele('FormatInteger', deductible);
             }
             else {
                 log.error(`${logPrefix}: No Business Personal Property Limit present on application`);
@@ -639,7 +649,7 @@ module.exports = class AcuityBOP extends Integration {
                 Limit = CommlCoverage.ele('Limit');
                 Limit.ele('FormatInteger', location.buildingLimit);
                 const Deductible = CommlCoverage.ele('Deductible');
-                Deductible.ele('FormatInteger', 0);
+                Deductible.ele('FormatInteger', deductible);
             }
             else {
                 log.error(`${logPrefix}: No Building Limit present on application`)
@@ -913,6 +923,7 @@ module.exports = class AcuityBOP extends Integration {
                         if (!coverage.Limit || !coverage.Limit.length) {
                             return;
                         }
+                        let description = '';
                         const limitAmt = parseInt(coverage.Limit[0].FormatInteger[0], 10);
                         const quoteCoverage = {
                             value: convertToDollarFormat(limitAmt, true),
@@ -922,27 +933,44 @@ module.exports = class AcuityBOP extends Integration {
                         }
                         switch (coverage.CoverageCd[0]) {
                             case "EAOCC":
+                                description = 'Each Occurrence';
                                 quoteCoverage.description = 'Each Occurrence';
                                 foundLimitsCount++;
                                 quoteCoverages.push(quoteCoverage);
                                 break;
                             case "GENAG":
+                                description = 'General Aggregate';
                                 quoteCoverage.description = 'General Aggregate';
                                 foundLimitsCount++;
                                 quoteCoverages.push(quoteCoverage);
                                 break;
                             case "PRDCO":
+                                description = 'Products & Completed Operations';
                                 quoteCoverage.description = 'Products & Completed Operations';
                                 foundLimitsCount++;
                                 quoteCoverages.push(quoteCoverage);
                                 break;
                             case "PIADV":
+                                description = 'Personal and Advertising Injury';
                                 quoteCoverage.description = 'Personal and Advertising Injury';
                                 foundLimitsCount++;
                                 quoteCoverages.push(quoteCoverage);
                                 break;
                             default:
                                 break;
+                        }
+
+                        if (coverage.Deductible && coverage.Deductible.length) {
+                            const deductibleAmt = parseInt(coverage.Deductible[0].FormatInteger[0], 10);
+                            const quoteCoverage2 = {
+                                description: description + ' Deductible',
+                                value: convertToDollarFormat(deductibleAmt, true),
+                                sort: sortIndex++,
+                                category: `General Limits`,
+                                insurerIdentifier: coverage.CoverageCd[0]
+                            }
+                            foundLimitsCount++;
+                            quoteCoverages.push(quoteCoverage2);
                         }
                     });
                 }
