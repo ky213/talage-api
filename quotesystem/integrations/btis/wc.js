@@ -172,19 +172,20 @@ module.exports = class BtisWC extends Integration {
         let token_response = null;
         try {
             // Send request
-            this.log += `--------======= Sending ${authHeaders.headers}} =======--------<br><br>`;
-            this.log += `URL: ${host}${AUTH_URL} - POST<br><br>`;
-            this.log += `<pre>${htmlentities.encode(JSON.stringify(authBody, null, 4))}</pre><br><br>`;
+            this.logRequest('application/json', host + AUTH_URL, 'POST', authBody);
             token_response = await axios.post(host + AUTH_URL, JSON.stringify(authBody), authHeaders);
         }
         catch (e) {
+            this.logResponse('Authentication', e);
             errorMessage = `${e} ${e.response ? e.response : ""}`
             this.reasons.push(`Error retrieving auth token from BTIS: ${e}. ${errorMessage}`);
             return this.client_error(`${logPrefix}Failed to retrieve auth token from BTIS: ${e.message}. ` + __location);
         }
 
+        this.logResponse('Authentication', token_response?.data);
+
         // Check the response is what we're expecting
-        if (!token_response.data.success || !token_response.data.token) {
+        if (!token_response?.data?.success || !token_response?.data?.token) {
             this.reasons.push('BTIS auth returned an unexpected response or error.');
             if(token_response.data.message && token_response.data.message.length > 0){
                 errorMessage = token_response.data.message;
@@ -204,24 +205,28 @@ module.exports = class BtisWC extends Integration {
 
         let carrierLimitsList = null;
         let btisLimit = null
-
+        let limitErrorOccurred = false;
         try {
             // Send request
-            this.log += `--------======= Sending ${token.headers} =======--------<br><br>`;
-            this.log += `URL: ${host}${limitsURL} - GET<br><br>`;
+            this.logRequest('x-access-token', host + limitsURL, 'GET');
             carrierLimitsList = await axios.get(host + limitsURL, token);
         }
         catch (e) {
-            this.reasons.push('Limits could not be retrieved from BTIS, defaulted to $1M Occurrence, $2M Aggregate.');
-            log.warn(`${logPrefix}Failed to retrieve limits from BTIS: ${e.message}` + __location);
+            // Passing limit id is not required, default to null if not provided
+            limitErrorOccurred = true;
+            this.logResponse('Limits', e);
+            log.warn(`${logPrefix}Failed to retrieve limits from BTIS: ${e.message}. Not providing limits in request.` + __location);
         }
+
+        if (!limitErrorOccurred) {
+            this.logResponse('Limits', carrierLimitsList?.data);
+        }
+
+        let limitId = null;
 
         // If we successfully retrieved limit information from the carrier, process it to find the limit ID
         if (carrierLimitsList && carrierLimitsList.data) {
             carrierLimitsList = carrierLimitsList.data;
-
-            this.log += `--------======= Limits response =======--------<br><br>`;
-            this.log += `<pre>${htmlentities.encode(JSON.stringify(carrierLimitsList, null, 4))}</pre><br><br>`;
 
             // Get the limit that most closely fits the user's request that the carrier supports
             const bestLimit = this.getBestLimits(carrierLimitsList.map(function(limit) {
@@ -231,6 +236,7 @@ module.exports = class BtisWC extends Integration {
             if(bestLimit){
                 // Determine the BTIS ID of the bestLimit
                 btisLimit = carrierLimitsList.find(limit => bestLimit.join('/') === limit.text.replace(/,/g, ''));
+                limitId = btisLimit?.limits?.limitId;
             }
         }
 
@@ -332,7 +338,11 @@ module.exports = class BtisWC extends Integration {
 
         let yearsOfExperience = 0;
         if (appDoc.yearsOfExp) {
-            yearsOfExperience = appDoc.yearsOfExp >= 10 ? "10+" : `${appDoc.yearsOfExp}`;
+            yearsOfExperience = appDoc.yearsOfExp >= 10 ? 10 : appDoc.yearsOfExp;
+        }
+        else {
+            const years = moment().diff(moment(appDoc.founded), 'year');
+            yearsOfExperience = years >= 10 ? 10 : years;
         }
 
         /*
@@ -341,13 +351,13 @@ module.exports = class BtisWC extends Integration {
         */
         const data = {
             submission: {
-                SubmissionId: "",
+                SubmissionId: this.generate_uuid(),
                 SourceId: null,
                 AgentContactId: null,
                 AgencyId: null,
                 ProposedEffectiveDate: moment(WCPolicy.effectiveDate).format('YYYY-MM-DDTHH:MM:SS'),
                 ProposedExpirationDate: moment(WCPolicy.expirationDate).format('YYYY-MM-DDTHH:MM:SS'),
-                LimitId: btisLimit?.limits?.limitId,
+                LimitId: limitId,
                 ProgramCode: "QMWC",
                 Applicant: {
                     InsuredFirstName: insuredInformation.firstName,
@@ -355,12 +365,12 @@ module.exports = class BtisWC extends Integration {
                     LegalEntityName: appDoc.businessName,
                     LegalEntity: entityTypeId,
                     DBA: appDoc.dba ? appDoc.dba : "Not Provided",
-                    FEIN: appDoc.ein,
+                    FEIN: appDoc.ein ? appDoc.ein : null,
                     YearBusinessStarted: moment(appDoc.founded).format('YYYY'),
                     YearsOfIndustryExperience: yearsOfExperience,
                     Website: null,
                     DescriptionOfOperations: this.get_operation_description(),
-                    ExperienceMod: appDoc.experience_modifier,
+                    ExperienceMod: appDoc.experience_modifier ? appDoc.experience_modifier : null,
                     MailingAddress: {
                         Line1: primaryAddress.address,
                         Line2: null,
@@ -435,33 +445,40 @@ module.exports = class BtisWC extends Integration {
 
         // Send JSON to the insurer
         let quoteResult = null;
-        try{
+        try {
             // Send request
-            this.log += `--------======= Sending application/json =======--------<br><br>`;
-            this.log += `URL: ${host}${QUOTE_URL} - POST<br><br>`;
-            this.log += `<pre>${htmlentities.encode(JSON.stringify(data, null, 4))}</pre><br><br>`;
+            this.logRequest('application/json', host + QUOTE_URL, 'POST', data);
             quoteResult = await axios.post(host + QUOTE_URL, JSON.stringify(data), token);
         }
-        catch(error){
-            errorMessage = `Encountered an error while attempting to quote. `;
+        catch (error) {
+            this.logResponse('Quote', error?.response?.data);
+            errorMessage = `Encountered error(s) while attempting to quote: `;
             if (error?.response?.data) {
-                for (const key of Object.keys(error.response.data)) {
-                    if (Array.isArray(error.response.data[key])) {
-                        error.response.data[key].forEach(reason => this.reasons.push(reason));
+                const e = error.response.data;
+                if (e?.Status) {
+                    errorMessage += `Error ${e.Status}: ${e.StatusDescription}`;
+                    if (Array.isArray(e.Error)) {
+                        e.Error.forEach(innerError => {
+                            errorMessage += ` Error ${innerError.Code}: ${innerError.Description}.`;
+                        });
                     }
-                    else {
-                        this.reasons.push(error.response.data[key]);
+                }
+                else {
+                    for (const [key, value] of Object.entries(e)) {
+                        errorMessage += ` ${key}: ${value} `;
                     }
                 }
             }
-            log.error(`${logPrefix}${errorMessage}${this.reasons}` + __location);
-            return this.client_error(errorMessage + this.reasons, __location);
+            else {
+                errorMessage += `No error details were provided.`;
+            }
+
+            log.error(`${logPrefix}${errorMessage} ` + __location);
+            return this.client_error(errorMessage, __location);
         }
 
-        quoteResult = quoteResult.data;
-
-        this.log += `--------======= Quote response =======--------<br><br>`;
-        this.log += `<pre>${htmlentities.encode(JSON.stringify(quoteResult, null, 4))}</pre><br><br>`;
+        quoteResult = quoteResult?.data;
+        this.logResponse('Quote', quoteResult);
 
         if (`${quoteResult.Status}` !== "200") {
             errorMessage = `Returned status ${quoteResult.Status}: ${quoteResult.StatusDescription}. `;
@@ -494,24 +511,37 @@ module.exports = class BtisWC extends Integration {
             }
         });
 
-        if (quoteResult.Error) {
+        // store line items in quote additional info, if they exist
+        const lineItems = quote?.CarrierResponse?.quote?.results?.line_items?.WC;
+        if (lineItems) {
+            this.additionalInfo = {lineItems: []};
+            lineItems.forEach(item => this.additionalInfo.lineItems.push(item));
+        }
+
+        if (quoteResult?.Error) {
             this.reasons.push(quoteResult.Error);
         }
 
-        if (quoteResult.Response.Message) {
+        if (quoteResult?.Response?.Message) {
             this.reasons.push(quoteResult.Response.Message);
         }
 
-        if (quote.Errors) {
-            if (Array.isArray(quote.Errors)) {
-                quote.Errors.forEach(error => this.reasons.push(error));
+        if (!quote?.CarrierResponse) {
+            if (Array.isArray(quote?.Error)) {
+                errorMessage = `BTIS returned the following error(s): `;
+                quote.Error.forEach(error => errorMessage += ` ${error}.`);
             }
             else {
-                this.reasons.push(quote.Errors);
+                errorMessage = `No submission status was returned, but no errors were reported by BTIS. `;
             }
+            log.error(`${logPrefix}${errorMessage}` + __location);
+            return this.client_error(errorMessage, __location);
+        }
+        else if (Array.isArray(quote?.Errors)) {
+            quote.Errors.forEach(error => this.reasons.push(error));
         }
 
-        // TODO: Figure out all Submission Status'
+        // Currently, BTIS only returns a quoted submission status
         switch (quote?.CarrierResponse?.SubmissionStatus) {
             case "Quoted":
                 if (premium) {
@@ -523,7 +553,25 @@ module.exports = class BtisWC extends Integration {
             default:
                 errorMessage = `Unhandled submission status ${quote?.CarrierResponse?.SubmissionStatus} was returned. `;
                 log.error(`${logPrefix}${errorMessage}` + __location);
+                // even if we got an unknown status, if premium was returned, return as quoted
+                if (premium) {
+                    return this.client_quoted(quoteNumber, [], premium, null, null, quoteCoverages);
+                }
+                // else return an error
                 return this.client_error(errorMessage, __location);
         }
     }
- }
+
+    logRequest(header, url, method, data = {}) {
+        this.log += `--------======= Sending ${header} =======--------<br><br>`;
+        this.log += `URL: ${url} - ${method}<br><br>`;
+        if (method.toUpperCase() !== 'GET') {
+            this.log += `<pre>${htmlentities.encode(JSON.stringify(data, null, 4))}</pre><br><br>`;
+        }
+    }
+
+    logResponse(header, data) {
+        this.log += `--------======= ${header} Response =======--------<br><br>`;
+        this.log += `<pre>${htmlentities.encode(JSON.stringify(data, null, 4))}</pre><br><br>`;
+    }
+}
