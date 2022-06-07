@@ -28,6 +28,7 @@ const QuestionSchema = new Schema({
     typeDesc: {type: String, required: false},
     sub_level: {type: Number, required: false},
     text: {type: String, required: false},
+    description: {type: String, required: false},
     hint: {type: String, required: false},
     hidden: {type: Boolean, default: false},
     acordQuestion: {type: Boolean, default: false},
