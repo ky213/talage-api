@@ -170,7 +170,7 @@ async function notifyUsersOfApplicationNote(applicationDoc, applicationNotes){
         agencyNetworkDB = await agencyNetworkBO.getById(agencyNetworkId)
     }
     catch(err){
-        log.error("Error getting agency Network details " + err + __location);
+        log.error("Error getting agency Network details. Notification was not sent. " + err + __location);
         return false;
     }
 
@@ -195,20 +195,33 @@ async function notifyUsersOfApplicationNote(applicationDoc, applicationNotes){
         return false
     }
 
-    //find the subscribers to this agency
+    //find the users of the Agency
     let agencyPortalUsersList = [];
-    let agencyNotificationsList = [];
     const agencyPortalUserBO = new AgencyPortalUserBO();
     try{
-        agencyPortalUsersList = await agencyPortalUserBO.getList({'agencyNotificationList' : {$in : [agencyId]}});
+        agencyPortalUsersList = await agencyPortalUserBO.getList({'agencyId' : agencyId});
     }
     catch(err){
-        log.error("Error getting agencyNotifications List " + err + __location);
+        log.error("Error getting agency Portal Users List " + err + __location);
+        return false
+    }
+
+    // extract the emails of the agency users list
+    let agencyPortalUsersEmails = agencyPortalUsersList.map(e => e.email);
+
+    //find the subscribers to this agency
+    let agencyNotificationsList = [];
+    let agencySubscribersList = [];
+    try{
+        agencySubscribersList = await agencyPortalUserBO.getList({'agencyNotificationList' : {$in : [agencyId]}});
+    }
+    catch(err){
+        log.error("Error getting agency Subscribers List " + err + __location);
         return false
     }
 
     // filter list further to ensure agency subscription only belongs to Agency Network Id
-    const filteredAgencyNotificationsList = agencyPortalUsersList.filter(e => e.agencyNetworkId === agencyNetworkId);
+    const filteredAgencyNotificationsList = agencySubscribersList.filter(e => e.agencyNetworkId === agencyNetworkId);
 
     if(!filteredAgencyNotificationsList) {
         log.error(`No availble Agency Network Emails to send to for appId: ${applicationDoc.Id} ` + __location);
@@ -219,7 +232,7 @@ async function notifyUsersOfApplicationNote(applicationDoc, applicationNotes){
     }
 
 
-    //find the current user who submitted the application note
+    // find the current user name for {{AP User Name}}
     let currentUserName = '';
     if(applicationNotes[0] && applicationNotes[0].agencyPortalCreatedUser){
         let currentUserList = {};
@@ -229,7 +242,7 @@ async function notifyUsersOfApplicationNote(applicationDoc, applicationNotes){
         }
         try{
             currentUserList = await agencyPortalUserBO.getList(userQueryJSON);
-            if(currentUserList){
+            if(currentUserList[0]){
                 currentUserName = currentUserList[0].firstName === '' || currentUserList[0].firstName === null ? '' : currentUserList[0].firstName;
                 currentUserName += ' ' + currentUserList[0].lastName === '' || currentUserList[0].lastName === null ? '' : currentUserList[0].lastName;
             }
@@ -239,27 +252,13 @@ async function notifyUsersOfApplicationNote(applicationDoc, applicationNotes){
         }
     }
 
-    //get the application agency based on location used in the application
-    const agencyLocationBO = new AgencyLocationBO();
-    let agencyLocationJSON = null;
-    try{
-        agencyLocationJSON = await agencyLocationBO.getById(agencyLocationId)
-    }
-    catch(err){
-        log.error("Error getting agencyLocationBO " + err + __location);
-        return false
+    //add the Agency Network main email, ensure it is valid.
+    if(agencyNetworkDB.email){
+        agencyNotificationsList.push(agencyNetworkDB.email)
     }
 
-    // add the applications user into the email list
-    if(agencyLocationJSON.email){
-        agencyNotificationsList.push(agencyLocationJSON.email)
-    }
-    else if(agencyJSON.email){
-        agencyNotificationsList.push(agencyJSON.email);
-    }
-
-    // convert arrays to array of strings
-    const combinedUsersEmailToSend = JSON.stringify(agencyNotificationsList);
+    // concat agency users and agency network subscribers convert arrays to array of strings
+    const combinedUsersEmailToSend = JSON.stringify(agencyNotificationsList.concat(agencyPortalUsersEmails));
 
     let industryCodeDesc = '';
     const industryCodeBO = new IndustryCodeBO();
