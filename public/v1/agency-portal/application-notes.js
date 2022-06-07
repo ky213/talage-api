@@ -6,7 +6,6 @@ const ApplicationBO = global.requireShared('models/Application-BO.js');
 const ApplicationNotesBO = global.requireShared('models/ApplicationNotes-BO.js');
 const AgencyBO = global.requireShared('models/Agency-BO.js');
 const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
-const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
 const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
 const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
 const emailTemplateProceSvc = global.requireShared('./services/emailtemplatesvc.js');
@@ -207,7 +206,7 @@ async function notifyUsersOfApplicationNote(applicationDoc, applicationNotes){
     }
 
     // extract the emails of the agency users list
-    let agencyPortalUsersEmails = agencyPortalUsersList.map(e => e.email);
+    const agencyPortalUsersEmails = agencyPortalUsersList.map(e => e.email);
 
     //find the subscribers to this agency
     let agencyNotificationsList = [];
