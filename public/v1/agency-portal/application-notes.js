@@ -6,7 +6,6 @@ const ApplicationBO = global.requireShared('models/Application-BO.js');
 const ApplicationNotesBO = global.requireShared('models/ApplicationNotes-BO.js');
 const AgencyBO = global.requireShared('models/Agency-BO.js');
 const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
-const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
 const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
 const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
 const emailTemplateProceSvc = global.requireShared('./services/emailtemplatesvc.js');
@@ -109,7 +108,7 @@ async function createApplicationNote(req, res, next){
         const appNotes = await applicationNotesBO.getByApplicationId(req.body.applicationId);
         res.send(200, {applicationNotes: appNotes});
         // call the send-email routine here
-        await notifyUsersOfApplicationNote(applicationDB, appNotes);
+        await notifyUsersOfApplicationNote(applicationDB, appNotes, userId);
 
         return next();
 
@@ -136,15 +135,41 @@ async function notifyUsersOfApplicationNote(applicationDoc, applicationNotes){
         return false
     }
 
-    //get email content.
-    const agencyNetworkId = applicationDoc.agencyNetworkId;
+    let errorType = ''
+    // parseInt all to be used Ids to ensure its not undefined or null
+    const agencyNetworkId = parseInt(applicationDoc.agencyNetworkId,10);
+    if(!agencyNetworkId) {
+        errorType = 'Agency Network Id';
+    }
+
+    const agencyId = parseInt(applicationDoc.agencyId,10);
+    if(!agencyId) {
+        errorType = 'Agency Id';
+    }
+
+    const agencyLocationId = parseInt(applicationDoc.agencyLocationId,10);
+    if(!agencyLocationId) {
+        errorType = 'Agency Location Id';
+    }
+
+    const industryCodeId = parseInt(applicationDoc.industryCode,10);
+    if(!industryCodeId) {
+        errorType = 'Industry Code Id';
+    }
+
+    if(errorType){
+        log.error(`Invalid ${errorType} for AppId: ${applicationDoc.Id}.  Notification was not sent. ` + __location);
+        return false;
+    }
+
+
     const agencyNetworkBO = new AgencyNetworkBO();
     let agencyNetworkDB = {}
     try{
         agencyNetworkDB = await agencyNetworkBO.getById(agencyNetworkId)
     }
     catch(err){
-        log.error("Error getting agencyBO " + err + __location);
+        log.error("Error getting agency Network details. Notification was not sent. " + err + __location);
         return false;
     }
 
@@ -152,59 +177,92 @@ async function notifyUsersOfApplicationNote(applicationDoc, applicationNotes){
     const agencyBO = new AgencyBO();
     let emailContentJSON = {};
     try{
-        emailContentJSON = await agencyBO.getEmailContentAgencyAndCustomer(applicationDoc.agencyId, "agency_portal_notes_notification", "policy_purchase_customer");
+        emailContentJSON = await agencyBO.getEmailContentAgencyAndCustomer(agencyId, "agency_portal_notes_notification", "policy_purchase_customer");
     }
     catch(err){
         log.error(`Unable to get email content for application Notes notification on agency. appid: ${applicationDoc.applicationId}.  error: ${err}` + __location);
         return false
     }
 
-    //get AgencyBO
+
     let agencyJSON = {};
     try{
-        agencyJSON = await agencyBO.getById(applicationDoc.agencyId)
+        agencyJSON = await agencyBO.getById(agencyId)
     }
     catch(err){
-        log.error("Error getting agencyBO " + err + __location);
+        log.error(`Invalid Agency Id for appid: ${applicationDoc.applicationId}. ` + err + __location);
         return false
     }
 
-    //find the subscribers to this agency
-    let agencyNotificationList = []
+    //find the users of the Agency
+    let agencyPortalUsersList = [];
     const agencyPortalUserBO = new AgencyPortalUserBO();
     try{
-        agencyNotificationList = await agencyPortalUserBO.getList({'agencyNotificationList' : {$in : [applicationDoc.agencyId]}});
+        agencyPortalUsersList = await agencyPortalUserBO.getList({'agencyId' : agencyId});
     }
     catch(err){
-        log.error("Error getting agencyNotifications List " + err + __location);
+        log.error("Error getting agency Portal Users List " + err + __location);
         return false
     }
 
-    //get AgencyLocationBO
-    const agencyLocationBO = new AgencyLocationBO();
-    let agencyLocationJSON = null;
+    // extract the emails of the agency users list
+    const agencyPortalUsersEmails = agencyPortalUsersList.map(e => e.email);
+
+    //find the subscribers to this agency
+    let agencyNotificationsList = [];
+    let agencySubscribersList = [];
     try{
-        agencyLocationJSON = await agencyLocationBO.getById(applicationDoc.agencyLocationId)
+        agencySubscribersList = await agencyPortalUserBO.getList({'agencyNotificationList' : {$in : [agencyId]}});
     }
     catch(err){
-        log.error("Error getting agencyLocationBO " + err + __location);
+        log.error("Error getting agency Subscribers List " + err + __location);
         return false
     }
 
-    let agencyLocationEmail = agencyNotificationList.map(e => e.email);
-    //decrypt info...
-    if(agencyLocationJSON.email){
-        agencyLocationEmail.push(agencyLocationJSON.email)
+    // filter list further to ensure agency subscription only belongs to Agency Network Id
+    const filteredAgencyNotificationsList = agencySubscribersList.filter(e => e.agencyNetworkId === agencyNetworkId);
+
+    if(!filteredAgencyNotificationsList) {
+        log.error(`No availble Agency Network Emails to send to for appId: ${applicationDoc.Id} ` + __location);
     }
-    else if(agencyJSON.email){
-        agencyLocationEmail.push(agencyJSON.email);
+    else {
+        // extract the emails only from the filtered list
+        agencyNotificationsList = filteredAgencyNotificationsList.map(e => e.email);
     }
-    agencyLocationEmail = JSON.stringify(agencyLocationEmail);
+
+
+    // find the current user name for {{AP User Name}}
+    let currentUserName = '';
+    if(applicationNotes[0] && applicationNotes[0].agencyPortalCreatedUser){
+        let currentUserList = {};
+        const userQueryJSON = {
+            'email' : applicationNotes[0].agencyPortalCreatedUser,
+            'agencyNetworkId' : agencyNetworkId
+        }
+        try{
+            currentUserList = await agencyPortalUserBO.getList(userQueryJSON);
+            if(currentUserList[0]){
+                currentUserName = currentUserList[0].firstName === '' || currentUserList[0].firstName === null ? '' : currentUserList[0].firstName;
+                currentUserName += ' ' + currentUserList[0].lastName === '' || currentUserList[0].lastName === null ? '' : currentUserList[0].lastName;
+            }
+        }
+        catch(err){
+            log.error(`Error retrieving current user info on appId: ${applicationDoc.Id} ` + err + __location);
+        }
+    }
+
+    //add the Agency Network main email, ensure it is valid.
+    if(agencyNetworkDB.email){
+        agencyNotificationsList.push(agencyNetworkDB.email)
+    }
+
+    // concat agency users and agency network subscribers convert arrays to array of strings
+    const combinedUsersEmailToSend = JSON.stringify(agencyNotificationsList.concat(agencyPortalUsersEmails));
 
     let industryCodeDesc = '';
     const industryCodeBO = new IndustryCodeBO();
     try{
-        const industryCodeJson = await industryCodeBO.getById(applicationDoc.industryCode);
+        const industryCodeJson = await industryCodeBO.getById(industryCodeId);
         if(industryCodeJson){
             industryCodeDesc = industryCodeJson.description;
         }
@@ -220,48 +278,45 @@ async function notifyUsersOfApplicationNote(applicationDoc, applicationNotes){
     const content2 = contentx.content.map(e => e.content.map(x => x.text));
     const content3 = flattenDeep(content2);
 
-    // TO AGENCY
-    if(agencyNetworkDB.featureJson.quoteEmailsAgency){
-        message = message.replace(/{{Business Name}}/g, applicationDoc.businessName);
-        message = message.replace(/{{AP User Email}}/g, applicationNotes[0].agencyPortalCreatedUser);
-        message = message.replace(/\n/g, '<br>');
-        message = message.replace(/{{AP User Name}} or /g, '');
-        message = message.replace(/{{Industry}}/g, industryCodeDesc);
-        message = message.replace(/{{Brand}}/g, emailContentJSON.emailBrand);
-        message = message.replace(/{{Agency}}/g, agencyJSON.name);
-        message = message.replace(/{{apNotesContent}}/g, content3.join('<br><br>'));
+    message = message.replace(/{{Business Name}}/g, applicationDoc.businessName);
+    message = message.replace(/{{AP User Email}}/g, applicationNotes[0].agencyPortalCreatedUser);
+    message = message.replace(/\n/g, '<br>');
+    message = message.replace(/{{AP User Name}}/g, currentUserName);
+    message = message.replace(/{{Industry}}/g, industryCodeDesc);
+    message = message.replace(/{{Brand}}/g, emailContentJSON.emailBrand);
+    message = message.replace(/{{Agency}}/g, agencyJSON.name);
+    message = message.replace(/{{apNotesContent}}/g, content3.join('<br><br>'));
 
-        subject = subject.replace(/{{Business Name}}/g, applicationDoc.businessName);
+    subject = subject.replace(/{{Business Name}}/g, applicationDoc.businessName);
 
-        const messageUpdate = await emailTemplateProceSvc.applinkProcessor(applicationDoc, agencyNetworkDB, message)
-        if(messageUpdate){
-            message = messageUpdate
+    const messageUpdate = await emailTemplateProceSvc.applinkProcessor(applicationDoc, agencyNetworkDB, message)
+    if(messageUpdate){
+        message = messageUpdate
+    }
+
+    // update the policy type
+    const updatedEmailObject = await emailTemplateProceSvc.policyTypeProcessor(applicationDoc, '', message, subject)
+    if(updatedEmailObject.message){
+        message = updatedEmailObject.message
+    }
+    if(updatedEmailObject.subject){
+        subject = updatedEmailObject.subject
+    }
+
+    // Software hook
+    const branding = "Networkdefault";
+
+    log.debug('Consolidated Email addresses to notify ->> ' + combinedUsersEmailToSend);
+
+    // Send the email with a final check on the list
+    if (combinedUsersEmailToSend) {
+        const emailResp = await emailSvc.send(combinedUsersEmailToSend, subject, message, keyData, agencyNetworkId, branding);
+        if (emailResp === false) {
+            slack.send('#alerts', 'warning', `The system failed to inform an agency of the latest application Notes in application ID ${applicationDoc.applicationId}. Please follow-up manually.`);
         }
-
-        // update the policy type
-        const updatedEmailObject = await emailTemplateProceSvc.policyTypeProcessor(applicationDoc, '', message, subject)
-        if(updatedEmailObject.message){
-            message = updatedEmailObject.message
-        }
-        if(updatedEmailObject.subject){
-            subject = updatedEmailObject.subject
-        }
-
-        // Software hook
-        const branding = "Networkdefault";
-
-        log.debug('Consolidated Email addresses to notify ->> ' + agencyLocationEmail);
-
-        // Send the email
-        if (agencyLocationEmail) {
-            const emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData, agencyNetworkId, branding);
-            if (emailResp === false) {
-                slack.send('#alerts', 'warning', `The system failed to inform an agency of the latest application Notes in application ID ${applicationDoc.applicationId}. Please follow-up manually.`);
-            }
-        }
-        else {
-            log.error(`Application Notes notification has no email address for appId: ${applicationDoc.applicationId} ` + __location);
-        }
+    }
+    else {
+        log.error(`Application Notes notification has no email address for appId: ${applicationDoc.applicationId} ` + __location);
     }
     return true;
 }
