@@ -523,8 +523,6 @@ module.exports = class AcuityBOP extends Integration {
         // </Limit>
         // </CommlCoverage>
 
-
-
         // <CommlCoverage>
         CommlCoverage = LiabilityInfo.ele('CommlCoverage');
         CommlCoverage.ele('CoverageCd', 'PRDCO');
