@@ -265,6 +265,11 @@ const PricingInfoSchema = new Schema({
     pricingError: {type: Boolean, default: false}
 },opts);
 
+const InsurerSelectionSchema = new Schema({
+    policyTypeCd: {type: String},
+    insurerIdList: [Number]
+},opts);
+
 
 const amsInfoSchema = new Schema({
     amsType: {type: String, required: false},
@@ -356,6 +361,7 @@ const ApplicationSchema = new Schema({
     tagString: {type: String, required: false},
     lastPage: {type: String, required: false},
     amsInfo:{type: amsInfoSchema, required: false},
+    insurerList: [InsurerSelectionSchema],
     active: {type: Boolean, default: true}
 }, opts);
 // NOTE:  EIN is not ever saved to database.
