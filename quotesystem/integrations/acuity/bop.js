@@ -523,15 +523,6 @@ module.exports = class AcuityBOP extends Integration {
         // </Limit>
         // </CommlCoverage>
 
-        // Deductible
-        const deductible = this.policy.deductible ? this.policy.deductible : 0
-
-        // /CommlCoverage/Deductible/DeductibleAppliesToCd
-        // /CommlCoverage/Deductible/FormatInteger
-        // /CommlCoverage/Deductible/FormatPct
-        const DeductibleAgg = CommlCoverage.ele('Deductible');
-        DeductibleAgg.ele('FormatInteger', deductible);
-
         // <CommlCoverage>
         CommlCoverage = LiabilityInfo.ele('CommlCoverage');
         CommlCoverage.ele('CoverageCd', 'PRDCO');
@@ -618,6 +609,8 @@ module.exports = class AcuityBOP extends Integration {
             'AcuityBOPDistanceHydrant'
         ]
 
+        // Deductible
+        const deductible = this.policy.deductible ? this.policy.deductible : 0
 
         appDoc.locations.forEach((location, index) => {
             // <CommlCoverage>
