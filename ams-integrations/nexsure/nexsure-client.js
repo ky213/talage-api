@@ -618,7 +618,7 @@ async function createClientFromAppDoc(agencyId, appDoc, quoteDoc){
                 "LastName": {"$t": `${primaryContact.lastName ? primaryContact.lastName : " unkn"}`},
                 "Phone": [
                     {
-                        "PhoneNumber": {"$t": `${primaryContact.phone ? primaryContact.phone : " unkn"}`},
+                        "PhoneNumber": {"$t": `${primaryContact.phone ? primaryContact.phone.replace(/[^0-9]/ig, '') : " unkn"}`},
                         "Description": {"$t": "Cell Phone"},
                         "IsPrimaryPhone": {"$t": "true"},
                         "PhoneType": {"$t": "Cell"}
