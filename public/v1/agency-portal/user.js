@@ -199,7 +199,11 @@ async function createUser(req, res, next) {
             throw new Error('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
         }
 
-        if (existingDoc) {
+        if (existingDoc && existingDoc.agencyId === agencyId) {
+            log.warn(`agencyPortalUser: User with this email already exists.` + __location);
+            return next(new Error('A user with this email already exists.'));
+        }
+        else if (existingDoc) {
             existingDoc.agencyId = newUserJSON.agencyId;
             existingDoc.active = true;
             existingDoc.firstName = newUserJSON.firstName;
