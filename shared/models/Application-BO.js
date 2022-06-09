@@ -2286,6 +2286,43 @@ module.exports = class ApplicationModel {
             log.error(`AppBO GetQuestions - Incomplete Application: Missing AgencyLocation for ${applicationDocDB.uuid} . throwing error` + __location)
             throw new Error("Incomplete Application: Missing AgencyLocation")
         }
+        //insurerList check
+        if(applicationDocDB.insurerList?.length > 0){
+            //Agency Network have ghost policy check enabled.
+            const agencyNetworkBO = new AgencyNetworkBO();
+            const agencyNetworkJson = await agencyNetworkBO.getById(applicationDocDB.agencyNetworkId);
+            if(agencyNetworkJson?.featureJson?.enableInsurerSelection === true){
+                for(const insurerListPT of applicationDocDB.insurerList){
+                    const policyTypeJSON = policyTypeJsonList.find((pt) => pt.type === insurerListPT.policyTypeCd.toUpperCase());
+                    if(policyTypeJSON && insurerListPT.insurerIdList?.length > 0){
+                        const newInsurerIdList = [];
+                        for(const insurerId of insurerListPT.insurerIdList){
+                            //make sure the agencylocation is setup for insurer and the list is not complete BS.
+                            if(insurerListPT.insurerIdList.indexOf(insurerId) > -1){
+                                newInsurerIdList.push(insurerId)
+                            }
+                        }
+                        //have to get a hit, or List was BS ignore it.
+                        if(newInsurerIdList.length > 0){
+                            policyTypeJSON.insurerIdList = newInsurerIdList
+                        }
+                        else {
+                            log.debug(`AppBO GetQuestions no insurer added to new list ${JSON.stringify(insurerListPT)}`)
+                        }
+
+                    }
+                    else {
+                        log.debug(`AppBO GetQuestions no policy for ${insurerListPT.policyTypeCd.toUpperCase()} or insurerList ${insurerListPT.insurerIdList}`)
+                    }
+                }
+            }
+            else {
+                log.debug(`AppBO GetQuestions enableInsurerSelection === false`)
+            }
+        }
+        else {
+            log.debug(`AppBO GetQuestions no InsurerList - ${applicationDocDB.insurerList?.length} -  ${JSON.stringify(applicationDocDB.insurerList)}`)
+        }
 
         // Ghost Policy check
         if(insurerIdArray.length > 0){
@@ -2312,6 +2349,8 @@ module.exports = class ApplicationModel {
             throw new Error('An error occured while retrieving application questions. ' + err);
         }
         questionsObject.questionList = getQuestionsResult
+
+        log.debug(`AppBo.getQuestions count ${questionsObject.questionList?.length} \n ${JSON.stringify(getQuestionsResult)} \n`)
 
         return questionsObject;
 
