@@ -104,6 +104,7 @@ const featureSchema = new Schema({
     enableTieredQuoting: {type: Boolean, required: true, default: false},
     enableTieredQuotingAgencyLevel: {type: Boolean, required: true, default: false},
     premiumReportGraphs: {type: Boolean, required: true, default: false},
+    enableInsurerSelection: {type: Boolean, required: true, default: true},
     policyEffectiveDateThresholds:
     {
         type: policyEffectiveDateThresholdsSchema,
