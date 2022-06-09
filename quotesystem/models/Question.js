@@ -180,8 +180,8 @@ module.exports = class Question{
 
             // Loop through each answer and make sure they are what we are expecting
             for (const answer_id of answerArray) {
-                // If the answer wasn't numeric, it is wrong
-                if (!this.parent && typeof answer_id !== 'number') {
+                // If the answer wasn't numeric, it is wrong. to can be blank - not answered for checkboxes
+                if (!this.parent && answer_id && typeof answer_id !== 'number') {
                     const errorMessage = `AppId ${this.applicationId} Invalid answer provided - non number -  for Question ${this.id}. (${htmlentities.decode(this.text)}) answer_id ${answer_id} typeof answer_id ${typeof answer_id}`
                     log.error(errorMessage + __location);
                     //logging in calling method.
