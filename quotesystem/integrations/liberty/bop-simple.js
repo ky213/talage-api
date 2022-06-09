@@ -568,7 +568,7 @@ module.exports = class LibertySBOP extends Integration {
         const insurerQuoteProposalId = get(policy, ["PolicyExt", "0", "com.libertymutual.ci_QuoteProposalId"])
 
         if (!insurerQuoteProposalId) {
-            log.error(`${logPrefix}Quote ID for retrieving quote proposal not provided, or result structure has changed. ` + __location);
+            log.warn(`${logPrefix}Quote ID for retrieving quote proposal not provided, or result structure has changed. ` + __location);
         }
         else {
             quoteProposalId = insurerQuoteProposalId;
