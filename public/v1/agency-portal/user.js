@@ -78,6 +78,7 @@ async function validate(user) {
  */
 async function createUser(req, res, next) {
     let error = false;
+    let userSaved = false;
 
     // Check that at least some post parameters were received
     if (!req.body || typeof req.body !== 'object' || Object.keys(req.body).length === 0) {
@@ -198,16 +199,34 @@ async function createUser(req, res, next) {
             throw new Error('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
         }
 
-        if (existingDoc) {
+        if (existingDoc && existingDoc.agencyId === agencyId) {
             log.warn(`agencyPortalUser: User with this email already exists.` + __location);
             return next(new Error('A user with this email already exists.'));
         }
+        else if (existingDoc) {
+            existingDoc.agencyId = newUserJSON.agencyId;
+            existingDoc.active = true;
+            existingDoc.firstName = newUserJSON.firstName;
+            existingDoc.lastName = newUserJSON.lastName;
+            existingDoc.password = newUserJSON.password;
+            existingDoc.phone = newUserJSON.phone;
+            existingDoc.isAgencyNetworkUser = newUserJSON.isAgencyNetworkUser;
+            existingDoc.canSign = newUserJSON.canSign;
+
+            await agencyPortalUserBO.saveModel(existingDoc).catch(function(err){
+                log.error('agencyPortalUser error ' + err + __location);
+                throw new Error('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
+            });
+            userSaved = true;
+        }
     }
 
-    await agencyPortalUserBO.saveModel(newUserJSON).catch(function(err){
-        log.error('agencyPortalUser error ' + err + __location);
-        throw new Error('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
-    });
+    if(!userSaved) {
+        await agencyPortalUserBO.saveModel(newUserJSON).catch(function(err){
+            log.error('agencyPortalUser error ' + err + __location);
+            throw new Error('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
+        });
+    }
     if (error) {
         return next(error);
     }
