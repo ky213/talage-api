@@ -6,7 +6,7 @@ const QuoteBO = global.requireShared('./models/Quote-BO.js');
 
 
 function shouldProcessInsurer(insurerId, policyTypeCd, appDoc, agencyNetworkJson){
-    let resp  = true
+    let resp = true
     log.info(`AppId:${appDoc.applicationId} shouldProcessInsurer: ${insurerId} ${policyTypeCd} CHECKING `)
     if(appDoc.insurerList?.length > 0 && agencyNetworkJson?.featureJson?.enableInsurerSelection === true){
         const insurerListPT = appDoc.insurerList.find((ilPt) => ilPt.policyTypeCd === policyTypeCd);
