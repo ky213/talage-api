@@ -233,11 +233,11 @@ module.exports = class ACORD{
         if(this.policyObj){
             //Check if the effective date was acutally set, if it was add it
             if(this.policyObj.effectiveDate !== '0000-00-00'){
-                pdfDataFieldsObj.Policy_EffectiveDate_A = moment(this.policyObj.effectiveDate).format('L');
+                pdfDataFieldsObj.Policy_EffectiveDate_A = moment(this.policyObj.effectiveDate).format('L').substring(0,10);
             }
 
             if(this.policyObj.expirationDate !== '0000-00-00'){
-                pdfDataFieldsObj.Policy_ExpirationDate_A = moment(this.policyObj.expirationDate).format('L');
+                pdfDataFieldsObj.Policy_ExpirationDate_A = moment(this.policyObj.expirationDate).format('L').substring(0,10);
             }
         }
 
@@ -302,7 +302,7 @@ module.exports = class ACORD{
 
             //Check if the effective date was acutally set, if it was add it
             if(this.policyObj.effectiveDate !== '0000-00-00'){
-                pdfDataFieldsObj.Policy_EffectiveDate_A = moment(this.policyObj.effectiveDate).format('L');
+                pdfDataFieldsObj.Policy_EffectiveDate_A = moment(this.policyObj.effectiveDate).format('L').substring(0,10);
             }
         }
 
@@ -349,7 +349,7 @@ module.exports = class ACORD{
 
         if(this.policyObj){
             if(this.policyObj.effectiveDate !== '0000-00-00'){
-                pdfDataFieldsObj.Policy_EffectiveDate_A = moment(this.policyObj.effectiveDate).format('L');
+                pdfDataFieldsObj.Policy_EffectiveDate_A = moment(this.policyObj.effectiveDate).format('L').substring(0,10);
             }
         }
 
