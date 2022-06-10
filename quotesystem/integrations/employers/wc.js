@@ -174,7 +174,9 @@
                      primaryContact = appDoc.contacts.find(contact => contact.primary === true);
                  }
                  if (!primaryContact) {
-                     throw new Error(`Could not find primary contact`)
+                    primaryContact = appDoc.contacts[0];
+                    log.warn(`${logPrefix}Could not find primary contact ${JSON.stringify(appDoc.contacts)}` + __location);
+                    //throw new Error(`Could not find primary contact`)
                  }
 
                  const applicantContact = {"email": primaryContact.email};
@@ -188,8 +190,14 @@
                      applicantContact.phoneNumber = formattedPhone;
                      billingContact.phoneNumber = formattedPhone;
                  }
+                 else if (global.settings.ENV === "demo") {
+                    applicantContact.phoneNumber = "833-482-5243";
+                    billingContact.phoneNumber = "833-482-5243";
+                    log.error(`${logPrefix}Cannot fully construct address information. Some fields missing: phone ${JSON.stringify(primaryContact)}` + __location);
+                 }
                  else {
-                     throw new Error('Primary Contact Phone Number is blank or not valid');
+                    log.error(`${logPrefix}Cannot fully construct address information. Some fields missing: phone ${JSON.stringify(primaryContact)}` + __location);
+                    throw new Error('Primary Contact or Quoting Agency Phone Number is blank or not valid');
                  }
 
                  if (formattedAgencyPhone) {
