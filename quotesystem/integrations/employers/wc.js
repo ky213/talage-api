@@ -36,14 +36,24 @@
       * @returns {string} - Phone number in the form: "###-###-####"
       */
      formatPhoneForEmployers(phone) {
-         if (!phone || typeof phone !== 'string') {
-             log.warn(`Employers WC App ID: ${this.app.id}: Bad phone number format: "${phone}" ` + __location);
+        if(phone){
+            log.warn(`Employers WC App ID: ${this.app.id}: Bad phone number - No phone number ` + __location);
+            return '';
+        }
+        if(typeof phone === 'number'){
+            log.warn(`Employers WC App ID: ${this.app.id}: Bad phone number - Number not String - Converting - ${phone} ` + __location);
+            phone = phone.toString()
+        }
+
+        if (typeof phone !== 'string') {
+             log.warn(`Employers WC App ID: ${this.app.id}: Bad phone number format not string: "${phone}" ` + __location);
              return '';
          }
          const phoneDigits = phone.trim().replace(/\D/g, '');
          if (phoneDigits.length !== 10) {
              log.error(`Employers WC App ID: ${this.app.id}, Incorrect number of digits in phone number: ${phone} ` + __location);
-             return '';
+             //send back what we got, do not stop quoting over this.
+             return phone;
          }
          const newPhone = [];
          newPhone.push(phoneDigits.slice(0,3));
@@ -174,7 +184,9 @@
                      primaryContact = appDoc.contacts.find(contact => contact.primary === true);
                  }
                  if (!primaryContact) {
-                     throw new Error(`Could not find primary contact`)
+                    primaryContact = appDoc.contacts[0];
+                    log.warn(`${logPrefix}Could not find primary contact ${JSON.stringify(appDoc.contacts)}` + __location);
+                    //throw new Error(`Could not find primary contact`)
                  }
 
                  const applicantContact = {"email": primaryContact.email};
@@ -188,8 +200,14 @@
                      applicantContact.phoneNumber = formattedPhone;
                      billingContact.phoneNumber = formattedPhone;
                  }
+                 else if (global.settings.ENV === "demo") {
+                    applicantContact.phoneNumber = "833-482-5243";
+                    billingContact.phoneNumber = "833-482-5243";
+                    log.error(`${logPrefix}Cannot fully construct address information. Some fields missing: phone ${JSON.stringify(primaryContact)}` + __location);
+                 }
                  else {
-                     throw new Error('Primary Contact Phone Number is blank or not valid');
+                    log.error(`${logPrefix}Cannot fully construct address information. Some fields missing: phone ${JSON.stringify(primaryContact)}` + __location);
+                    throw new Error('Primary Contact or Quoting Agency Phone Number is blank or not valid');
                  }
 
                  if (formattedAgencyPhone) {
