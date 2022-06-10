@@ -3176,6 +3176,12 @@ module.exports = class ApplicationModel {
                 throw new Error(`checkAppetite appId ${applicationId} bad agencyLocationid ${appDoc.agencyLocationId} `)
             }
 
+            let agencyNetworkJson = {};
+            if(appDoc.insurerList?.length > 0){
+                const agencyNetworkBO = new AgencyNetworkBO();
+                agencyNetworkJson = await agencyNetworkBO.getById(appDoc.agencyNetworkId);
+            }
+
             for(const policyType of policyTypeArray){
                 const insurerIdList = [];
                 for(const locInsurer of agencylocationJSON.insurers){
@@ -3183,7 +3189,22 @@ module.exports = class ApplicationModel {
                         if(Object.hasOwnProperty.call(locInsurer.policyTypeInfo, policyType.type)){
                             const policyTypeInfo = locInsurer.policyTypeInfo[policyType.type]
                             if(policyTypeInfo.enabled === true){
-                                insurerIdList.push(locInsurer.insurerId)
+                                let addInsurer = true;
+                                if(appDoc.insurerList?.length > 0){
+                                    if(agencyNetworkJson?.featureJson?.enableInsurerSelection === true){
+                                        const insurerListPT = appDoc.insurerList.find((ilPt) => ilPt.policyTypeCd === policyType.type);
+                                        if(insurerListPT){
+                                            if(insurerListPT.insurerIdList?.length > 0){
+                                                if(insurerListPT.insurerIdList.indexOf(locInsurer.insurerId) === -1){
+                                                    addInsurer = false
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                if(addInsurer){
+                                    insurerIdList.push(locInsurer.insurerId)
+                                }
                             }
                         }
                     }
