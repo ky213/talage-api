@@ -10,7 +10,7 @@ const Integration = require('../Integration.js');
 const InsurerBO = global.requireShared('./models/Insurer-BO.js');
 global.requireShared('./helpers/tracker.js');
 const {convertToDollarFormat} = global.requireShared('./helpers/stringFunctions.js');
-const {get} = require("lodash")
+
 
 module.exports = class AcuityBOP extends Integration {
 
@@ -884,15 +884,17 @@ module.exports = class AcuityBOP extends Integration {
         const CompanysQuoteNumber = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.BOPPolicyQuoteInqRs.CommlPolicy.QuoteInfo.CompanysQuoteNumber');
         if (CompanysQuoteNumber) {
             quoteNumber = CompanysQuoteNumber[0];
+            //if we get it make sure it gets saved.
+            this.quoteNumber = quoteNumber
         }
         else {
             log.warn(`${logPrefix}Couldn't parse quote number` + __location);
         }
 
 
-        const webSiteLink = get(res.ACORD, "InsuranceSvcRs[0].BOPPolicyQuoteInqRs[0].FileAttachmentInfo[0].WebsiteURL.value");
-        if(webSiteLink){
-            this.quoteLink = webSiteLink
+        const insurerWeblink = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.BOPPolicyQuoteInqRs.FileAttachmentInfo.WebsiteURL');
+        if(insurerWeblink){
+            this.quoteLink = insurerWeblink
             log.debug(`Acuity BOP (appId ${this.app.id}) Setting weblink High for all status`)
         }
 
@@ -901,11 +903,17 @@ module.exports = class AcuityBOP extends Integration {
                 log.error(`Acuity BOP (appId ${this.app.id}): Reporting incomplete information for quoting.` + __location);
                 //look for reason to determine if declined or referred.
                 let reasonMessage = "incomplete information to quote";
-                const ExtendedStatusDesc = get(res.ACORD, "InsuranceSvcRs[0].BOPPolicyQuoteInqRs[0].MsgStatus.ExtendedStatus.ExtendedStatusDesc.value");
-                if(ExtendedStatusDesc){
-                    reasonMessage = ExtendedStatusDesc;
+                const ExtendedStatusDesc2 = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.BOPPolicyQuoteInqRs.MsgStatus.ExtendedStatus.ExtendedStatusDesc');
+                if(ExtendedStatusDesc2){
+                    reasonMessage = ExtendedStatusDesc2;
                 }
-                return this.client_declined(reasonMessage);
+                if(reasonMessage.indexOf(`processed via this channel`) > -1){
+                    this.reasons.push(reasonMessage);
+                    return this.client_referred(quoteNumber);
+                }
+                else {
+                    return this.client_declined(reasonMessage);
+                }
             case "com.acuity_BindableQuote":
             case "com.acuity_BindableModifiedQuote":
             case 'com.acuity_BindableReferredQuote':
