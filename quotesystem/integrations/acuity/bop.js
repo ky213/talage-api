@@ -10,6 +10,7 @@ const Integration = require('../Integration.js');
 const InsurerBO = global.requireShared('./models/Insurer-BO.js');
 global.requireShared('./helpers/tracker.js');
 const {convertToDollarFormat} = global.requireShared('./helpers/stringFunctions.js');
+const {get} = require("lodash")
 
 module.exports = class AcuityBOP extends Integration {
 
@@ -20,6 +21,7 @@ module.exports = class AcuityBOP extends Integration {
      */
     _insurer_init() {
         this.requiresInsurerIndustryCodes = true;
+        this.requiresProductPolicyTypeFilter = true;
     }
 
     /**
@@ -645,7 +647,8 @@ module.exports = class AcuityBOP extends Integration {
                 Deductible.ele('FormatInteger', deductible);
             }
             else {
-                log.error(`${logPrefix}: No Building Limit present on application`)
+                log.error(`${logPrefix}: No Building Limit present on application` + __location)
+                this.reasons.push(`No Building Limit present on application`)
             }
 
             // For assigning question elements in question loop
@@ -886,10 +889,23 @@ module.exports = class AcuityBOP extends Integration {
             log.warn(`${logPrefix}Couldn't parse quote number` + __location);
         }
 
+
+        const webSiteLink = get(res.ACORD, "InsuranceSvcRs[0].BOPPolicyQuoteInqRs[0].FileAttachmentInfo[0].WebsiteURL.value");
+        if(webSiteLink){
+            this.quoteLink = webSiteLink
+            log.debug(`Acuity BOP (appId ${this.app.id}) Setting weblink High for all status`)
+        }
+
         switch (policyStatusCode) {
             case 'com.acuity_Incomplete':
                 log.error(`Acuity BOP (appId ${this.app.id}): Reporting incomplete information for quoting.` + __location);
-                return this.client_declined("incomplete information to quote");
+                //look for reason to determine if declined or referred.
+                let reasonMessage = "incomplete information to quote";
+                const ExtendedStatusDesc = get(res.ACORD, "InsuranceSvcRs[0].BOPPolicyQuoteInqRs[0].MsgStatus.ExtendedStatus.ExtendedStatusDesc.value");
+                if(ExtendedStatusDesc){
+                    reasonMessage = ExtendedStatusDesc;
+                }
+                return this.client_declined(reasonMessage);
             case "com.acuity_BindableQuote":
             case "com.acuity_BindableModifiedQuote":
             case 'com.acuity_BindableReferredQuote':
