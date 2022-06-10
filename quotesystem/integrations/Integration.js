@@ -3148,10 +3148,10 @@ module.exports = class Integration {
                 expirationDate: {$gte: policyEffectiveDate},
                 active: true
             }
-            if (this.requiresProductPolicyTypeFilter && this.policyTypeFilter) {
+            if (this.requiresProductPolicyTypeFilter) {
                 // eslint-disable-next-line prefer-const
                 let orParamList = [];
-                const policyTypeCheck = {policyTypeList: this.policyTypeFilter};
+                const policyTypeCheck = {policyTypeList: this.policy.type};
                 //const policyTypeNullCheck = {policyTypeList: null}
                 const noPolicyTypeCheck = {'policyTypeList.0': {$exists: false}};
                 orParamList.push(policyTypeCheck)
@@ -3160,6 +3160,7 @@ module.exports = class Integration {
             }
             // eslint-disable-next-line prefer-const
             try{
+                log.debug(`integrations iic query ${JSON.stringify(industryQuery)}`)
                 const insurerIndustryCodeList = await InsurerIndustryCodeModel.find(industryQuery).lean()
                 if(insurerIndustryCodeList && insurerIndustryCodeList.length > 0){
                     const insurerIndustryCode = insurerIndustryCodeList[0];

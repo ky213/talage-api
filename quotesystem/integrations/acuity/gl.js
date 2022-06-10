@@ -19,6 +19,7 @@ module.exports = class AcuityGL extends Integration {
      */
     _insurer_init() {
         this.requiresInsurerIndustryCodes = true;
+        this.requiresProductPolicyTypeFilter = true;
     }
 
     /**
