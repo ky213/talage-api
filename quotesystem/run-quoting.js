@@ -35,7 +35,6 @@ function shouldProcessInsurer(insurerId, policyTypeCd, appDoc, agencyNetworkJson
 }
 
 
-
 /**
  * Begins the process of getting and returning quotes from insurers
  *
@@ -55,10 +54,10 @@ async function runPricing(appModel) {
     const price_promises = [];
 
 
-     // need Agency Network Doc for insurer Selection.
-     const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO');
-     const agencyNetworkBO = new AgencyNetworkBO();
-     const agencyNetworkDoc = await agencyNetworkBO.getById(appModel.applicationDocData.agencyNetworkId)
+    // need Agency Network Doc for insurer Selection.
+    const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO');
+    const agencyNetworkBO = new AgencyNetworkBO();
+    const agencyNetworkDoc = await agencyNetworkBO.getById(appModel.applicationDocData.agencyNetworkId)
 
     if(appModel.policies && appModel.policies.length === 0){
         log.error(`AppId ${appModel.applicationDocData.applicationId} No policies for Application ${appModel.id} ` + __location)
