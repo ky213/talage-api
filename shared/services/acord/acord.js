@@ -611,39 +611,40 @@ module.exports = class ACORD{
                 if(!insurerActivityCodeList?.length) {
                     log.info('No Insurer Activity Codes were found' + __location);
                 }
-
+                let insurerActivityCodeCounter = 0
+                let insurerActivityCodeObj = {}
                 for(const activity of location.activityPayrollList){
                     if(!activity.activityCodeId){
                         activity.activityCodeId = activity.ncciCode
                     }
-                    if(insurerActivityCodeList?.length){
-                        for(const insurerActivityCodeObj of insurerActivityCodeList){
-                            const currentLetter = String.fromCharCode(pdfKey);
-                            statePdfDataFieldsObj['WorkersCompensation_RateClass_LocationProducerIdentifier_' + currentLetter] = locationNumber;
-                            statePdfDataFieldsObj['WorkersCompensation_RateClass_ClassificationCode_' + currentLetter] = `${insurerActivityCodeObj.code}${insurerActivityCodeObj.sub ? `-${insurerActivityCodeObj.sub}` : ''}`;
-                            statePdfDataFieldsObj['WorkersCompensation_RateClass_DutiesDescription_' + currentLetter] = insurerActivityCodeObj.description;
-                            statePdfDataFieldsObj['WorkersCompensation_RateClass_FullTimeEmployeeCount_' + currentLetter] = activity.employeeTypeList[0].employeeType === 'Full Time' ? activity.employeeTypeList[0].employeeTypeCount : '';
-                            statePdfDataFieldsObj['WorkersCompensation_RateClass_PartTimeEmployeeCount_' + currentLetter] = activity.employeeTypeList[0].employeeType === 'Part Time' ? activity.employeeTypeList[0].employeeTypeCount : '';
-                            statePdfDataFieldsObj['WorkersCompensation_RateClass_SICCode_' + currentLetter] = this.industryCodeDoc.sic;
-                            statePdfDataFieldsObj['WorkersCompensation_RateClass_NAICSCode_' + currentLetter] = this.industryCodeDoc.naics;
-                            statePdfDataFieldsObj['WorkersCompensation_RateClass_RemunerationAmount_' + currentLetter] = '$' + activity.payroll;
-                            pdfKey += 1;
-                            if(pdfKey > 78){
-                                pdfKey = 65;
-                                totalPages += 1;
-                                statePdfDataFieldsObj.WorkersCompensation_RateState_TotalPageNumber_A = totalPages;
-                                stateRatingPdfList.push(await PdfHelper.createPDF('acord130/page-2.pdf', statePdfDataFieldsObj));
-                                pageCounter += 1;
-                                statePdfDataFieldsObj = {
-                                    'WorkersCompensation_RateState_PageNumber_A': pageCounter,
-                                    'WorkersCompensation_RateState_TotalPageNumber_A': totalPages,
-                                    'WorkersCompensation_RateState_StateOrProvinceName_A': state
-                                };
-                            }
+
+                    if(insurerActivityCodeCounter <= insurerActivityCodeList?.length - 1){
+                        insurerActivityCodeObj = insurerActivityCodeList[insurerActivityCodeCounter];
+                        const currentLetter = String.fromCharCode(pdfKey);
+                        statePdfDataFieldsObj['WorkersCompensation_RateClass_LocationProducerIdentifier_' + currentLetter] = locationNumber;
+                        statePdfDataFieldsObj['WorkersCompensation_RateClass_ClassificationCode_' + currentLetter] = `${insurerActivityCodeObj.code}${insurerActivityCodeObj.sub ? `-${insurerActivityCodeObj.sub}` : ''}`;
+                        statePdfDataFieldsObj['WorkersCompensation_RateClass_DutiesDescription_' + currentLetter] = insurerActivityCodeObj.description;
+                        statePdfDataFieldsObj['WorkersCompensation_RateClass_FullTimeEmployeeCount_' + currentLetter] = activity.employeeTypeList[0].employeeType === 'Full Time' ? activity.employeeTypeList[0].employeeTypeCount : '';
+                        statePdfDataFieldsObj['WorkersCompensation_RateClass_PartTimeEmployeeCount_' + currentLetter] = activity.employeeTypeList[0].employeeType === 'Part Time' ? activity.employeeTypeList[0].employeeTypeCount : '';
+                        statePdfDataFieldsObj['WorkersCompensation_RateClass_SICCode_' + currentLetter] = this.industryCodeDoc.sic;
+                        statePdfDataFieldsObj['WorkersCompensation_RateClass_NAICSCode_' + currentLetter] = this.industryCodeDoc.naics;
+                        statePdfDataFieldsObj['WorkersCompensation_RateClass_RemunerationAmount_' + currentLetter] = '$' + activity.payroll;
+                        pdfKey += 1;
+                        if(pdfKey > 78){
+                            pdfKey = 65;
+                            totalPages += 1;
+                            statePdfDataFieldsObj.WorkersCompensation_RateState_TotalPageNumber_A = totalPages;
+                            stateRatingPdfList.push(await PdfHelper.createPDF('acord130/page-2.pdf', statePdfDataFieldsObj));
+                            pageCounter += 1;
+                            statePdfDataFieldsObj = {
+                                'WorkersCompensation_RateState_PageNumber_A': pageCounter,
+                                'WorkersCompensation_RateState_TotalPageNumber_A': totalPages,
+                                'WorkersCompensation_RateState_StateOrProvinceName_A': state
+                            };
                         }
+                        insurerActivityCodeCounter += 1;
                     }
                     else{
-
                         const currentLetter = String.fromCharCode(pdfKey);
                         statePdfDataFieldsObj['WorkersCompensation_RateClass_LocationProducerIdentifier_' + currentLetter] = locationNumber;
                         const activityCodeWithDescriptionObj = this.activityCodeList.find(code => code.activityCodeId === activity.activityCodeId);
