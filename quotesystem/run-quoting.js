@@ -5,6 +5,36 @@ const {quoteStatus} = global.requireShared('./models/status/quoteStatus.js');
 const QuoteBO = global.requireShared('./models/Quote-BO.js');
 
 
+function shouldProcessInsurer(insurerId, policyTypeCd, appDoc, agencyNetworkJson){
+    let resp = true
+    log.info(`AppId:${appDoc.applicationId} shouldProcessInsurer: ${insurerId} ${policyTypeCd} CHECKING `)
+    if(appDoc.insurerList?.length > 0 && agencyNetworkJson?.featureJson?.enableInsurerSelection === true){
+        const insurerListPT = appDoc.insurerList.find((ilPt) => ilPt.policyTypeCd === policyTypeCd);
+        if(insurerListPT){
+            if(insurerListPT.insurerIdList?.length > 0){
+                if(insurerListPT.insurerIdList.indexOf(insurerId) === -1){
+                    resp = false
+                    log.info(`AppId:${appDoc.applicationId} shouldProcessInsurer: ${insurerId} ${policyTypeCd} not insurer list NOT QUOTING `)
+                }
+                else {
+                    log.info(`AppId:${appDoc.applicationId} shouldProcessInsurer: ${insurerId} ${policyTypeCd} insurer IN list `)
+                }
+            }
+            else {
+                log.info(`AppId:${appDoc.applicationId} shouldProcessInsurer:  ${insurerId} ${policyTypeCd} no insurerListed ${JSON.stringify(insurerListPT)} `)
+            }
+        }
+        else {
+            log.info(`AppId:${appDoc.applicationId} shouldProcessInsurer: ${insurerId} ${policyTypeCd} - no insurerListPT for PolicyType`)
+        }
+    }
+    else {
+        log.info(`AppId:${appDoc.applicationId} shouldProcessInsurer: ${insurerId} ${policyTypeCd} NO appdoc.insurerList or not turned on agencyNetworkJson?.featureJson?.enableInsurerSelection ${agencyNetworkJson?.featureJson?.enableInsurerSelection}`)
+    }
+    return resp;
+}
+
+
 /**
  * Begins the process of getting and returning quotes from insurers
  *
@@ -23,6 +53,12 @@ async function runPricing(appModel) {
     const fs = require('fs');
     const price_promises = [];
 
+
+    // need Agency Network Doc for insurer Selection.
+    const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO');
+    const agencyNetworkBO = new AgencyNetworkBO();
+    const agencyNetworkDoc = await agencyNetworkBO.getById(appModel.applicationDocData.agencyNetworkId)
+
     if(appModel.policies && appModel.policies.length === 0){
         log.error(`AppId ${appModel.applicationDocData.applicationId} No policies for Application ${appModel.id} ` + __location)
     }
@@ -34,6 +70,9 @@ async function runPricing(appModel) {
             let quoteInsurer = true;
             if(appModel.quoteInsurerId && appModel.quoteInsurerId > 0 && appModel.quoteInsurerId !== insurer.id){
                 quoteInsurer = false;
+            }
+            if(quoteInsurer){
+                quoteInsurer = shouldProcessInsurer(insurer.id, policy.type.toUpperCase(), appModel.applicationDocData, agencyNetworkDoc);
             }
             // Only run quotes against requested insurers (if present)
             // Check that the given policy type is enabled for this insurer
@@ -242,6 +281,9 @@ async function runQuoting(appModel) {
             let quoteInsurer = true;
             if(appModel.quoteInsurerId && appModel.quoteInsurerId > 0 && appModel.quoteInsurerId !== insurer.id){
                 quoteInsurer = false;
+            }
+            if(quoteInsurer){
+                quoteInsurer = shouldProcessInsurer(insurer.id, policy.type.toUpperCase(), appModel.applicationDocData, agencyNetworkDoc);
             }
             // Only run quotes against requested insurers (if present)
             // Check that the given policy type is enabled for this insurer

@@ -2286,6 +2286,30 @@ module.exports = class ApplicationModel {
             log.error(`AppBO GetQuestions - Incomplete Application: Missing AgencyLocation for ${applicationDocDB.uuid} . throwing error` + __location)
             throw new Error("Incomplete Application: Missing AgencyLocation")
         }
+        //insurerList check
+        if(applicationDocDB.insurerList?.length > 0){
+            //Agency Network have ghost policy check enabled.
+            const agencyNetworkBO = new AgencyNetworkBO();
+            const agencyNetworkJson = await agencyNetworkBO.getById(applicationDocDB.agencyNetworkId);
+            if(agencyNetworkJson?.featureJson?.enableInsurerSelection === true){
+                for(const insurerListPT of applicationDocDB.insurerList){
+                    const policyTypeJSON = policyTypeJsonList.find((pt) => pt.type === insurerListPT.policyTypeCd.toUpperCase());
+                    if(policyTypeJSON && insurerListPT.insurerIdList?.length > 0){
+                        const newInsurerIdList = [];
+                        for(const insurerId of insurerListPT.insurerIdList){
+                            //make sure the agencylocation is setup for insurer and the list is not complete BS.
+                            if(insurerListPT.insurerIdList.indexOf(insurerId) > -1){
+                                newInsurerIdList.push(insurerId)
+                            }
+                        }
+                        //have to get a hit, or List was BS ignore it.
+                        if(newInsurerIdList.length > 0){
+                            policyTypeJSON.insurerIdList = newInsurerIdList
+                        }
+                    }
+                }
+            }
+        }
 
         // Ghost Policy check
         if(insurerIdArray.length > 0){
@@ -3152,6 +3176,12 @@ module.exports = class ApplicationModel {
                 throw new Error(`checkAppetite appId ${applicationId} bad agencyLocationid ${appDoc.agencyLocationId} `)
             }
 
+            let agencyNetworkJson = {};
+            if(appDoc.insurerList?.length > 0){
+                const agencyNetworkBO = new AgencyNetworkBO();
+                agencyNetworkJson = await agencyNetworkBO.getById(appDoc.agencyNetworkId);
+            }
+
             for(const policyType of policyTypeArray){
                 const insurerIdList = [];
                 for(const locInsurer of agencylocationJSON.insurers){
@@ -3159,7 +3189,22 @@ module.exports = class ApplicationModel {
                         if(Object.hasOwnProperty.call(locInsurer.policyTypeInfo, policyType.type)){
                             const policyTypeInfo = locInsurer.policyTypeInfo[policyType.type]
                             if(policyTypeInfo.enabled === true){
-                                insurerIdList.push(locInsurer.insurerId)
+                                let addInsurer = true;
+                                if(appDoc.insurerList?.length > 0){
+                                    if(agencyNetworkJson?.featureJson?.enableInsurerSelection === true){
+                                        const insurerListPT = appDoc.insurerList.find((ilPt) => ilPt.policyTypeCd === policyType.type);
+                                        if(insurerListPT){
+                                            if(insurerListPT.insurerIdList?.length > 0){
+                                                if(insurerListPT.insurerIdList.indexOf(locInsurer.insurerId) === -1){
+                                                    addInsurer = false
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                if(addInsurer){
+                                    insurerIdList.push(locInsurer.insurerId)
+                                }
                             }
                         }
                     }

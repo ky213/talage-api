@@ -222,177 +222,34 @@ const policyBasedRequiredFields = {
 };
 
 
-// const bopRequirements = {
-//     location: {
-//         activityPayrollList: {requirement: optional},
-//         buildingLimit: {requirement: optional},
-//         businessPersonalPropertyLimit: {requirement: optional},
-//         own: {requirement: optional},
-//         numStories: {requirement: required},
-//         constructionType: {requirement: required},
-//         yearBuilt: {requirement: required},
-//         unemployment_num: {requirement: hidden},
-//         full_time_employees: {requirement: hidden},
-//         part_time_employees: {requirement: hidden},
-//         square_footage: {requirement: required},
-//         bop: {
-//             requirement: required,
-//             sprinklerEquipped: {requirement: optional},
-//             fireAlarmType: {requirement: required},
-//             roofingImprovementYear: {requirement: required},
-//             wiringImprovementYear: {requirement: required},
-//             heatingImprovementYear: {requirement: required},
-//             plumbingImprovementYear: {requirement: required}
-//         }
-//     },
-//     grossSalesAmt: {requirement: required},
-//     ein: {requirement: optional},
-//     website: {requirement: optional},
-//     coverageLapseWC: {requirement: hidden},
-//     yearsOfExp: {requirement: required},
-//     owner: {
-//         requirement: optional,
-//         officerTitle: {requirement: hidden},
-//         birthdate: {requirement: hidden},
-//         ownership: {requirement: hidden},
-//         payroll: {requirement: hidden}
-//     }
-// };
-
-// const glRequirements = {
-//     location: {
-//         activityPayrollList: {requirement: optional},
-//         buildingLimit: {requirement: hidden},
-//         businessPersonalPropertyLimit: {requirement: hidden},
-//         own: {requirement: hidden},
-//         numStories: {requirement: hidden},
-//         constructionType: {requirement: hidden},
-//         yearBuilt: {requirement: hidden},
-//         unemployment_num: {requirement: hidden},
-//         full_time_employees: {requirement: hidden},
-//         part_time_employees: {requirement: hidden},
-//         square_footage: {requirement: required},
-//         bop: {
-//             requirement: hidden,
-//             sprinklerEquipped: {requirement: hidden},
-//             fireAlarmType: {requirement: hidden},
-//             roofingImprovementYear: {requirement: hidden},
-//             wiringImprovementYear: {requirement: hidden},
-//             heatingImprovementYear: {requirement: hidden},
-//             plumbingImprovementYear: {requirement: hidden}
-//         }
-//     },
-//     grossSalesAmt: {requirement: required},
-//     ein: {requirement: optional},
-//     coverageLapseWC: {requirement: hidden},
-//     website: {requirement: optional},
-//     yearsOfExp: {requirement: required},
-//     owner: {
-//         requirement: hidden
-//     }
-// };
-
-// const wcRequirements = {
-//     owner: {
-//         requirement: required,
-//         officerTitle: {requirement: optional},
-//         birthdate: {requirement: required}
-//         // ownership: {requirement: hidden},
-//         // payroll: {requirement: hidden}
-//     },
-//     location: {
-//         activityPayrollList: {requirement: required},
-//         buildingLimit: {requirement: hidden},
-//         businessPersonalPropertyLimit: {requirement: hidden},
-//         own: {requirement: hidden},
-//         numStories: {requirement: hidden},
-//         constructionType: {requirement: hidden},
-//         yearBuilt: {requirement: hidden},
-//         unemployment_num: {requirement: required},
-//         full_time_employees: {requirement: hidden},
-//         part_time_employees: {requirement: hidden},
-//         square_footage: {requirement: hidden},
-//         bop: {
-//             requirement: hidden,
-//             sprinklerEquipped: {requirement: hidden},
-//             fireAlarmType: {requirement: hidden},
-//             roofingImprovementYear: {requirement: hidden},
-//             wiringImprovementYear: {requirement: hidden},
-//             heatingImprovementYear: {requirement: hidden},
-//             plumbingImprovementYear: {requirement: hidden}
-//         }
-//     },
-//     grossSalesAmt: {requirement: hidden},
-//     ein: {requirement: required},
-//     website: {requirement: optional},
-//     yearsOfExp: {requirement: required}
-// };
-
-// const plRequirements = {
-//     location: {
-//         square_footage: {requirement: hidden},
-//         activityPayrollList: {requirement: required},
-//         buildingLimit: {requirement: hidden},
-//         businessPersonalPropertyLimit: {requirement: hidden},
-//         own: {requirement: hidden},
-//         numStories: {requirement: hidden},
-//         constructionType: {requirement: hidden},
-//         yearBuilt: {requirement: hidden},
-//         unemployment_num: {requirement: hidden},
-//         full_time_employees: {requirement: hidden},
-//         part_time_employees: {requirement: hidden},
-//         bop: {
-//             sprinklerEquipped: {requirement: hidden},
-//             requirement: hidden,
-//             fireAlarmType: {requirement: hidden},
-//             roofingImprovementYear: {requirement: hidden},
-//             wiringImprovementYear: {requirement: hidden},
-//             heatingImprovementYear: {requirement: hidden},
-//             plumbingImprovementYear: {requirement: hidden}
-//         }
-//     },
-//     website: {requirement: hidden},
-//     grossSalesAmt: {requirement: required},
-//     ein: {requirement: hidden},
-//     yearsOfExp: {requirement: required},
-//     coverageLapseWC: {requirement: hidden},
-//     owner: {
-//         requirement: hidden
-//     }
-// };
-
-// const cyberRequirements = {
-//     location: {
-//         activityPayrollList: {requirement: hidden},
-//         buildingLimit: {requirement: hidden},
-//         businessPersonalPropertyLimit: {requirement: hidden},
-//         own: {requirement: hidden},
-//         numStories: {requirement: hidden},
-//         constructionType: {requirement: hidden},
-//         yearBuilt: {requirement: hidden},
-//         unemployment_num: {requirement: hidden},
-//         full_time_employees: {requirement: required},
-//         part_time_employees: {requirement: optional},
-//         square_footage: {requirement: hidden},
-//         bop: {
-//             requirement: hidden,
-//             sprinklerEquipped: {requirement: hidden},
-//             fireAlarmType: {requirement: hidden},
-//             roofingImprovementYear: {requirement: hidden},
-//             wiringImprovementYear: {requirement: hidden},
-//             heatingImprovementYear: {requirement: hidden},
-//             plumbingImprovementYear: {requirement: hidden}
-//         }
-//     },
-//     grossSalesAmt: {requirement: hidden},
-//     ein: {requirement: hidden},
-//     website: {requirement: hidden},
-//     yearsOfExp: {requirement: hidden},
-//     coverageLapseWC: {requirement: hidden},
-//     owner: {
-//         requirement: hidden
-//     }
-// };
+function shouldProcessInsurer(insurerId, policyTypeCd, appDoc, agencyNetworkJson){
+    let resp = true
+    log.info(`AppId:${appDoc.applicationId} shouldProcessInsurer: ${insurerId} ${policyTypeCd} CHECKING `)
+    if(appDoc.insurerList?.length > 0 && agencyNetworkJson?.featureJson?.enableInsurerSelection === true){
+        const insurerListPT = appDoc.insurerList.find((ilPt) => ilPt.policyTypeCd === policyTypeCd);
+        if(insurerListPT){
+            if(insurerListPT.insurerIdList?.length > 0){
+                if(insurerListPT.insurerIdList.indexOf(insurerId) === -1){
+                    resp = false
+                    log.info(`AppId:${appDoc.applicationId} shouldProcessInsurer: ${insurerId} ${policyTypeCd} not insurer list NOT QUOTING `)
+                }
+                else {
+                    log.info(`AppId:${appDoc.applicationId} shouldProcessInsurer: ${insurerId} ${policyTypeCd} insurer IN list `)
+                }
+            }
+            else {
+                log.info(`AppId:${appDoc.applicationId} shouldProcessInsurer:  ${insurerId} ${policyTypeCd} no insurerListed ${JSON.stringify(insurerListPT)} `)
+            }
+        }
+        else {
+            log.info(`AppId:${appDoc.applicationId} shouldProcessInsurer: ${insurerId} ${policyTypeCd} - no insurerListPT for PolicyType`)
+        }
+    }
+    else {
+        log.info(`AppId:${appDoc.applicationId} shouldProcessInsurer: ${insurerId} ${policyTypeCd} NO appdoc.insurerList or not turned on agencyNetworkJson?.featureJson?.enableInsurerSelection ${agencyNetworkJson?.featureJson?.enableInsurerSelection}`)
+    }
+    return resp;
+}
 
 exports.requiredFields = async(appId) => {
     let applicationDB = null;
@@ -406,6 +263,10 @@ exports.requiredFields = async(appId) => {
     if(!applicationDB){
         return {};
     }
+
+    // need Agency Network Doc for insurer Selection.
+    const agencyNetworkBO = new AgencyNetworkBO();
+    const agencyNetworkDB = await agencyNetworkBO.getById(applicationDB.agencyNetworkId)
 
     let POLICY_TYPE_BASED = true
 
@@ -462,7 +323,7 @@ exports.requiredFields = async(appId) => {
                 requiredFields = processPolicyTypeJson(policyBasedRequiredFields[ptCode], requiredFields);
             }
             else {
-                let ptInsurerList = getAgencyLocationsInsurerByPolicyType(agencyLocationDB, ptCode, insurerList);
+                let ptInsurerList = getAgencyLocationsInsurerByPolicyType(agencyLocationDB, ptCode, insurerList, applicationDB, agencyNetworkDB);
                 // Ghost Policy check
                 if(ptInsurerList.length > 0 && ptCode === "WC"){
                     log.debug(`requiredFields - CHECKING FOR GHOST POLCIES  ` + __location)
@@ -502,16 +363,6 @@ exports.requiredFields = async(appId) => {
         }
         //TODO check for old app that does not have activityPayrollList, but does have full_time_employee or requires it.
 
-
-        // apply agency network overrides
-        let agencyNetworkDB = null;
-        const agencyNetworkBO = new AgencyNetworkBO();
-        try{
-            agencyNetworkDB = await agencyNetworkBO.getById(applicationDB.agencyNetworkId);
-        }
-        catch(err){
-            log.error("Error getting agencyNetwork doc " + err + __location);
-        }
 
         if(agencyNetworkDB?.appRequirementOverrides){
             const newRequirements = {};
@@ -554,14 +405,20 @@ function processPolicyTypeJson(policyTypeRequiredFieldJson, requiredFields){
     return newRequirements;
 }
 
-function getAgencyLocationsInsurerByPolicyType(agencyLocationDB, policyType, insurerList){
+function getAgencyLocationsInsurerByPolicyType(agencyLocationDB, policyType, insurerList,appDoc, agencyNetworkJson){
     const policyTypeInsurerList = []
     //loop through AL.insurers.
     for (const alInsurer of agencyLocationDB.insurers){
         if(alInsurer.policyTypeInfo[policyType] && alInsurer.policyTypeInfo[policyType].enabled === true){
             const insurerDoc = insurerList.find((i) => i.insurerId === alInsurer.insurerId);
             if(insurerDoc){
-                policyTypeInsurerList.push(insurerDoc)
+                let addInsurer = true;
+                if(appDoc.insurerList?.length > 0 && agencyNetworkJson?.featureJson?.enableInsurerSelection === true){
+                    addInsurer = shouldProcessInsurer(insurerDoc.insurerId, policyType, appDoc, agencyNetworkJson);
+                }
+                if(addInsurer){
+                    policyTypeInsurerList.push(insurerDoc)
+                }
             }
         }
     }
@@ -602,12 +459,6 @@ const combineRequiredObjects = (obj1, obj2, newObj) => {
                 object2[key] = {};
             }
 
-            // if(!object1[key].hasOwnProperty("requirement")){
-            //     object1[key].requirement = optional;
-            // }
-            // if(!object2[key].hasOwnProperty("requirement")){
-            //     object2[key].requirement = optional;
-            // }
             //not present equal hidden. only need ot define required or optional
             if(!object1[key].hasOwnProperty("requirement")){
                 object1[key].requirement = hidden;
