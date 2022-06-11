@@ -357,28 +357,9 @@ async function getApplicationDoc(req, res ,next){
         appId = req.query.id
     }
     //Get agency List check after getting application doc
-    let error = null
-    const agencies = await auth.getAgents(req).catch(function(e) {
-        error = e;
-    });
-    if (error) {
-        return next(error);
-    }
     let passedAgencyCheck = false;
     let applicationDB = null;
     const applicationBO = new ApplicationBO();
-    try{
-        applicationDB = await applicationBO.getById(appId);
-        if(applicationDB && agencies.includes(applicationDB?.agencyId)){
-            passedAgencyCheck = true;
-        }
-        await setupReturnedApplicationJSON(applicationDB);
-    }
-    catch(err){
-        log.error("Error checking application doc " + err + __location)
-        return next(serverHelper.requestError(`Bad Request: check error ${err}`));
-    }
-
     try{
         applicationDB = await applicationBO.getById(appId);
         if(applicationDB){
@@ -396,6 +377,7 @@ async function getApplicationDoc(req, res ,next){
     }
 
     if(applicationDB && applicationDB.applicationId){
+        await setupReturnedApplicationJSON(applicationDB);
         res.send(200, applicationDB);
         return next();
 
@@ -2845,6 +2827,38 @@ async function amsGetPolicies(req, res, next){
 }
 
 
+async function getStarterInsurerList(req, res ,next){
+    let insurerListObj = null;
+    try{
+        const hasAccess = await accesscheck(req.params.id, req).catch(function(e){
+            log.error('Error get application hasAccess ' + e + __location);
+            return next(serverHelper.requestError(`Bad Request: check error ${e}`));
+        });
+        if(hasAccess === true){
+            const applicationBO = new ApplicationBO();
+            insurerListObj = await applicationBO.getInsurerListforApplications(req.params.id);
+        }
+    }
+    catch(err){
+        //Incomplete Applications throw errors. those error message need to got to client
+        log.info("Error CheckAppetite " + err + __location);
+        res.send(200, {});
+        //return next(serverHelper.requestError('An error occured while retrieving application questions. ' + err));
+    }
+
+    if(!insurerListObj){
+        res.send(200, {});
+        return next();
+        //return next(serverHelper.requestError('An error occured while retrieving application questions.'));
+    }
+
+    res.send(200, insurerListObj);
+    return next();
+
+
+}
+
+
 exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('Get Application', `${basePath}/application`, getApplication, 'applications', 'view');
     server.addGetAuth('Get Application Doc', `${basePath}/application/:id`, getApplicationDoc, 'applications', 'view');
@@ -2879,6 +2893,9 @@ exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('Get Quote Limits Info',`${basePath}/application/quote-limits`, GetQuoteLimits);
     server.addGetAuth('GET Appplication Hints', `${basePath}/application/:id/hints`, getHints, 'applications', 'manage');
     server.addPutAuth('PUT Mark Quote As Dead', `${basePath}/application/:id/mark-as-dead`, markQuoteAsDead, 'applications', 'manage');
+
+
+    server.addGetAuth('Get Application starter InsurerList For Apps ', `${basePath}/application/:id/starterinsurerlist`, getStarterInsurerList, 'applications', 'view');
 
 
     server.addPutAuth('PUT Create Client in AMS', `${basePath}/application/:id/ams/create`, amsCreateClient, 'applications', 'manage');

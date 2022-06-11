@@ -717,10 +717,72 @@ async function getSelectionList(req, res, next) {
     return next();
 }
 
+/**
+ * Return AgencyLocation Object with Children
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {void}
+ */
+async function getAgencyLocationInsurerListForApps(req, res, next) {
+    let error = false;
+    //santize id.
+    const id = stringFunctions.santizeNumber(req.params.id, true);
+    log.debug(`id ${id}`)
+    if (!id || id < 1) {
+        return next(new Error("bad parameter"));
+    }
+
+    // Determine which permissions group to use (start with the default permission needed by an agency network)
+    let permissionGroup = 'agencies';
+
+    // If this is not an agency network, use the agency specific permissions
+    if (req.authentication.isAgencyNetworkUser === false) {
+        permissionGroup = 'view';
+    }
+
+    // Make sure the authentication payload has everything we are expecting
+    await auth.validateJWT(req, permissionGroup, 'view').catch(function(e) {
+        error = e;
+    });
+    if (error) {
+        return next(error);
+    }
+    const query = {"systemId": id};
+    log.debug(`query ${JSON.stringify(query)}`)
+    const agencyLocationBO = new AgencyLocationBO();
+    const locationJSON = await agencyLocationBO.getById(id, false);
+    if(!locationJSON){
+        res.send(404);
+        return next(serverHelper.notFoundError('Agency Location not found'));
+    }
+
+    const passedAgencyCheck = await auth.authorizedForAgency(req, locationJSON?.agencyId)
+
+    if(!passedAgencyCheck){
+        res.send(404);
+        return next(serverHelper.notFoundError('Agency Location not found'));
+    }
+
+    const insurerList = await agencyLocationBO.getInsurerListforApplications(req.params.id).catch(function(err) {
+        log.error("agencyLocationBO load error " + err + __location);
+        error = err;
+    });
+    if (error) {
+        return next(error);
+    }
+
+    res.send(200, insurerList);
+    return next();
+}
+
 exports.registerEndpoint = (server, basePath) => {
     server.addDeleteAuth('Delete Agency Location', `${basePath}/agency-location`, deleteAgencyLocation);
     server.addPostAuth('Post Agency Location', `${basePath}/agency-location`, createAgencyLocation);
     server.addPutAuth('Put Agency Location', `${basePath}/agency-location`, updateAgencyLocation);
     server.addGetAuth('GET Agency Location List for Selection', `${basePath}/agency-location/selectionlist`, getSelectionList);
     server.addGetAuth('GET Agency Location Object', `${basePath}/agency-location/:id`, getbyId);
+    server.addGetAuth('GET Agency Location InsurerList For Apps', `${basePath}/agency-location/:id/insurerlistforapps`, getAgencyLocationInsurerListForApps);
 };

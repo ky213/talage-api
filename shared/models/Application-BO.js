@@ -3286,4 +3286,29 @@ module.exports = class ApplicationModel {
         return activityCodes
     }
 
+    // ***************************
+    //    For Application UI and API Clients
+    //
+    // *************************
+    async getInsurerListforApplications(appId){
+        let insurerListObj = [];
+        if(!appId){
+            return insurerListObj;
+        }
+
+        try{
+            const appDoc = await this.getById(appId)
+            if(appDoc){
+                const agencyLocationBO = new AgencyLocationBO();
+                insurerListObj = await agencyLocationBO.getInsurerListforApplications(appDoc.agencyLocationId).catch(function(err) {
+                    log.error("AppBO getInsurerListforApplications agencyLocationBO load error " + err + __location);
+                });
+            }
+        }
+        catch(err){
+            log.error(`Error AppBO getInsurerListforApplications  call error ${err}` + __location);
+        }
+        return insurerListObj;
+    }
+
 }
