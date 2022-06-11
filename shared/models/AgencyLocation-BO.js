@@ -639,7 +639,7 @@ module.exports = class AgencyLocationBO{
         });
     }
 
-
+    // return the Agency's primary location (nothing to do with wholesale)
     getByAgencyPrimary(agencyId, children = false){
         return new Promise(async(resolve, reject) => {
             if(agencyId){
@@ -743,6 +743,48 @@ module.exports = class AgencyLocationBO{
 
 
     }
+
+    // ***************************
+    //    For Application UI and API Clients
+    //
+    // *************************
+    async getInsurerListforApplications(agencyLocationId){
+        const insurerListObj = [];
+        const getChildren = true;
+        const addAgencyPrimaryLocation = true;
+        const agencyLocationJSON = await this.getById(agencyLocationId, getChildren, addAgencyPrimaryLocation).catch(function(err) {
+            log.error(`Error getQuotingAgencyId getting Agency Location ${agencyLocationId} ${err}` + __location)
+        });
+        if(agencyLocationJSON){
+            for(const insurer of agencyLocationJSON.insurers){
+                // eslint-disable-next-line guard-for-in
+                for(const ptCode in insurer.policyTypeInfo){
+                    try{
+                        //reset to tier 1 in case primary agency is not set.
+                        if(typeof insurer.policyTypeInfo[ptCode] === "object"){
+                            //insurer.policyTypeInfo[ptCode].quotingTierLevel = 1
+                            let insurerListPT = insurerListObj.find((ilPt) => ilPt.policyTypeCd === ptCode);
+                            if(!insurerListPT){
+                                insurerListPT = {
+                                    "policyTypeCd": ptCode,
+                                    "insurerIdList": [insurer.insurerId]
+                                }
+                                insurerListObj.push(insurerListPT)
+                            }
+                            else {
+                                insurerListPT.insurerIdList.push(insurer.insurerId)
+                            }
+                        }
+                    }
+                    catch(err){
+                        log.error(`AgencyLocation ${agencyLocationId} error setting insurerList for App insurerId ${insurer.insurerId} error: ${err}` + __location);
+                    }
+                }
+            }
+        }
+        return insurerListObj;
+    }
+
 
     // ***************************
     //    For administration site

@@ -1408,4 +1408,28 @@ module.exports = class AgencyBO {
 
         return amsCreds;
     }
+
+    // ***************************
+    //    For Application UI and API Clients
+    //
+    // *************************
+    async getInsurerListforApplications(agencyId){
+        let insurerListObj = [];
+
+        //prevent circular reference
+        const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
+        const agencyLocationBO = new AgencyLocationBO();
+
+        const locationPrimaryJSON = await agencyLocationBO.getByAgencyPrimary(agencyId).catch(function(err) {
+            log.error("agencyLocationBO load error " + err + __location);
+        });
+
+        if (locationPrimaryJSON && locationPrimaryJSON.systemId) {
+            insurerListObj = await agencyLocationBO.getInsurerListforApplications(locationPrimaryJSON.systemId).catch(function(err) {
+                log.error("agencyLocationBO load error " + err + __location);
+            });
+        }
+
+        return insurerListObj;
+    }
 }

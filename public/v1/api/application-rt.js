@@ -1985,6 +1985,35 @@ async function GetActivityCodesByNCCICode(req, res, next){
 }
 
 
+async function getStarterInsurerList(req, res, next){
+    let insurerListObj = null;
+    const appId = req.params.id;
+    const rightsToApp = await isAuthForApplication(req, appId)
+    if(rightsToApp !== true){
+        log.warn(`Not Authorized access attempted appId ${appId}` + __location);
+        return next(serverHelper.forbiddenError(`Not Authorized`));
+    }
+    try{
+        const applicationBO = new ApplicationBO();
+        insurerListObj = await applicationBO.getInsurerListforApplications(appId, req.query);
+    }
+    catch(err){
+        //Incomplete Applications throw errors. those error message need to got to client
+        log.info("Error getting questions " + err + __location);
+        res.send(200, {});
+        //return next(serverHelper.requestError('An error occured while retrieving application questions. ' + err));
+    }
+
+    if(!insurerListObj){
+        res.send(200, {});
+        return next();
+        //return next(serverHelper.requestError('An error occured while retrieving application questions.'));
+    }
+
+    res.send(200, insurerListObj);
+    return next();
+}
+
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
     server.addPostAuthAppApi("POST Application",`${basePath}/application`, applicationSave);
@@ -1997,8 +2026,10 @@ exports.registerEndpoint = (server, basePath) => {
     server.addGetAuthAppApi('GET Application BOP Codes', `${basePath}/application/:id/bopcodes`, getBopCodes);
     server.addPutAuthAppApi('PUT Price Indication for Application', `${basePath}/application/price`, getPricing);
     server.addGetAuthAppApi('GET Required Fields', `${basePath}/application/:id/getrequiredfields`, GetRequiredFields);
-    server.addGetAuthAppApi('CheckAppetite for  Application', `${basePath}/application/:id/checkappetite`, CheckAppetite, 'applications', 'manage');
+    server.addGetAuthAppApi('CheckAppetite for  Application', `${basePath}/application/:id/checkappetite`, CheckAppetite, 'applications', 'view');
     server.addGetAuthAppApi('Get Activity Codes by NCCI code', `${basePath}/application/:id/ncci-activity-codes`, GetActivityCodesByNCCICode);
+
+    server.addGetAuthAppApi('Get Application starter InsurerList For Apps', `${basePath}/application/:id/starterinsurerlist`, getStarterInsurerList, 'applications', 'view');
 
     server.addPutAuthAppApi('PUT Validate Application', `${basePath}/application/:id/validate`, validate);
     server.addPutAuthAppApi('PUT Start Quoting Application', `${basePath}/application/quote`, startQuoting);

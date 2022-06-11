@@ -19,6 +19,7 @@ const validator = global.requireShared('./helpers/validator.js');
 const serverHelper = global.requireRootPath('server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
+const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
 
 /**
@@ -1300,6 +1301,79 @@ async function getAgencyAmsCreateApp(req, res, next) {
     return next();
 }
 
+
+/**
+ * Returns the record for a single Agency
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {void}
+ */
+async function getAgencyInsurerListForApps(req, res, next) {
+    let error = false;
+
+    //santize id.
+    const id = stringFunctions.santizeNumber(req.params.id, true);
+    log.debug(`id ${id}`)
+    if (!id || id < 1) {
+        return next(new Error("bad parameter"));
+    }
+
+    let agencyId = parseInt(id, 10);
+
+    if (req.authentication.isAgencyNetworkUser) {
+
+        if(req.authentication.isAgencyNetworkUser && req.authentication.agencyNetworkId === 1
+            && req.authentication.permissions.talageStaff === true
+            && req.authentication.enableGlobalView === true){
+            log.info(`Getting agency in global mode agency ${agencyId}`)
+        }
+        else {
+            // This is an agency network user, they can only modify agencies in their network
+            // Get the agencies that we are permitted to manage
+            const agencyBO = new AgencyBO();
+            const agencydb = await agencyBO.getById(parseInt(req.query.agent, 10));
+            if(agencydb?.agencyNetworkId !== req.authentication.agencyNetworkId){
+                log.info('Forbidden: User is not authorized to manage th is agency');
+                return next(serverHelper.forbiddenError('You are not authorized to manage this agency'));
+            }
+        }
+    }
+    else {
+        // Get the agents that we are permitted to view
+        const agents = await auth.getAgents(req).catch(function(e) {
+            error = e;
+        });
+        if (error) {
+            return next(error);
+        }
+        // Make sure this user has access to the requested agent (Done before validation to prevent leaking valid Agent IDs)
+        if (!agents.includes(parseInt(agencyId, 10))) {
+            log.info('Forbidden: User is not authorized to access the requested agent');
+            return next(serverHelper.forbiddenError('You are not authorized to access the requested agent'));
+        }
+        // By default, the use first agency available to this user (for non-agency network users, they will only have one which is their agency)
+        agencyId = agents[0];
+    }
+
+    error = null;
+    const agencyBO = new AgencyBO();
+    // Load the request data into it
+
+    const insurerList = await agencyBO.getInsurerListforApplications(agencyId).catch(function(err) {
+        log.error("agency getInsurerListforApplications error " + err + __location);
+        error = err;
+    });
+    if (error) {
+        return next(error);
+    }
+
+    res.send(200, insurerList);
+    return next();
+}
+
 exports.registerEndpoint = (server, basePath) => {
     server.addDeleteAuth('Delete Agency', `${basePath}/agency`, deleteAgency, 'agencies', 'manage');
     server.addGetAuth('Get Agency', `${basePath}/agency`, getAgency, 'agencies', 'view');
@@ -1309,6 +1383,7 @@ exports.registerEndpoint = (server, basePath) => {
     server.addPostAuth('Post Agency', `${basePath}/agency/socialMediaTags`, postSocialMediaTags, 'agencies', 'manage');
     server.addPostAuth('Post Social Media Tags', `${basePath}/agency/socialMediaInfo`, postSocialMediaInfo, 'agencies', 'manage');
     server.addGetAuth('Get Agency Tier List', `${basePath}/agency/tiers`, getAgencyTierList, 'agencies', 'view');
+    server.addGetAuth('Get Agency InsurerList For Apps', `${basePath}/agency/:id/insurerlistforapps`, getAgencyInsurerListForApps, 'agencies', 'view');
     //ams integration
     server.addPostAuth('Get AMS Client List', `${basePath}/agency/ams/search`, getAgencyAmsSearch, 'agencies', 'view');
     server.addPostAuth('Create Application from AMS', `${basePath}/agency/ams/createapp`, getAgencyAmsCreateApp, 'agencies', 'view');
