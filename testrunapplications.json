@@ -467,7 +467,7 @@
   },
   {
     "description": "Great American WC QA -BarberShop NV",
-    "sourceAppId": 13439,
+    "sourceAppId": "5245fe85-8fa0-4057-b71f-32fa9a10b7d2",
     "requiresNewEin": false,
     "policyTypes": ["WC"]
   },
@@ -517,9 +517,9 @@
   },
   {
     "description": "Cowbell Cyber Barber NV",
-    "sourceAppId": "3a8bc765-b89d-4116-8874-3ce1c99acc98",
-    "requiresNewEin": false,
-    "policyTypes": ["WC"]
+    "sourceAppId": "ff852053-665d-4ecd-86aa-363b0b12f81f",
+    "requiresNewEin": true,
+    "policyTypes": ["CYBER"]
   },
   {
     "description": "AMtrust WC Agent/manager DC",
