@@ -2,6 +2,7 @@
 
 const serverHelper = global.requireRootPath('server.js');
 const questionSvc = global.requireShared('./services/questionsvc.js');
+const InsurerBO = global.requireShared("./models/Insurer-BO");
 const moment = require('moment');
 
 /**
@@ -62,9 +63,35 @@ async function getQuestionsPreview(req, res, next){
             }
         }
 
-        const insurers = req.query.insurers ? req.query.insurers.split(',') : [];
+        const insurerBO = new InsurerBO();
+        const insurerQuery = {}
+        const insurerDocList = await insurerBO.getList(insurerQuery);
 
+        let insurers = [];
+
+        if(req.query.insurers){
+            insurers = req.query.insurers.split(',')
+        }
+        else {
+            insurers = insurerDocList.map(i => i.insurerId)
+        }
         getQuestionsResult = await questionSvc.GetQuestionsForBackend(req.query.activity_codes.split(','), req.query.industry_codes.split(','), [], policyTypeJSONArray, insurers, 'general', false, req.query.states.split(','));
+        getQuestionsResult.forEach(function(question){
+            if(question.insurerIdList?.length > 5){
+                question.insurerListText = "Multiple Insurers";
+            }
+            else if(question.insurerIdList?.length > 0){
+                const qInsurerDocList = insurerDocList.filter((i) => question.insurerIdList.indexOf(i.insurerId) > -1)
+                const nameList = [];
+                for(const iDoc of qInsurerDocList){
+                    nameList.push(iDoc.name)
+                }
+                question.insurerListText = nameList.join(",");
+            }
+            else {
+                question.insurerListText = "";
+            }
+        });
     }
     catch(error){
         log.error(`Question route getQuestions error ${error} ` + __location);
