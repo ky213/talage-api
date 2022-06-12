@@ -221,9 +221,9 @@ async function GetQuestions(activityCodeStringArray, industryCodeStringArray, zi
             log.debug("Number of Universal Insurer Questions  " + talageQuestionIdArray.length + __location);
             if(talageQuestionIdArray.length > 0) {
                 log.debug(`talageQuestionIdArray.length ${talageQuestionIdArray.length} `)
-                const universal_questions = await getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, insurerQuestionList,return_hidden);
+                const universal_questions = await getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, insurerQuestionList, questions,return_hidden);
                 log.debug(`Adding ${universal_questions.length} Mongo universal questions ` + __location)
-                questions = questions.concat(universal_questions);
+                //questions = questions.concat(universal_questions);
             }
             else {
                 log.debug(`No universal questions ` + __location)
@@ -351,9 +351,9 @@ async function GetQuestions(activityCodeStringArray, industryCodeStringArray, zi
                 }
                 // log.debug("talageQuestionIdArray " + talageQuestionIdArray)
                 if(talageQuestionIdArray.length > 0) {
-                    const industry_questions = await getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, insurerQuestionList,return_hidden);
+                    const industry_questions = await getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, insurerQuestionList, questions, return_hidden);
                     log.debug(`Adding ${industry_questions.length} Mongo industry questions for ${industryCodeId}` + __location)
-                    questions = questions.concat(industry_questions);
+                    //questions = questions.concat(industry_questions);
                     //log.debug("industry_questions " + JSON.stringify(industry_questions));
                 }
             }
@@ -461,9 +461,9 @@ async function GetQuestions(activityCodeStringArray, industryCodeStringArray, zi
         }
         //log.debug("talageQuestionIdArray " + talageQuestionIdArray + __location)
         if(talageQuestionIdArray.length > 0) {
-            const activityCode_questions = await getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, insurerQuestionList,return_hidden);
+            const activityCode_questions = await getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, insurerQuestionList, questions, return_hidden);
             log.debug(`Adding ${activityCode_questions.length} Mongo activity code questions ` + __location)
-            questions = questions.concat(activityCode_questions);
+            // questions = questions.concat(activityCode_questions);
             //log.debug("activityCode_questions " + JSON.stringify(activityCode_questions));
         }
         endSqlSelect = moment();
@@ -480,14 +480,14 @@ async function GetQuestions(activityCodeStringArray, industryCodeStringArray, zi
     let missing_questions = find_missing_questions(questions);
     while (missing_questions) {
         log.debug(`Adding missing Parent questions ${missing_questions}` + __location)
-        const added_questions = await getTalageQuestionFromInsureQuestionList(missing_questions, null,return_hidden);
+        const added_questions = await getTalageQuestionFromInsureQuestionList(missing_questions, null, questions,return_hidden);
         // If Added questions is empty then the break out of loop, will return empty if parent questions are inactive
         if(added_questions.length === 0){
             log.debug(`Added questions is returning empty array: ${added_questions.length} for questions ${JSON.stringify(missing_questions)}` + __location);
             break;
         }
         log.debug("Missing questions count " + added_questions.length + __location);
-        questions = questions.concat(added_questions);
+        //questions = questions.concat(added_questions);
         // Check for additional missing questions
         missing_questions = find_missing_questions(questions);
     }
@@ -735,11 +735,13 @@ exports.GetQuestionsForBackend = async function(activityCodeArray, industryCodeS
  * Get talage Question list from  insureQuestionList
  *
  * @param {array} talageQuestionIdArray - An array of question IDs
+ * @param {array} insurerQuestionList - An array of insurerQuestion used to get insurerList
+ * @param {array} appQuestionList - An array of question in the application
  * @param {boolean} return_hidden - true = get hidden questions
  *
  * @returns {mixed} - An array of IDs if questions are missing, false if none are
  */
-async function getTalageQuestionFromInsureQuestionList(talageQuestionIdArray){
+async function getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, insurerQuestionList, appQuestionList){
     if(!talageQuestionIdArray || talageQuestionIdArray.length === 0){
         return [];
     }
@@ -761,28 +763,43 @@ async function getTalageQuestionFromInsureQuestionList(talageQuestionIdArray){
     }
     //backwards capable with mysql query
     talageQuestions.forEach(function(talageQuestion){
-        talageQuestion.id = talageQuestion.talageQuestionId
-        talageQuestion.type = talageQuestion.typeDesc
-        talageQuestion.type_id = talageQuestion.typeId
-        talageQuestion.answers.forEach((answer) => {
-            if(answer._id){
-                delete answer._id
+        let existingQuestion = appQuestionList.find((tq) => tq.talageQuestionId === talageQuestion.talageQuestionId)
+        if(!existingQuestion){
+            talageQuestion.id = talageQuestion.talageQuestionId
+            talageQuestion.type = talageQuestion.typeDesc
+            talageQuestion.type_id = talageQuestion.typeId
+            talageQuestion.answers.forEach((answer) => {
+                if(answer._id){
+                    delete answer._id
+                }
+                if(answer.id){
+                    delete answer.id
+                }
+                if(!answer.default){
+                    answer.default = false;
+                }
+            })
+            if(!talageQuestion.categoryName){
+                talageQuestion.categoryName = "uncategorized";
             }
-            if(answer.id){
-                delete answer.id
+            if(!talageQuestion.categorySortNumber){
+                talageQuestion.categorySortNumber = 99;
             }
-            if(!answer.default){
-                answer.default = false;
+            if(!talageQuestion.sortRanking){
+                talageQuestion.sortRanking = 99;
             }
-        })
-        if(!talageQuestion.categoryName){
-            talageQuestion.categoryName = "uncategorized";
+            talageQuestion.insurerIdList = [];
+            appQuestionList.push(talageQuestion)
+            existingQuestion = talageQuestion
         }
-        if(!talageQuestion.categorySortNumber){
-            talageQuestion.categorySortNumber = 99;
-        }
-        if(!talageQuestion.sortRanking){
-            talageQuestion.sortRanking = 99;
+        //Add insurerId.
+        if(insurerQuestionList){
+            const matchingIqList = insurerQuestionList.filter((iq) => iq.talageQuestionId === existingQuestion.talageQuestionId);
+            for (const iq of matchingIqList){
+                if(existingQuestion.insurerIdList.indexOf(iq.talageQuestionId) === -1){
+                    existingQuestion.insurerIdList.push(iq.insurerId)
+                }
+            }
         }
     });
 

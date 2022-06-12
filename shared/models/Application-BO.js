@@ -2067,6 +2067,9 @@ module.exports = class ApplicationModel {
             throw new Error("AppBO GetQuestions not found" + __location);
         }
 
+        const agencyNetworkBO = new AgencyNetworkBO();
+        const agencyNetworkJson = await agencyNetworkBO.getById(applicationDocDB.agencyNetworkId);
+
         // check SAQ to populate the answeredList with location answers if they are there
         // This will need to up to switch as we add more subject areas
         if(questionSubjectArea === "location") {
@@ -2289,8 +2292,6 @@ module.exports = class ApplicationModel {
         //insurerList check
         if(applicationDocDB.insurerList?.length > 0){
             //Agency Network have ghost policy check enabled.
-            const agencyNetworkBO = new AgencyNetworkBO();
-            const agencyNetworkJson = await agencyNetworkBO.getById(applicationDocDB.agencyNetworkId);
             if(agencyNetworkJson?.featureJson?.enableInsurerSelection === true){
                 for(const insurerListPT of applicationDocDB.insurerList){
                     const policyTypeJSON = policyTypeJsonList.find((pt) => pt.type === insurerListPT.policyTypeCd.toUpperCase());
@@ -2330,6 +2331,38 @@ module.exports = class ApplicationModel {
         try {
             //log.debug("insurerArray: " + insurerArray);
             getQuestionsResult = await questionSvc.GetQuestionsForAppBO2(activityCodeList, industryCodeStringArray, zipCodeArray, policyTypeJsonList, questionSubjectArea, returnHidden, stateList, keepPossibleAnswers);
+            //Does Agency Network use insurer selection.
+            if(agencyNetworkJson?.featureJson?.enableInsurerSelection === true){
+                //insurerIdList
+                //get insurerlist
+                const insurerBO = new InsurerBO();
+                const insurerQuery = {}
+                const insurerDocList = await insurerBO.getList(insurerQuery);
+                getQuestionsResult.forEach(function(question){
+                    if(question.insurerIdList?.length > 5){
+                        question.insurerListText = "Multiple Insurers";
+                    }
+                    else if(question.insurerIdList?.length > 0){
+                        const qInsurerDocList = insurerDocList.filter((i) => question.insurerIdList.indexOf(i.insurerId) > -1)
+                        const nameList = [];
+                        for(const iDoc of qInsurerDocList){
+                            nameList.push(iDoc.name)
+                        }
+                        question.insurerListText = nameList.join(",");
+                    }
+                    else {
+                        question.insurerListText = "";
+                    }
+                });
+            }
+            else {
+                //remove question insurerIdList
+                getQuestionsResult.forEach(function(question){
+                    if(question.insurerIdList){
+                        delete question.insurerIdList
+                    }
+                });
+            }
         }
         catch (err) {
             log.error("AppBO GetQuestions - Error call in question service " + err + __location);
