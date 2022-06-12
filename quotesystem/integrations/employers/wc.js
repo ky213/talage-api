@@ -33,25 +33,28 @@
       * Formats phone number string from applicationDocData into the format desired by Employers
       *
       * @param {*} phone - Phone number of the form found in applicationDocData
+      * @param {*} phoneNumberName - Phone name for logging
       * @returns {string} - Phone number in the form: "###-###-####"
       */
-     formatPhoneForEmployers(phone) {
-        if(phone){
-            log.warn(`Employers WC App ID: ${this.app.id}: Bad phone number - No phone number ` + __location);
-            return '';
-        }
+     async formatPhoneForEmployers(phone, phoneNumberName) {
+
         if(typeof phone === 'number'){
-            log.warn(`Employers WC App ID: ${this.app.id}: Bad phone number - Number not String - Converting - ${phone} ` + __location);
+            log.warn(`Employers WC App ID: ${this.app.id}:  ${phoneNumberName} Bad phone number - Number not String - Converting - ${phone} ` + __location);
             phone = phone.toString()
         }
 
+        if(!phone){
+            log.warn(`Employers WC App ID: ${this.app.id}: ${phoneNumberName} Bad phone number - No phone number ` + __location);
+            return '';
+        }
+
         if (typeof phone !== 'string') {
-             log.warn(`Employers WC App ID: ${this.app.id}: Bad phone number format not string: "${phone}" ` + __location);
+             log.warn(`Employers WC App ID: ${this.app.id}: ${phoneNumberName} Bad phone number format not string: "${phone}" ` + __location);
              return '';
          }
          const phoneDigits = phone.trim().replace(/\D/g, '');
          if (phoneDigits.length !== 10) {
-             log.error(`Employers WC App ID: ${this.app.id}, Incorrect number of digits in phone number: ${phone} ` + __location);
+             log.error(`Employers WC App ID: ${this.app.id}, ${phoneNumberName} Incorrect number of digits in phone number: ${phone} ` + __location);
              //send back what we got, do not stop quoting over this.
              return phone;
          }
@@ -192,10 +195,7 @@
                  const applicantContact = {"email": primaryContact.email};
                  const billingContact = {"email": primaryContact.email};
                  const proposalContact = {"email": this.quotingAgencyLocationDB.email ? this.quotingAgencyLocationDB.email : agency.agencyEmail};
-
-                 const formattedPhone = this.formatPhoneForEmployers(primaryContact.phone);
-                 let formattedAgencyPhone = this.formatPhoneForEmployers(this.quotingAgencyLocationDB.phone ? this.quotingAgencyLocationDB.phone : agency.agencyPhone);
-
+                 const formattedPhone = await this.formatPhoneForEmployers(primaryContact.phone, "PrimaryContact");
                  if (formattedPhone) {
                      applicantContact.phoneNumber = formattedPhone;
                      billingContact.phoneNumber = formattedPhone;
@@ -207,9 +207,16 @@
                  }
                  else {
                     log.error(`${logPrefix}Cannot fully construct address information. Some fields missing: phone ${JSON.stringify(primaryContact)}` + __location);
-                    throw new Error('Primary Contact or Quoting Agency Phone Number is blank or not valid');
+                    if(primaryContact.phone){
+                        applicantContact.phoneNumber = primaryContact.phone;
+                        billingContact.phoneNumber = primaryContact.phone;
+                    }
+                    else {
+                        throw new Error('Primary Contact or Quoting Agency Phone Number is blank or not valid');
+                    }
                  }
 
+                 let formattedAgencyPhone = await this.formatPhoneForEmployers(this.quotingAgencyLocationDB.phone ? this.quotingAgencyLocationDB.phone : agency.agencyPhone, "AgencyPhone");
                  if (formattedAgencyPhone) {
                      proposalContact.phoneNumber = formattedAgencyPhone;
                  }
