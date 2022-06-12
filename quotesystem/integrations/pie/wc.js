@@ -105,11 +105,13 @@ module.exports = class PieWC extends Integration {
         }
         catch (err) {
             log.error(`Appid: ${this.app.id} Pie WC ERROR: Get token error ${err}` + __location)
+            this.reasons.push("Unable to get Auth Token from Pie.")
             return this.return_result('error');
         }
 
         if(!token_response.data){
             log.error(`Appid: ${this.app.id} Pie WC ERROR: Get token error no response data` + __location)
+            this.reasons.push("Unable to get Auth Token from Pie.")
             return this.return_result('error');
         }
 
