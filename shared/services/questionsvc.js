@@ -477,19 +477,9 @@ async function GetQuestions(activityCodeStringArray, industryCodeStringArray, zi
     log.debug("Getting missing questions " + __location);
     // Check for missing questions
     start = moment();
-    let missing_questions = find_missing_questions(questions);
-    while (missing_questions) {
-        log.debug(`Adding missing Parent questions ${missing_questions}` + __location)
-        const added_questions = await getTalageQuestionFromInsureQuestionList(missing_questions, null, questions,return_hidden);
-        // If Added questions is empty then the break out of loop, will return empty if parent questions are inactive
-        if(added_questions.length === 0){
-            log.debug(`Added questions is returning empty array: ${added_questions.length} for questions ${JSON.stringify(missing_questions)}` + __location);
-            break;
-        }
-        log.debug("Missing questions count " + added_questions.length + __location);
-        //questions = questions.concat(added_questions);
-        // Check for additional missing questions
-        missing_questions = find_missing_questions(questions);
+    const missing_questions = await add_missing_questions(questions);
+    if(missing_questions.length === 0){
+        log.debug(`Added questions is returning empty array: ${missing_questions.length} for questions ${JSON.stringify(missing_questions)}` + __location);
     }
     endSqlSelect = moment();
     const diff2 = endSqlSelect.diff(start, 'milliseconds', true);
@@ -818,23 +808,26 @@ async function getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, in
  *
  * @returns {mixed} - An array of IDs if questions are missing, false if none are
  */
-function find_missing_questions(questions) {
+async function add_missing_questions(questions) {
     const missing_questions = [];
-
-    // Get a list of question IDs for easier reference
-    const question_ids = questions.map(function(question) {
-        return question.id;
-    });
-
     // Loop through each question and make sure it's parent is in our question_ids
-    questions.forEach(function(question) {
+    for(const question of questions) {
         if (question.parent) {
-            if (!question_ids.includes(question.parent)) {
-                missing_questions.push(question.parent);
-                log.warn(`QuestionSvc.find_missing_questions Potential Bad Insurer Question Mapping questionId ${question.id} missing Parent Id ${question.parent}. Check Parent question mapping to insurer. ` + __location);
+            const existingQuestion = questions.find((q) => q.talageQuestionId === question.parent);
+            if(!existingQuestion){
+                log.warn(`QuestionSvc.add_missing_questions Potential Bad Insurer Question Mapping questionId ${question.id} missing Parent Id ${question.parent}. Check Parent question mapping to insurer. ` + __location);
+                const added_questions = await getTalageQuestionFromInsureQuestionList(missing_questions, null, questions);
+                if(added_questions.length === 0){
+                    //removed bad parent reference, poping question to toplevel.
+                    question.parent = null;
+                    question.parent_answer = null;
+                }
+                else {
+                    log.error(`QuestionSvc.add_missing_questions Bad Insurer Question Mapping Parent not published or bad parentID:  questionId ${question.id} missing Parent Id ${question.parent}. Check Parent question mapping to insurer. ` + __location);
+                }
             }
         }
-    });
+    };
     return missing_questions.length ? missing_questions : false;
 }
 
