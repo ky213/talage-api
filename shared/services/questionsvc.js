@@ -827,7 +827,7 @@ async function add_missing_questions(questions) {
                 }
             }
         }
-    };
+    }
     return missing_questions.length ? missing_questions : false;
 }
 
