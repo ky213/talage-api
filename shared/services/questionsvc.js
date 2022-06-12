@@ -816,14 +816,16 @@ async function add_missing_questions(questions) {
             const existingQuestion = questions.find((q) => q.talageQuestionId === question.parent);
             if(!existingQuestion){
                 log.warn(`QuestionSvc.add_missing_questions Potential Bad Insurer Question Mapping questionId ${question.id} missing Parent Id ${question.parent}. Check Parent question mapping to insurer. ` + __location);
-                const added_questions = await getTalageQuestionFromInsureQuestionList(missing_questions, null, questions);
+                const addQuestionList = [question.parent];
+                const added_questions = await getTalageQuestionFromInsureQuestionList(addQuestionList, null, questions);
                 if(added_questions.length === 0){
                     //removed bad parent reference, poping question to toplevel.
                     question.parent = null;
                     question.parent_answer = null;
+                    log.error(`QuestionSvc.add_missing_questions Bad Insurer Question Mapping Parent not published or bad parentID:  questionId ${question.id} missing Parent Id ${question.parent}. Check Parent question mapping to insurer. ` + __location);
                 }
                 else {
-                    log.error(`QuestionSvc.add_missing_questions Bad Insurer Question Mapping Parent not published or bad parentID:  questionId ${question.id} missing Parent Id ${question.parent}. Check Parent question mapping to insurer. ` + __location);
+                    missing_questions.concat(added_questions);
                 }
             }
         }
