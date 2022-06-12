@@ -566,7 +566,7 @@ async function setupReturnedApplicationJSON(applicationJSON, quoteList){
         const agencyPortalUserBO = new AgencyPortalUserBO();
         try{
             const userId = parseInt(applicationJSON.agencyPortalCreatedUser,10);
-            const apUser = await agencyPortalUserBO.getById(userId);
+            const apUser = await agencyPortalUserBO.getMongoDocbyUserId(userId,false, true);
             if(apUser){
                 applicationJSON.creatorEmail = apUser.email;
             }
