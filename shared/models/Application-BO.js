@@ -525,7 +525,14 @@ module.exports = class ApplicationModel {
 
                 const duration = moment.duration(now.diff(moment(applicationDoc.quotingStartedDate)));
                 if(duration.minutes() >= QUOTE_MIN_TIMEOUT){
-                    log.error(`Application: ${applicationDoc.applicationId} timed out ${QUOTE_MIN_TIMEOUT} minutes after quoting started` + __location);
+                    const agencyNetwok = await new AgencyNetworkBO().getById(applicationDoc.agencyNetworkId);
+                    const agency = await new AgencyBO().getById(applicationDoc.agencyId);
+                    const quotes = await new QuoteBO().getByApplicationId(applicationDoc.applicationId)
+                    const insurerIds = quotes.filter(({quoteStatusId}) => quoteStatusId < 25).map(({insurerId}) => insurerId)
+                    const insurers = await new InsurerBO().getList({systemId: insurerIds})
+                    const insurerNames = insurers.map(({slug}) => slug).join(', ')
+
+                    log.error(`Application: ${applicationDoc.applicationId} timed out ${QUOTE_MIN_TIMEOUT} minutes after quoting started. Agency Network: ${agencyNetwok.slug}. Agency: ${agency.slug}. Insurers: ${insurerNames}.` + __location);
                     const applicationStatus = global.requireShared('./models/status/applicationStatus.js');
                     const appStatus = await applicationStatus.updateApplicationStatus(applicationDoc, true);
                     // eslint-disable-next-line object-curly-newline
