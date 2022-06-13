@@ -354,7 +354,7 @@ module.exports = class AcuityBOP extends Integration {
         const questionCodes = Object.values(question_identifiers);
 
         const generalQuestionsToIgnore = [
-            'AcuityBOPContractorLicenseNumber'
+            'AcuityBOPContractorLicenseNumber', 'acuitybop-Gallons'
         ];
 
         // Insurer Question Loop
@@ -569,6 +569,26 @@ module.exports = class AcuityBOP extends Integration {
                         }
                         break;
                     case 'Gallons':
+                        const acuityIndentifier = "acuitybop-Gallons";
+                        const insurerQuestion = this.insurerQuestionList.find((iq) => iq.identifier === acuityIndentifier)
+                        if(insurerQuestion && Object.prototype.hasOwnProperty.call(this.questions, insurerQuestion.talageQuestionId)){
+                            const question = this.questions[insurerQuestion.talageQuestionId];
+                            if(question){
+                                // Get the answer
+                                let answer = '';
+                                try {
+                                    answer = this.determine_question_answer(question);
+                                    // This question was not answered
+                                    if (answer && parseInt(answer, 10)) {
+                                        GeneralLiabilityClassification.ele('Exposure', parseInt(answer, 10));
+                                    }
+                                }
+                                catch (error) {
+                                    log.error(`Acuity (application ${this.app.id}): Could not determine question ${question.id} answer: ${error} ${__location}`);
+                                    //return this.return_result('autodeclined');
+                                }
+                            }
+                        }
                         break;
                     case 'ADMIS':
                         break;
