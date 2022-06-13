@@ -388,7 +388,6 @@ module.exports = class SoleProWC extends Integration {
         // Send the XML to the insurer
         let result = null;
         const apiKey = this.app.agencyLocation.insurers[this.insurer.id].agencyId.trim();
-        //https://www.solepro.com/api/GetQuestions/?AppKey=af8720ef-9816-4f0b-8a8b-671d4e441db4
         try {
             result = await this.send_json_request(host, `/api/Quote/?AppKey=${apiKey}`, JSON.stringify(requestJSON), null, 'POST');
         }
@@ -407,7 +406,11 @@ module.exports = class SoleProWC extends Integration {
         if(result.decision.status === "Quoted" || result.decision.status === "Referral"){
             this.number = result.reference;
             this.amount = result.decision.premiums?.gross?.amount
-            this.quoteLink = "https://www.solepro.com/account/login"
+            //this.quoteLink = "https://www.solepro.com/account/login"
+
+            //To Talage Landing page - updates if another MGA starts using SolePro on platform.
+            // Registar link on landing page.  no need to risk sending to the wrong page.
+            this.quoteLink = "https://www.solepro.com/landing/talage"
 
             try{
                 if(result?.covers && result?.covers[0] && result?.covers[0].limits){
