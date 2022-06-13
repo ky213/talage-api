@@ -624,8 +624,14 @@ module.exports = class ACORD{
                         statePdfDataFieldsObj['WorkersCompensation_RateClass_LocationProducerIdentifier_' + currentLetter] = locationNumber;
                         statePdfDataFieldsObj['WorkersCompensation_RateClass_ClassificationCode_' + currentLetter] = `${insurerActivityCodeObj.code}${insurerActivityCodeObj.sub ? `-${insurerActivityCodeObj.sub}` : ''}`;
                         statePdfDataFieldsObj['WorkersCompensation_RateClass_DutiesDescription_' + currentLetter] = insurerActivityCodeObj.description;
-                        statePdfDataFieldsObj['WorkersCompensation_RateClass_FullTimeEmployeeCount_' + currentLetter] = activity.employeeTypeList[0].employeeType === 'Full Time' ? activity.employeeTypeList[0].employeeTypeCount : '';
-                        statePdfDataFieldsObj['WorkersCompensation_RateClass_PartTimeEmployeeCount_' + currentLetter] = activity.employeeTypeList[0].employeeType === 'Part Time' ? activity.employeeTypeList[0].employeeTypeCount : '';
+
+                        // There are situations when the full time and part time employees are consolidated to a single Insurer activity code
+                        // the code below ensures that both fields are filled out when necessary. Duplicate Part time or full time is validated client side
+                        const filteredFullTimeEmployee = activity.employeeTypeList.find(e => e.employeeType === 'Full Time');
+                        statePdfDataFieldsObj['WorkersCompensation_RateClass_FullTimeEmployeeCount_' + currentLetter] = filteredFullTimeEmployee ? filteredFullTimeEmployee.employeeTypeCount : '';
+                        const filteredPartTimeEmployee = activity.employeeTypeList.find(e => e.employeeType === 'Part Time');
+                        statePdfDataFieldsObj['WorkersCompensation_RateClass_PartTimeEmployeeCount_' + currentLetter] = filteredPartTimeEmployee ? filteredPartTimeEmployee.employeeTypeCount : '';
+
                         statePdfDataFieldsObj['WorkersCompensation_RateClass_SICCode_' + currentLetter] = this.industryCodeDoc.sic;
                         statePdfDataFieldsObj['WorkersCompensation_RateClass_NAICSCode_' + currentLetter] = this.industryCodeDoc.naics;
                         statePdfDataFieldsObj['WorkersCompensation_RateClass_RemunerationAmount_' + currentLetter] = '$' + activity.payroll;
