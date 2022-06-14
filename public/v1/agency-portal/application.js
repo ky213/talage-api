@@ -2347,7 +2347,6 @@ async function manualQuote(req, res, next) {
         if(!gotHit){
             if(req.authentication.isAgencyNetworkUser
                 && req.authentication.agencyNetworkId === 1
-                && req.authentication.permissions.talageStaff === true
                 && applicationDoc.agencyNetworkId === 1){
                 quotingAgencyId = 1;
                 quoteJSON.talageWholesale = true;
