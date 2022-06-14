@@ -1,6 +1,8 @@
 /* eslint-disable array-element-newline */
 'use strict';
 
+const {get} = require("lodash")
+
 const Integration = require('../Integration.js');
 global.requireShared('./helpers/tracker.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
@@ -510,9 +512,16 @@ module.exports = class AcuityWC extends Integration {
 
         // Check for internal errors where the request format is incorrect
         if (response.hasOwnProperty("statusCode") && response.statusCode === 400) {
-            if(response.debugMessages && response.debugMessages[0] && response.debugMessages[0].code === 'INVALID_PRODUCER_INFORMATION'){
+            const debugMessagesCode = get(response, "debugMessages[0].code")
+            const debugMessagesDescription = get(response, "debugMessages[0].description")
+
+            if(debugMessagesCode === 'INVALID_PRODUCER_INFORMATION'){
                 log.error(`${logPrefix} Travelers returned a INVALID_PRODUCER_INFORMATION  AgencyId ${appDoc.agencyId}`)
                 return this.client_error(` returned a INVALID_PRODUCER_INFORMATION check Agency configuration`, __location, {debugMessages: JSON.stringify(response.debugMessages)});
+            }
+            else if(debugMessagesCode === 'NOT_ELIGIBLE_FOR_QUOTE_INDICATION'){
+                log.error(`${logPrefix} Travelers returned a NOT_ELIGIBLE_FOR_QUOTE_INDICATION  AgencyId ${appDoc.agencyId}`)
+                return this.client_declined(debugMessagesDescription);
             }
             else {
                 return this.client_error(`The insurer returned an request error status code of ${response.statusCode}`, __location, {debugMessages: JSON.stringify(response.debugMessages)});
