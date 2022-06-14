@@ -66,8 +66,8 @@
      }
 
      formatZipCodeForEmployers(zipcode) {
-         if (!zipcode || typeof zipcode !== 'string') {
-             log.error(`Employers WC App ID: ${this.app.id}: Bad zipcode format: "${zipcode}" ` + __location);
+        if (!zipcode || typeof zipcode !== 'string') {
+             log.warn(`Employers WC App ID: ${this.app.id}: Bad zipcode format: "${zipcode}" ` + __location);
              return '';
          }
          const zipDigits = zipcode.trim().replace(/\D/g, '');
