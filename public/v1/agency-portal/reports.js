@@ -188,6 +188,12 @@ const getDailyTrendsQuotedPremium = async(where) => {
 
 ///*****  request to Bind Premium from Quotes *******/
 const getMonthlyTrendsRequestBoundPremium = async(where) => {
+
+    if(where.handledByTalage){
+        where.talageWholesale = true
+        delete where.handledByTalage;
+    }
+
     const monthlyTrends = await Quote.aggregate([
         {$match: where},
         {$project: {
@@ -215,6 +221,10 @@ const getMonthlyTrendsRequestBoundPremium = async(where) => {
 
 
 const getDailyTrendsRequestBoundPremium = async(where) => {
+    if(where.handledByTalage){
+        where.talageWholesale = true
+        delete where.handledByTalage;
+    }
     const monthlyTrends = await Quote.aggregate([
         {$match: where},
         {$project: {
@@ -247,6 +257,10 @@ const getDailyTrendsRequestBoundPremium = async(where) => {
 
 ///*****  Bound Premium from Quotes *******/
 const getMonthlyTrendsBoundPremium = async(where) => {
+    if(where.handledByTalage){
+        where.talageWholesale = true
+        delete where.handledByTalage;
+    }
     const monthlyTrends = await Quote.aggregate([
         {$match: where},
         {$project: {
@@ -274,6 +288,10 @@ const getMonthlyTrendsBoundPremium = async(where) => {
 
 
 const getDailyTrendsBoundPremium = async(where) => {
+    if(where.handledByTalage){
+        where.talageWholesale = true
+        delete where.handledByTalage;
+    }
     const monthlyTrends = await Quote.aggregate([
         {$match: where},
         {$project: {
@@ -475,6 +493,18 @@ const getAgencyList = async(where,req, nameAndIdOnly = false) => {
                     agencyDisplayList.push(mc);
                 }
 
+                //Talage Wholesale
+                const mcJSON = {
+                    agencyId: -20001,
+                    name: "Talage Wholesale"
+                }
+                agencyDisplayList.push(mcJSON)
+
+                const mcJSON2 = {
+                    agencyId: -15001,
+                    name: "Talage Wholesale & Agency"
+                }
+                agencyDisplayList.push(mcJSON2)
             }
             agencyList.forEach((agencyDoc) => {
                 const displayJSON = {
@@ -704,6 +734,18 @@ async function getReports(req) {
                             if(where.agencyNetworkId){
                                 delete where.agencyNetworkId;
                             }
+                        }
+                        else if(parseInt(req.query.agencyid,10) === -20001){
+                            if(where.agencyNetworkId){
+                                delete where.agencyNetworkId;
+                            }
+                            where.handledByTalage = true;
+                        }
+                        else if(parseInt(req.query.agencyid,10) === -15001){
+                            if(where.agencyNetworkId){
+                                delete where.agencyNetworkId;
+                            }
+                            where.$or = [{"handledByTalage": true}, {agencyId: 1}]
                         }
                         else if(parseInt(req.query.agencyid,10) < -9999){
                             const agencyNetworkIdMC = parseInt(req.query.agencyid, 10) * -1 - 10000;
